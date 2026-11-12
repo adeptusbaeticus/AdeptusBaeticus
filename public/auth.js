@@ -29,10 +29,11 @@
     a.textContent = "Entrar con Discord";
     a.style.cssText = "background:#A3211B;color:#fff;border-radius:8px;padding:12px 20px;font-weight:600;text-decoration:none;display:inline-block";
     box.appendChild(a);
-    if (msgs[q]) {
+    const txt = msgs[q] || (q ? "Detalle: " + decodeURIComponent(q) : "");
+    if (txt) {
       const s = document.createElement("div");
       s.style.cssText = "color:#A8A293;font-size:14px;margin-top:6px";
-      s.textContent = msgs[q];
+      s.textContent = txt;
       box.appendChild(s);
     }
   }
