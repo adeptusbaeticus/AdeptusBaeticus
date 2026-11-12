@@ -29,10 +29,16 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .post p{margin:0 0 8px;white-space:pre-line;overflow-wrap:anywhere}
 .post .who{display:flex;justify-content:space-between;gap:8px;color:#A8A293;font-size:13px}
 .post .pie{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}
-.bless{display:inline-flex;align-items:center;gap:6px;background:#15171A;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:6px 14px;min-height:40px;font:600 14px Inter,sans-serif;cursor:pointer}
-.bless.on{background:#D9B25A;color:#15171A;border-color:#D9B25A}
+.bless{display:inline-flex;align-items:center;gap:6px;background:#15171A;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:6px 12px;min-height:40px;font:600 14px Inter,sans-serif;cursor:pointer}
+.bless svg{width:20px;height:20px;display:block}
+.bless.emp svg{color:#D9B25A}.bless.rui svg{color:#E0524A}
+.bless.emp.on{background:#D9B25A;color:#15171A;border-color:#D9B25A}.bless.emp.on svg{color:#15171A}
+.bless.rui.on{background:#A3211B;color:#fff;border-color:#A3211B}.bless.rui.on svg{color:#fff}
 .bless:disabled{cursor:default;opacity:.75}
-.bless .ic{font-size:16px;line-height:1}
+.bl{display:flex;gap:8px;flex-wrap:wrap}
+.fil{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 24px}
+.fil label{display:block;font-weight:600;font-size:13px;color:#A8A293;margin-bottom:4px}
+.fil select{min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit;min-width:220px}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;z-index:50;gap:12px}
 .ov img{max-width:100%;max-height:74vh;border-radius:8px}
 .ov .nav2{display:flex;align-items:center;gap:12px}
@@ -51,6 +57,15 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
   </div>
   <h1>Galería</h1>
   <p class="lead">Fotos de los miembros del club. Para publicar la tuya, usa <code>/publicar</code> en el canal #publicaciones-web de Discord.</p>
+  <div class="fil" id="fil" hidden>
+    <div><label for="orden">Ordenar</label>
+      <select id="orden">
+        <option value="recientes">Más recientes</option>
+        <option value="emperador">Más bendiciones del Emperador</option>
+        <option value="ruinosos">Más bendiciones de los Poderes Ruinosos</option>
+      </select></div>
+    <div><label for="autor">Miembro</label><select id="autor"><option value="">Todos los miembros</option></select></div>
+  </div>
   <p id="msg" class="m">Cargando...</p>
   <div class="grid" id="grid"></div>
 </div>
@@ -108,64 +123,117 @@ function ampliar(p, start) {
   close.focus();
 }
 
-// Botón de «Bendición del Emperador» (una por socio y publicación).
-function bendicion(p, sesion) {
-  const b = el("button", "bless");
+// Iconos dibujados para la web: águila bicéfala (Emperador) y estrella de ocho flechas (Caos).
+const ICONOS = {
+  emperador: { d: "M12 7.2 L13.4 9.4 L13.2 15 L12 18.2 L10.8 15 L10.6 9.4Z M10.9 16.6 L10.2 20.8 L12 19.4 L13.8 20.8 L13.1 16.6 L12 18.8Z M11.2 8.6 L10 6.6 L9 5 L7.9 4.2 L6.6 4.3 L5.2 5.4 L6.7 5.5 L6 6.5 L7.7 6 L8.6 7.4 L10.1 10Z M12.8 8.6 L14 6.6 L15 5 L16.1 4.2 L17.4 4.3 L18.8 5.4 L17.3 5.5 L18 6.5 L16.3 6 L15.4 7.4 L13.9 10Z M10.5 9.8 L7.2 7 L2 2.4 L2.9 5.4 L6.4 9.2 L10.5 11Z M13.5 9.8 L16.8 7 L22 2.4 L21.1 5.4 L17.6 9.2 L13.5 11Z M10.5 11.4 L6.2 9.8 L0.8 7.2 L2.2 9.8 L6.2 12 L10.5 12.7Z M13.5 11.4 L17.8 9.8 L23.2 7.2 L21.8 9.8 L17.8 12 L13.5 12.7Z M10.5 13.1 L6 12.8 L1.4 12 L3 14 L6.6 14.6 L10.6 14.4Z M13.5 13.1 L18 12.8 L22.6 12 L21 14 L17.4 14.6 L13.4 14.4Z" },
+  ruinosos: { d: "M11.25 8.4 L11.25 3.7 L9.9 3.7 L12 0.4 L14.1 3.7 L12.75 3.7 L12.75 8.4Z M14.02 8.92 L17.34 5.6 L16.38 4.65 L20.2 3.8 L19.35 7.62 L18.4 6.66 L15.08 9.98Z M15.6 11.25 L20.3 11.25 L20.3 9.9 L23.6 12 L20.3 14.1 L20.3 12.75 L15.6 12.75Z M15.08 14.02 L18.4 17.34 L19.35 16.38 L20.2 20.2 L16.38 19.35 L17.34 18.4 L14.02 15.08Z M12.75 15.6 L12.75 20.3 L14.1 20.3 L12 23.6 L9.9 20.3 L11.25 20.3 L11.25 15.6Z M9.98 15.08 L6.66 18.4 L7.62 19.35 L3.8 20.2 L4.65 16.38 L5.6 17.34 L8.92 14.02Z M8.4 12.75 L3.7 12.75 L3.7 14.1 L0.4 12 L3.7 9.9 L3.7 11.25 L8.4 11.25Z M8.92 9.98 L5.6 6.66 L4.65 7.62 L3.8 3.8 L7.62 4.65 L6.66 5.6 L9.98 8.92Z M12 8.2a3.8 3.8 0 1 0 0.01 0Z M12 9.8a2.2 2.2 0 1 1-0.01 0Z", evenodd: true },
+};
+const BENDICION = {
+  emperador: { cls: "emp", dar: "Dar la bendición del Emperador", quitar: "Retirar tu bendición del Emperador", nombre: "del Emperador" },
+  ruinosos: { cls: "rui", dar: "Dar la bendición de los Poderes Ruinosos", quitar: "Retirar tu bendición de los Poderes Ruinosos", nombre: "de los Poderes Ruinosos" },
+};
+
+function icono(tipo) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("d", ICONOS[tipo].d);
+  path.setAttribute("fill", "currentColor");
+  if (ICONOS[tipo].evenodd) path.setAttribute("fill-rule", "evenodd");
+  svg.appendChild(path);
+  return svg;
+}
+
+// Botón de bendición de un tipo (una de cada tipo por socio y publicación).
+function bendicion(p, tipo, sesion) {
+  const B = BENDICION[tipo];
+  const b = el("button", "bless " + B.cls);
   b.type = "button";
   const pinta = () => {
+    const n = p[tipo], mia = p.mias[tipo];
     b.textContent = "";
-    b.classList.toggle("on", p.bendecida);
-    b.append(el("span", "ic", "🦅"), el("span", "", String(p.bendiciones)));
-    b.title = !sesion ? "Entra con Discord para dar tu bendición"
-      : p.bendecida ? "Retirar tu bendición" : "Dar la bendición del Emperador";
-    b.setAttribute("aria-label", p.bendiciones + (p.bendiciones === 1 ? " bendición" : " bendiciones") + ". " + b.title);
-    b.setAttribute("aria-pressed", p.bendecida ? "true" : "false");
+    b.classList.toggle("on", mia);
+    b.append(icono(tipo), el("span", "", String(n)));
+    b.title = !sesion ? "Entra con Discord para dar tu bendición" : mia ? B.quitar : B.dar;
+    b.setAttribute("aria-label", n + (n === 1 ? " bendición " : " bendiciones ") + B.nombre + ". " + b.title);
+    b.setAttribute("aria-pressed", mia ? "true" : "false");
   };
   pinta();
   if (!sesion) { b.disabled = true; return b; }
   b.onclick = async () => {
     b.disabled = true;
     try {
-      const r = await fetch("/api/galeria/" + p.id + "/bendicion", { method: p.bendecida ? "DELETE" : "POST" });
-      if (r.ok) { const d = await r.json(); p.bendiciones = d.bendiciones; p.bendecida = d.bendecida; pinta(); }
+      const r = await fetch("/api/galeria/" + p.id + "/bendicion?tipo=" + tipo, { method: p.mias[tipo] ? "DELETE" : "POST" });
+      if (r.ok) {
+        const d = await r.json();
+        p.emperador = d.emperador; p.ruinosos = d.ruinosos; p.mias = d.mias;
+        pinta(); // no se reordena al momento para no mover la tarjeta bajo el dedo
+      }
     } catch (e) {}
     b.disabled = false;
   };
   return b;
 }
 
-fetch("/api/galeria").then((r) => (r.ok ? r.json() : Promise.reject())).then((data) => {
-  const list = data.publicaciones || [];
+function tarjeta(p) {
+  const card = el("article", "post");
+  const b = el("button", "foto");
+  b.type = "button";
+  const portada = p.imagenes[0] || {};
+  const n = p.imagenes.length;
+  b.setAttribute("aria-label", "Ampliar publicación " + p.numero + (n > 1 ? " (" + n + " fotos)" : ""));
+  const im = el("img");
+  im.src = portada.url;
+  im.alt = p.texto || "Foto de " + p.autor;
+  im.loading = "lazy";
+  if (portada.width && portada.height) { im.width = portada.width; im.height = portada.height; }
+  b.appendChild(im);
+  if (n > 1) b.appendChild(el("span", "n", "1/" + n));
+  b.onclick = () => ampliar(p);
+  const tx = el("div", "tx");
+  if (p.texto) tx.appendChild(el("p", "", p.texto));
+  const who = el("div", "who");
+  who.append(el("span", "", p.autor), el("span", "", fecha(p.created_at)));
+  tx.appendChild(who);
+  const pie = el("div", "pie");
+  const bl = el("div", "bl");
+  bl.append(bendicion(p, "emperador", data.sesion), bendicion(p, "ruinosos", data.sesion));
+  pie.append(bl, el("span", "m", "#" + p.numero));
+  tx.appendChild(pie);
+  card.append(b, tx);
+  return card;
+}
+
+let data = { sesion: false, publicaciones: [] };
+
+// Pinta la cuadrícula según el orden y el miembro elegidos.
+function pintar() {
+  const orden = $("orden").value, autor = $("autor").value;
+  let list = data.publicaciones.filter((p) => !autor || p.autor === autor);
+  if (orden !== "recientes") list = list.slice().sort((a, b) => b[orden] - a[orden] || b.numero - a.numero);
   const g = $("grid");
-  $("msg").textContent = list.length ? "" : "Todavía no hay fotos publicadas.";
-  if (!list.length) return;
-  $("msg").hidden = true;
-  list.filter((p) => p.imagenes && p.imagenes.length).forEach((p) => {
-    const card = el("article", "post");
-    const b = el("button", "foto");
-    b.type = "button";
-    const portada = p.imagenes[0] || {};
-    const n = p.imagenes.length;
-    b.setAttribute("aria-label", "Ampliar publicación " + p.numero + (n > 1 ? " (" + n + " fotos)" : ""));
-    const im = el("img");
-    im.src = portada.url;
-    im.alt = p.texto || "Foto de " + p.autor;
-    im.loading = "lazy";
-    if (portada.width && portada.height) { im.width = portada.width; im.height = portada.height; }
-    b.appendChild(im);
-    if (n > 1) b.appendChild(el("span", "n", "1/" + n));
-    b.onclick = () => ampliar(p);
-    const tx = el("div", "tx");
-    if (p.texto) tx.appendChild(el("p", "", p.texto));
-    const who = el("div", "who");
-    who.append(el("span", "", p.autor), el("span", "", fecha(p.created_at)));
-    tx.appendChild(who);
-    const pie = el("div", "pie");
-    pie.append(bendicion(p, data.sesion), el("span", "m", "#" + p.numero));
-    tx.appendChild(pie);
-    card.append(b, tx);
-    g.appendChild(card);
+  g.textContent = "";
+  $("msg").hidden = !!list.length;
+  $("msg").textContent = list.length ? "" : autor ? "Este miembro aún no ha publicado fotos." : "Todavía no hay fotos publicadas.";
+  list.forEach((p) => g.appendChild(tarjeta(p)));
+}
+
+$("orden").onchange = pintar;
+$("autor").onchange = pintar;
+
+fetch("/api/galeria").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
+  data = d;
+  data.publicaciones = (d.publicaciones || []).filter((p) => p.imagenes && p.imagenes.length);
+  const autores = [...new Set(data.publicaciones.map((p) => p.autor))].sort((a, b) => a.localeCompare(b, "es"));
+  autores.forEach((a) => {
+    const o = document.createElement("option");
+    o.value = a; o.textContent = a;
+    $("autor").appendChild(o);
   });
+  $("fil").hidden = !data.publicaciones.length;
+  pintar();
 }).catch(() => { $("msg").textContent = "No se pudo cargar la galería."; });
 </script>
 <script src="/auth.js"></script>

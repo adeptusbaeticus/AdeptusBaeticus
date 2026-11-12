@@ -509,10 +509,14 @@ export default {
     // Galería pública: las publicaciones, con los enlaces de imagen renovados si van a caducar.
     if (path === "/api/galeria" && request.method === "GET") {
       const s = await readSession(env, request);
+      // autor: el nombre más reciente de cada socio, para que el filtro por miembro no se parta si cambia de apodo.
       const { results } = await env.DB.prepare(
-        `SELECT p.id, p.numero, p.autor, p.texto, p.imagenes, p.image_url, p.width, p.height, p.created_at, p.updated_at,
-           (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id) AS bendiciones,
-           EXISTS (SELECT 1 FROM bendiciones b WHERE b.publicacion_id=p.id AND b.discord_id=?1) AS bendecida
+        `SELECT p.id, p.numero, p.texto, p.imagenes, p.image_url, p.width, p.height, p.created_at, p.updated_at,
+           (SELECT q.autor FROM publicaciones q WHERE q.discord_id=p.discord_id ORDER BY q.id DESC LIMIT 1) AS autor,
+           (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id AND b.tipo='emperador') AS emperador,
+           (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id AND b.tipo='ruinosos') AS ruinosos,
+           EXISTS (SELECT 1 FROM bendiciones b WHERE b.publicacion_id=p.id AND b.discord_id=?1 AND b.tipo='emperador') AS mi_emperador,
+           EXISTS (SELECT 1 FROM bendiciones b WHERE b.publicacion_id=p.id AND b.discord_id=?1 AND b.tipo='ruinosos') AS mi_ruinosos
          FROM publicaciones p WHERE p.status='publicada' ORDER BY p.numero DESC LIMIT 300`
       ).bind(s ? s.id : "").all();
       for (const r of results) {
@@ -553,28 +557,38 @@ export default {
       }
       // Si algún mensaje de Discord muestra un número antiguo, se corrige en segundo plano.
       if (env.DISCORD_BOT_TOKEN) ctx.waitUntil(syncNumeros(env, 10).catch(() => {}));
-      results.forEach((r) => { r.bendecida = !!r.bendecida; });
+      results.forEach((r) => {
+        r.mias = { emperador: !!r.mi_emperador, ruinosos: !!r.mi_ruinosos };
+        delete r.mi_emperador; delete r.mi_ruinosos;
+      });
       // Sin caché: las fotos nuevas, editadas o borradas tienen que verse al momento.
       return Response.json({ sesion: !!s, publicaciones: results }, { headers: noStore });
     }
 
-    // Bendición del Emperador: POST la da, DELETE la quita (una por socio y publicación).
+    // Bendiciones (?tipo=emperador|ruinosos): POST la da, DELETE la quita. Una de cada tipo por socio y publicación.
     const bm = path.match(/^\/api\/galeria\/(\d+)\/bendicion$/);
     if (bm && (request.method === "POST" || request.method === "DELETE")) {
       const s = await readSession(env, request);
       if (!s) return Response.json({ error: "Entra con Discord para dar tu bendición" }, { status: 401, headers: noStore });
       if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      const tipo = url.searchParams.get("tipo") || "emperador";
+      if (tipo !== "emperador" && tipo !== "ruinosos") return Response.json({ error: "Tipo no válido" }, { status: 400, headers: noStore });
       const pid = Number(bm[1]);
       const p = await env.DB.prepare("SELECT 1 FROM publicaciones WHERE id=?1 AND status='publicada'").bind(pid).first();
       if (!p) return Response.json({ error: "Esa publicación ya no existe" }, { status: 404, headers: noStore });
       await env.DB.prepare(request.method === "POST"
-        ? "INSERT INTO bendiciones (publicacion_id, discord_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING"
-        : "DELETE FROM bendiciones WHERE publicacion_id=?1 AND discord_id=?2").bind(pid, s.id).run();
+        ? "INSERT INTO bendiciones (publicacion_id, discord_id, tipo) VALUES (?1, ?2, ?3) ON CONFLICT DO NOTHING"
+        : "DELETE FROM bendiciones WHERE publicacion_id=?1 AND discord_id=?2 AND tipo=?3").bind(pid, s.id, tipo).run();
       const c = await env.DB.prepare(
-        `SELECT (SELECT COUNT(*) FROM bendiciones WHERE publicacion_id=?1) AS bendiciones,
-                EXISTS (SELECT 1 FROM bendiciones WHERE publicacion_id=?1 AND discord_id=?2) AS bendecida`
+        `SELECT (SELECT COUNT(*) FROM bendiciones WHERE publicacion_id=?1 AND tipo='emperador') AS emperador,
+                (SELECT COUNT(*) FROM bendiciones WHERE publicacion_id=?1 AND tipo='ruinosos') AS ruinosos,
+                EXISTS (SELECT 1 FROM bendiciones WHERE publicacion_id=?1 AND discord_id=?2 AND tipo='emperador') AS me,
+                EXISTS (SELECT 1 FROM bendiciones WHERE publicacion_id=?1 AND discord_id=?2 AND tipo='ruinosos') AS mr`
       ).bind(pid, s.id).first();
-      return Response.json({ bendiciones: c.bendiciones, bendecida: !!c.bendecida }, { headers: noStore });
+      return Response.json(
+        { emperador: c.emperador, ruinosos: c.ruinosos, mias: { emperador: !!c.me, ruinosos: !!c.mr } },
+        { headers: noStore }
+      );
     }
 
     if (path === "/auth/login") {
