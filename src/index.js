@@ -67,7 +67,7 @@ export default {
     if (path === "/auth/callback") {
       const st = ((request.headers.get("cookie") || "").match(/ab_state=([^;]+)/) || [])[1];
       const code = url.searchParams.get("code");
-      if (!st || st !== url.searchParams.get("state") || !code) return back("error");
+      if (!st || st !== url.searchParams.get("state") || !code) return back("e_state");
       const tok = await fetch("https://discord.com/api/oauth2/token", {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -79,7 +79,7 @@ export default {
           redirect_uri: url.origin + "/auth/callback",
         }),
       });
-      if (!tok.ok) return back("error");
+      if (!tok.ok) return back("e_token_" + tok.status + "_" + encodeURIComponent((await tok.text()).slice(0, 80)));
       const { access_token } = await tok.json();
       const mr = await fetch(`https://discord.com/api/users/@me/guilds/${env.GUILD_ID}/member`, {
         headers: { authorization: "Bearer " + access_token },
