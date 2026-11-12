@@ -5,5 +5,13 @@
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
   "d1_databases": [
     { "binding": "DB", "database_name": "adeptus-db", "database_id": "d26e4433-c761-4414-861a-287acef70d23" }
-  ]
+  ],
+  "vars": {
+    "DISCORD_CLIENT_ID": "1570368483890430113",
+    "GUILD_ID": "1386600939527606283",
+    "ROLE_ADMIN": "1386601055755702292",
+    "ROLE_VETERANO": "1386625068817190912",
+    "ROLE_MIEMBRO": "1442199475136499832",
+    "ROLE_ASPIRANTE": "1386601415027458048"
+  }
 }
