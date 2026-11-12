@@ -299,11 +299,189 @@ async function listPartidas(env, uid, id) {
   });
 }
 
+// ===== Galería: /publicar, /editar y /borrar desde Discord =====
+const CANAL_PUBLICACIONES = "publicaciones-web";
+const DAPI = "https://discord.com/api/v10";
+const hexBytes = (h) => new Uint8Array(h.match(/../g).map((x) => parseInt(x, 16)));
+
+// Discord firma cada interacción con Ed25519; si la firma no cuadra, se rechaza.
+async function verifyDiscord(env, request, raw) {
+  const sig = request.headers.get("x-signature-ed25519") || "";
+  const ts = request.headers.get("x-signature-timestamp") || "";
+  if (!env.DISCORD_PUBLIC_KEY || !/^[0-9a-f]{128}$/i.test(sig) || !/^\d+$/.test(ts)) return false;
+  try {
+    const key = await crypto.subtle.importKey("raw", hexBytes(env.DISCORD_PUBLIC_KEY.trim()), { name: "Ed25519" }, false, ["verify"]);
+    return await crypto.subtle.verify("Ed25519", key, hexBytes(sig), enc.encode(ts + raw));
+  } catch (e) {
+    return false;
+  }
+}
+
+const bot = (env, path, init = {}) =>
+  fetch(DAPI + path, { ...init, headers: { authorization: "Bot " + env.DISCORD_BOT_TOKEN, ...(init.headers || {}) } });
+
+const DISCORD_COMMANDS = [
+  {
+    name: "publicar", description: "Publica una foto en la galería de la web",
+    options: [
+      { type: 11, name: "imagen", description: "La foto (PNG, JPG, GIF o WEBP, hasta 10 MB)", required: true },
+      { type: 3, name: "texto", description: "Texto que acompaña a la foto", required: false, max_length: 500 },
+    ],
+  },
+  {
+    name: "editar", description: "Cambia el texto de una de tus publicaciones",
+    options: [
+      { type: 4, name: "id", description: "ID de la publicación", required: true, min_value: 1 },
+      { type: 3, name: "texto", description: "Nuevo texto", required: true, max_length: 500 },
+    ],
+  },
+  {
+    name: "borrar", description: "Borra una de tus publicaciones de la web",
+    options: [{ type: 4, name: "id", description: "ID de la publicación", required: true, min_value: 1 }],
+  },
+];
+
+// Texto del mensaje del bot en el canal (menciona al autor sin notificarle).
+const pubMensaje = (id, uid, texto) => `📸 **Publicación ${id}** · <@${uid}>` + (texto ? "\n" + texto : "");
+
+// Ejecuta un comando y devuelve el texto de la respuesta privada para quien lo usa.
+async function runCommand(env, it, uid, name, role) {
+  const opt = Object.fromEntries((it.data.options || []).map((o) => [o.name, o.value]));
+  const cmd = it.data.name;
+
+  if (cmd === "publicar") {
+    const att = ((it.data.resolved || {}).attachments || {})[opt.imagen];
+    const tipo = att && (att.content_type || "").split(";")[0];
+    const EXT = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
+    if (!att || !EXT[tipo]) return "La imagen debe ser PNG, JPG, GIF o WEBP.";
+    if (att.size > 10 * 1024 * 1024) return "La imagen no puede pasar de 10 MB.";
+    const texto = String(opt.texto || "").trim().slice(0, 500) || null;
+    const img = await fetch(att.url);
+    if (!img.ok) return "No se pudo leer la imagen. Inténtalo de nuevo.";
+    const blob = await img.blob();
+    const r = await env.DB.prepare("INSERT INTO publicaciones (discord_id, autor, texto, channel_id) VALUES (?1,?2,?3,?4)")
+      .bind(uid, name, texto, it.channel_id).run();
+    const id = r.meta.last_row_id;
+    const filename = `publicacion-${id}.${EXT[tipo]}`;
+    const fd = new FormData();
+    fd.append("payload_json", JSON.stringify({
+      content: pubMensaje(id, uid, texto), allowed_mentions: { parse: [] }, attachments: [{ id: 0, filename }],
+    }));
+    fd.append("files[0]", blob, filename);
+    const pm = await bot(env, `/channels/${it.channel_id}/messages`, { method: "POST", body: fd });
+    if (!pm.ok) {
+      await env.DB.prepare("DELETE FROM publicaciones WHERE id=?1").bind(id).run();
+      return `No se pudo publicar (error ${pm.status}). Revisa que el bot pueda escribir y adjuntar archivos en #${CANAL_PUBLICACIONES}.`;
+    }
+    const msg = await pm.json();
+    const a = (msg.attachments || [])[0] || {};
+    await env.DB.prepare(
+      "UPDATE publicaciones SET message_id=?2, image_url=?3, width=?4, height=?5, status='publicada' WHERE id=?1"
+    ).bind(id, msg.id, a.url || null, a.width || null, a.height || null).run();
+    return `✅ Publicada en la web con ID **${id}**.\nPara cambiar el texto: \`/editar id:${id}\` · Para quitarla: \`/borrar id:${id}\``;
+  }
+
+  const p = await env.DB.prepare("SELECT * FROM publicaciones WHERE id=?1").bind(Number(opt.id)).first();
+  if (!p) return `No existe ninguna publicación con ID ${opt.id}.`;
+
+  if (cmd === "editar") {
+    if (p.discord_id !== uid) return "Solo puedes editar tus propias publicaciones.";
+    const texto = String(opt.texto || "").trim().slice(0, 500) || null;
+    if (p.message_id) {
+      const r = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: pubMensaje(p.id, p.discord_id, texto), allowed_mentions: { parse: [] } }),
+      });
+      if (!r.ok && r.status !== 404) return `No se pudo editar el mensaje en Discord (error ${r.status}).`;
+    }
+    await env.DB.prepare("UPDATE publicaciones SET texto=?2, updated_at=datetime('now') WHERE id=?1").bind(p.id, texto).run();
+    return `✏️ Texto de la publicación ${p.id} actualizado.`;
+  }
+
+  if (cmd === "borrar") {
+    if (p.discord_id !== uid && role !== "admin") return "Solo puedes borrar tus propias publicaciones.";
+    if (p.message_id) {
+      const r = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "DELETE" });
+      if (!r.ok && r.status !== 404) return `No se pudo borrar el mensaje en Discord (error ${r.status}).`;
+    }
+    await env.DB.prepare("DELETE FROM publicaciones WHERE id=?1").bind(p.id).run();
+    return `🗑️ Publicación ${p.id} borrada de la web y del canal.`;
+  }
+  return "Comando desconocido.";
+}
+
+// Caducidad (segundos) de un enlace de adjunto de Discord, del parámetro ?ex=.
+const urlExpira = (u) => {
+  const m = /[?&]ex=([0-9a-f]+)/i.exec(u || "");
+  return m ? parseInt(m[1], 16) : 0;
+};
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     const back = (q) => Response.redirect(url.origin + "/?login=" + q, 302);
+
+    // Interacciones de Discord (comandos /publicar, /editar y /borrar).
+    if (path === "/discord/interactions" && request.method === "POST") {
+      const raw = await request.text();
+      if (!(await verifyDiscord(env, request, raw))) return new Response("Firma no válida", { status: 401 });
+      let it;
+      try { it = JSON.parse(raw); } catch (e) { return new Response("JSON no válido", { status: 400 }); }
+      if (it.type === 1) return Response.json({ type: 1 }); // PING de verificación
+      const reply = (content) => Response.json({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] } } });
+      if (it.type !== 2) return reply("Acción no soportada.");
+      if (!it.member || it.guild_id !== env.GUILD_ID) return reply("Usa este comando en el servidor del club.");
+      const role = roleOf(env, it.member.roles || []);
+      if (!role) return reply("Necesitas uno de los roles del club para usar este comando.");
+      if (!it.channel || it.channel.name !== CANAL_PUBLICACIONES) return reply(`Usa este comando en #${CANAL_PUBLICACIONES}.`);
+      if (!env.DISCORD_BOT_TOKEN) return reply("El bot aún no está configurado. Avisa a un admin.");
+      const u = it.member.user;
+      const name = it.member.nick || u.global_name || u.username;
+      // Se responde enseguida («pensando…», solo visible para quien lo usa) y el trabajo sigue en segundo plano.
+      const edit = (content) => fetch(`${DAPI}/webhooks/${it.application_id}/${it.token}/messages/@original`, {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+      });
+      ctx.waitUntil((async () => {
+        let msg;
+        try { msg = await runCommand(env, it, u.id, name, role); } catch (e) { msg = "Algo ha fallado. Inténtalo de nuevo."; }
+        await edit(msg);
+      })());
+      return Response.json({ type: 5, data: { flags: 64 } });
+    }
+
+    // Galería pública: las publicaciones, con los enlaces de imagen renovados si van a caducar.
+    if (path === "/api/galeria" && request.method === "GET") {
+      const { results } = await env.DB.prepare(
+        "SELECT id, autor, texto, image_url, width, height, created_at, updated_at FROM publicaciones WHERE status='publicada' ORDER BY id DESC LIMIT 300"
+      ).all();
+      const pronto = Date.now() / 1000 + 3600;
+      const viejos = results.filter((r) => r.image_url && urlExpira(r.image_url) < pronto);
+      if (viejos.length && env.DISCORD_BOT_TOKEN) {
+        for (let i = 0; i < viejos.length; i += 50) {
+          const lote = viejos.slice(i, i + 50);
+          try {
+            const r = await bot(env, "/attachments/refresh-urls", {
+              method: "POST", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ attachment_urls: lote.map((x) => x.image_url) }),
+            });
+            if (!r.ok) continue;
+            const map = new Map(((await r.json()).refreshed_urls || []).map((x) => [x.original, x.refreshed]));
+            const upd = [];
+            for (const x of lote) {
+              const nu = map.get(x.image_url);
+              if (nu && nu !== x.image_url) {
+                upd.push(env.DB.prepare("UPDATE publicaciones SET image_url=?2 WHERE id=?1").bind(x.id, nu));
+                x.image_url = nu;
+              }
+            }
+            if (upd.length) await env.DB.batch(upd);
+          } catch (e) {}
+        }
+      }
+      return Response.json(results, { headers: { "cache-control": "public, max-age=300" } });
+    }
 
     if (path === "/auth/login") {
       const state = crypto.randomUUID();
@@ -722,6 +900,21 @@ export default {
       const s = await readSession(env, request);
       if (!s) return new Response("No autorizado", { status: 401 });
       if (s.role !== "admin") return new Response("Prohibido", { status: 403 });
+
+      // Estado del bot de Discord y registro de los comandos de la galería en el servidor.
+      if (path === "/api/admin/discord") {
+        const cfg = { public_key: !!env.DISCORD_PUBLIC_KEY, bot_token: !!env.DISCORD_BOT_TOKEN };
+        if (request.method === "GET") return Response.json(cfg, { headers: noStore });
+        if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        if (!cfg.bot_token) return Response.json({ error: "Falta el secreto DISCORD_BOT_TOKEN" }, { status: 400 });
+        const r = await bot(env, `/applications/${env.DISCORD_CLIENT_ID}/guilds/${env.GUILD_ID}/commands`, {
+          method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(DISCORD_COMMANDS),
+        });
+        const t = await r.text();
+        if (!r.ok) return Response.json({ error: "Discord respondió " + r.status + ": " + t.slice(0, 200) }, { status: 502 });
+        return Response.json({ ok: true, comandos: JSON.parse(t).map((c) => c.name) });
+      }
 
       if (path === "/api/admin/events" && request.method === "GET") {
         const { results } = await env.DB.prepare("SELECT * FROM events ORDER BY starts_at DESC").all();

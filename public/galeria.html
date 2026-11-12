@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galería · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px 64px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+.menu{display:flex;gap:24px;flex-wrap:wrap}
+.menu a{color:#ECE7DC;text-decoration:none;font-weight:500;padding:8px 0;border-bottom:2px solid transparent}
+.menu a:hover,.menu a.on{border-color:#D9B25A}
+h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
+.lead{color:#CFC9BA;margin:0 0 32px;max-width:640px}
+.lead code{background:#1F2328;border:1px solid #2C3036;border-radius:6px;padding:1px 6px;font-size:14px}
+.m{color:#A8A293;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:24px}
+.post{background:#1F2328;border:1px solid #2C3036;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.post button{display:block;border:0;padding:0;background:#2A2F36;cursor:zoom-in;aspect-ratio:1/1;width:100%}
+.post img{width:100%;height:100%;object-fit:cover;display:block}
+.post .tx{padding:16px}
+.post p{margin:0 0 8px;white-space:pre-line;overflow-wrap:anywhere}
+.post .who{display:flex;justify-content:space-between;gap:8px;color:#A8A293;font-size:13px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;z-index:50;gap:12px}
+.ov img{max-width:100%;max-height:80vh;border-radius:8px}
+.ov p{max-width:720px;margin:0;color:#ECE7DC;text-align:center;white-space:pre-line}
+.ov button{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:8px;padding:10px 18px;font:600 15px Inter,sans-serif;cursor:pointer;min-height:44px}
+@media (max-width:600px){.c{padding:0 16px 48px}h1{font-size:32px}}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a class="on" href="/galeria.html">Galería</a><a href="https://adeptus-baeticus.blogspot.com">Blog</a></nav>
+    <span id="auth"></span>
+  </div>
+  <h1>Galería</h1>
+  <p class="lead">Fotos de los miembros del club. Para publicar la tuya, usa <code>/publicar</code> en el canal #publicaciones-web de Discord.</p>
+  <p id="msg" class="m">Cargando...</p>
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+
+function el(tag, cls, txt) {
+  const x = document.createElement(tag);
+  if (cls) x.className = cls;
+  if (txt != null) x.textContent = txt;
+  return x;
+}
+
+const fecha = (s) => new Date(s.replace(" ", "T") + "Z").toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+
+// Vista ampliada de una foto.
+function ampliar(p) {
+  const ov = el("div", "ov");
+  ov.setAttribute("role", "dialog");
+  ov.setAttribute("aria-modal", "true");
+  const im = el("img");
+  im.src = p.image_url;
+  im.alt = p.texto || "Foto de " + p.autor;
+  const cap = el("p", "", (p.texto ? p.texto + "\n" : "") + p.autor + " · " + fecha(p.created_at));
+  const close = el("button", "", "Cerrar");
+  const fin = () => { ov.remove(); document.removeEventListener("keydown", esc); };
+  const esc = (e) => { if (e.key === "Escape") fin(); };
+  close.onclick = fin;
+  ov.onclick = (e) => { if (e.target === ov) fin(); };
+  document.addEventListener("keydown", esc);
+  ov.append(im, cap, close);
+  document.body.appendChild(ov);
+  close.focus();
+}
+
+fetch("/api/galeria").then((r) => (r.ok ? r.json() : Promise.reject())).then((list) => {
+  const g = $("grid");
+  $("msg").textContent = list.length ? "" : "Todavía no hay fotos publicadas.";
+  if (!list.length) return;
+  $("msg").hidden = true;
+  list.forEach((p) => {
+    const card = el("article", "post");
+    const b = el("button");
+    b.type = "button";
+    b.setAttribute("aria-label", "Ampliar foto " + p.id);
+    const im = el("img");
+    im.src = p.image_url;
+    im.alt = p.texto || "Foto de " + p.autor;
+    im.loading = "lazy";
+    if (p.width && p.height) { im.width = p.width; im.height = p.height; }
+    b.appendChild(im);
+    b.onclick = () => ampliar(p);
+    const tx = el("div", "tx");
+    if (p.texto) tx.appendChild(el("p", "", p.texto));
+    const who = el("div", "who");
+    who.append(el("span", "", p.autor), el("span", "", fecha(p.created_at) + " · #" + p.id));
+    tx.appendChild(who);
+    card.append(b, tx);
+    g.appendChild(card);
+  });
+}).catch(() => { $("msg").textContent = "No se pudo cargar la galería."; });
+</script>
+<script src="/auth.js"></script>
+</body>
