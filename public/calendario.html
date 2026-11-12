@@ -44,8 +44,8 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
 .hh{display:flex;align-items:center;gap:6px;color:#A8A293}
 .hh select{width:auto;min-height:40px;padding:6px 8px}
 .hh select:disabled{opacity:.45}
-.gest{margin-top:24px;padding-top:16px;border-top:1px solid #2C3036}
-.gest .row{gap:8px}
+.nv.del{display:inline-flex;align-items:center;justify-content:center;color:#F0A39E;border-color:#6B6558}
+.nv.del:hover{border-color:#F0A39E}
 select.chip{appearance:auto;padding:8px 12px}
 .fld input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
 .card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
@@ -90,6 +90,9 @@ select.chip{appearance:auto;padding:8px 12px}
         <option value="bloodbowl">Blood Bowl</option>
       </select>
       <button class="btn" id="bp" type="button" hidden style="margin:0">Buscar partida</button>
+      <button class="nv del" id="bdel" type="button" hidden aria-label="Borrar mis partidas" title="Borrar mis partidas">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+      </button>
     </div>
     <div class="row">
       <button class="nv" id="prev" aria-label="Mes anterior">‹</button>
@@ -693,7 +696,6 @@ function openPartidaForm() {
   days.appendChild(nota);
   f.append(mkField("Modalidad", act), wFmt, wSide, wNp, days, err, acts);
   box.appendChild(f);
-  box.appendChild(gestionPartidas());
 
   const update = () => {
     const a = act.value;
@@ -739,29 +741,32 @@ function openPartidaForm() {
   };
 }
 
-// Botones para borrar en bloque mis partidas de esta semana (todas o solo las vacías).
-function gestionPartidas() {
-  const w = document.createElement("div");
-  w.className = "gest";
+// Sección «Borrar» (icono de papelera): borrar en bloque mis partidas de esta semana.
+function openGestion() {
+  const w = $("det");
+  w.textContent = "";
   const mias = partidas.filter((p) => p.mia && !partidaCerrada(p));
   const vacias = mias.filter((p) => p.jugadores.length <= 1);
-  const h = document.createElement("p");
+  const h = document.createElement("span");
   h.className = "lb";
-  h.textContent = "Mis partidas de esta semana";
+  h.textContent = "Borrar partidas";
+  const t = document.createElement("h3");
+  t.textContent = "Mis partidas de esta semana";
+  w.append(h, t);
   const info = document.createElement("p");
   info.className = "m";
   info.textContent = mias.length
     ? mias.length + (mias.length === 1 ? " publicada, " : " publicadas, ") + vacias.length + " sin rivales todavía."
     : "No tienes partidas publicadas.";
-  w.append(h, info);
-  if (!mias.length) return w;
+  w.append(info);
+  if (!mias.length) return;
   const err = document.createElement("div");
   err.className = "err";
   const borrar = async (soloVacias, b) => {
     const n = soloVacias ? vacias.length : mias.length;
     const q = soloVacias
       ? "¿Borrar tus " + n + " partidas sin rivales?"
-      : "¿Borrar todas tus partidas de esta semana (" + n + ")? Las que ya tienen rivales también desaparecerán.";
+      : "¿Borrar todas tus partidas (" + n + ")? Las que ya tienen rivales también desaparecerán.";
     if (!confirm(q)) return;
     b.disabled = true;
     err.textContent = "";
@@ -771,7 +776,7 @@ function gestionPartidas() {
       if (!r.ok) { err.textContent = d.error || "No se pudo borrar."; b.disabled = false; return; }
       await loadPartidas();
       render();
-      openPartidaForm();
+      openGestion();
       const ok = document.createElement("p");
       ok.className = "ok";
       ok.textContent = d.borradas === 1 ? "Se ha borrado 1 partida." : "Se han borrado " + d.borradas + " partidas.";
@@ -786,9 +791,8 @@ function gestionPartidas() {
   };
   const row = document.createElement("div");
   row.className = "row";
-  row.append(mk("Borrar mis partidas vacías (" + vacias.length + ")", true, !vacias.length), mk("Borrar todas mis partidas de esta semana", false, false));
+  row.append(mk("Borrar mis partidas vacías (" + vacias.length + ")", true, !vacias.length), mk("Borrar todas (" + mias.length + ")", false, false));
   w.append(row, err);
-  return w;
 }
 
 function loadPartidas() {
@@ -808,9 +812,10 @@ $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
 
 $("bp").onclick = openPartidaForm;
+$("bdel").onclick = openGestion;
 
 Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine().then(() => (mine ? loadPartidas() : null))]).then(([d]) => {
-  if (mine) $("bp").hidden = $("chp").hidden = false;
+  if (mine) $("bp").hidden = $("bdel").hidden = $("chp").hidden = false;
   ev = d;
   const now = new Date().toISOString().slice(0, 16);
   const next = ev.find((e) => e.starts_at >= now);

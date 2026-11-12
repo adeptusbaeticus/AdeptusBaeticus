@@ -170,7 +170,7 @@ async function loadPartidas() {
       b.disabled = !n;
       b.onclick = async () => {
         const q = solo ? "¿Borrar tus " + n + " partidas sin rivales?"
-          : "¿Borrar todas tus partidas de esta semana (" + n + ")? Las que ya tienen rivales también desaparecerán.";
+          : "¿Borrar todas tus partidas (" + n + ")? Las que ya tienen rivales también desaparecerán.";
         if (!confirm(q)) return;
         b.disabled = true;
         err.textContent = "";
@@ -184,7 +184,7 @@ async function loadPartidas() {
       };
       return b;
     };
-    g.append(mk("Borrar mis partidas vacías (" + vacias.length + ")", true, vacias.length), mk("Borrar todas mis partidas de esta semana (" + mias.length + ")", false, mias.length));
+    g.append(mk("Borrar mis partidas vacías (" + vacias.length + ")", true, vacias.length), mk("Borrar todas (" + mias.length + ")", false, mias.length));
     box.append(g, err);
   }
   const key = (p) => p.starts_at || p.availability[0].date;
