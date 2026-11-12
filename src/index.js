@@ -220,12 +220,11 @@ const STATE_SQL = `CASE WHEN e.capacity IS NULL
 
 // ===== Partidas: un socio busca partida y otros se unen =====
 
-// Días que quedan de la semana en curso (de hoy al domingo), "YYYY-MM-DD", hora de Madrid.
+// Hoy y los 6 días siguientes (7 en total), "YYYY-MM-DD", hora de Madrid.
 function weekDays(now) {
   const d = new Date(now.slice(0, 10) + "T00:00:00Z");
-  const dow = (d.getUTCDay() + 6) % 7; // 0 = lunes
   const out = [];
-  for (let i = 0; i <= 6 - dow; i++) {
+  for (let i = 0; i < 7; i++) {
     const x = new Date(d);
     x.setUTCDate(d.getUTCDate() + i);
     out.push(x.toISOString().slice(0, 10));

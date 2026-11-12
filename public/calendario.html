@@ -608,7 +608,7 @@ function showPartida(p) {
   box.appendChild(err);
 }
 
-// Formulario "Buscar partida": modalidad y disponibilidad en lo que queda de semana.
+// Formulario "Buscar partida": modalidad y disponibilidad en los próximos 7 días.
 function openPartidaForm() {
   const box = $("det");
   box.textContent = "";
@@ -628,16 +628,16 @@ function openPartidaForm() {
   const wSide = mkField("¿Cómo vas en el 1vs2?", side);
   const wNp = mkField("Número de participantes (contándote a ti)", np);
 
-  // Días de hoy al domingo, cada uno con su franja horaria.
+  // Hoy y los 6 días siguientes, cada uno con su franja horaria.
   const days = document.createElement("fieldset");
   days.className = "fld";
   const lg = document.createElement("legend");
-  lg.textContent = "¿Cuándo puedes esta semana?";
+  lg.textContent = "¿Cuándo puedes en los próximos 7 días?";
   days.appendChild(lg);
   const hrs = (a, b) => { const o = []; for (let i = a; i <= b; i++) { const v = String(i).padStart(2, "0") + ":00"; o.push([v, v]); } return o; };
   const t = new Date();
   const rows = [];
-  for (let i = 0; i <= (7 - t.getDay()) % 7; i++) {
+  for (let i = 0; i < 7; i++) {
     const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + i);
     const iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     const r = document.createElement("div");
