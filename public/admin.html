@@ -133,14 +133,14 @@ async function toggleRegs(e, panel) {
   }
   const t = document.createElement("table");
   const tr = t.createTHead().insertRow();
-  ["#", "Nombre", "Usuario New Recruit", "Estado", "Fecha de inscripción"].forEach((h) => {
+  ["#", "Nombre", "Usuario New Recruit", "Estado", "Actividad", "Partida", "Inscrito por", "Fecha de inscripción"].forEach((h) => {
     const th = document.createElement("th"); th.textContent = h; tr.appendChild(th);
   });
   const tb = t.createTBody();
   list.forEach((x, i) => {
     const r = tb.insertRow();
     const fecha = x.created_at ? new Date(x.created_at.replace(" ", "T") + "Z").toLocaleString("es-ES") : "";
-    [String(i + 1), x.name || "(sin nombre)", x.nr_username || "—", x.status === "inscrito" ? "Inscrito" : "Lista de espera", fecha]
+    [String(i + 1), x.name || "(sin nombre)", x.nr_username || "—", x.status === "inscrito" ? "Inscrito" : "Lista de espera", x.plan || "—", x.partida || "—", x.inscrito_por || "—", fecha]
       .forEach((v) => { r.insertCell().textContent = v; });
   });
   const wrap = document.createElement("div");

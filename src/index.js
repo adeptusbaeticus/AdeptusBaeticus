@@ -92,6 +92,103 @@ function csvCell(v) {
 
 const ESTADOS = { inscrito: "Inscrito", espera: "Lista de espera" };
 
+// Qué va a hacer cada inscrito en una quedada.
+const ACTIVIDADES = {
+  ver: "Ir a ver",
+  pintar: "Ir a pintar",
+  combat_patrol: "Ir a jugar Combat Patrol",
+  "40k_1000": "Ir a jugar 40k a 1k",
+  "40k_2000": "Ir a jugar 40k a 2k",
+  necromunda: "Ir a jugar Necromunda",
+  bloodbowl: "Ir a jugar Blood Bowl",
+};
+const CON_FORMATO = ["combat_patrol", "40k_1000"];
+
+// Valida el formulario de inscripción. Devuelve { error } o el plan con los huecos de
+// compañeros (bando A) y rivales/participantes (bando B) que permite el formato.
+function parsePlan(b, uid) {
+  const activity = String(b.activity || "");
+  if (!ACTIVIDADES[activity]) return { error: "Elige qué vas a hacer en la quedada" };
+  const plan = { activity, format: null, players: null, team: [], rivals: [], looking: 0 };
+  if (activity === "ver" || activity === "pintar") return plan;
+  let team = 0, rivals = 1;
+  if (CON_FORMATO.includes(activity)) {
+    plan.format = b.format;
+    if (plan.format === "1v2") {
+      if (b.side === "solo") rivals = 2;
+      else if (b.side === "pareja") team = 1;
+      else return { error: "Indica si vas solo o en pareja en el 1vs2" };
+    } else if (plan.format === "2v2") { team = 1; rivals = 2; }
+    else if (plan.format !== "1v1") return { error: "Elige el formato de la partida" };
+  } else if (activity === "necromunda") {
+    plan.players = Number(b.players);
+    if (!Number.isInteger(plan.players) || plan.players < 1 || plan.players > 9) {
+      return { error: "El número de participantes debe estar entre 1 y 9" };
+    }
+    rivals = plan.players - 1;
+  } else {
+    plan.format = "1v1";
+  }
+  const ids = (v) => (Array.isArray(v) ? v : []).map((x) => String(x == null ? "" : x).trim()).filter(Boolean);
+  plan.team = ids(b.teammates);
+  plan.rivals = ids(b.rivals);
+  if (plan.team.length > team || plan.rivals.length > rivals) return { error: "Hay más jugadores de los que permite el formato" };
+  const all = [...plan.team, ...plan.rivals];
+  if (all.some((x) => !/^\d{1,25}$/.test(x)) || all.includes(uid) || new Set(all).size !== all.length) {
+    return { error: "La lista de jugadores no es válida" };
+  }
+  // Si quedan huecos sin rellenar, sigue buscando rival.
+  plan.looking = all.length < team + rivals ? 1 : 0;
+  return plan;
+}
+
+function planText(r) {
+  if (!r.activity) return "";
+  let t = ACTIVIDADES[r.activity] || r.activity;
+  if (r.activity === "necromunda" && r.players) t += " · " + r.players + " participantes";
+  else if (CON_FORMATO.includes(r.activity) && r.format) t += " · " + r.format.replace("v", "vs");
+  return t;
+}
+
+// Añade a cada inscripción su plan en texto y los nombres de compañeros y rivales.
+// `players` son filas { match_id, side, discord_id, name } de las partidas implicadas.
+function withPartners(rows, players) {
+  return rows.map((r) => {
+    const others = r.match_id ? players.filter((p) => p.match_id === r.match_id && p.discord_id !== r.discord_id) : [];
+    const necro = r.activity === "necromunda";
+    return {
+      ...r,
+      plan: planText(r),
+      companeros: necro ? [] : others.filter((p) => p.side === r.side).map((p) => p.name),
+      rivales: (necro ? others : others.filter((p) => p.side !== r.side)).map((p) => p.name),
+    };
+  });
+}
+
+function partidaText(r) {
+  const out = [];
+  if (r.companeros.length) out.push("Compañero: " + r.companeros.join(", "));
+  if (r.rivales.length) out.push((r.activity === "necromunda" ? "Participantes: " : "Rival: ") + r.rivales.join(", "));
+  if (r.looking) out.push("Busca rival");
+  return out.join(" · ");
+}
+
+// Jugadores de las partidas en las que aparecen estas inscripciones.
+async function matchPlayers(env, where, ...args) {
+  const { results } = await env.DB.prepare(
+    `SELECT r.match_id, r.side, r.discord_id, u.name
+     FROM registrations r LEFT JOIN users u ON u.discord_id=r.discord_id
+     WHERE r.match_id IN (SELECT match_id FROM registrations WHERE match_id IS NOT NULL AND ${where})
+     ORDER BY r.id`
+  ).bind(...args).all();
+  return results;
+}
+
+// Plaza libre → 'inscrito'; si no, 'espera'. Se evalúa dentro de cada INSERT (alias e = events).
+const STATE_SQL = `CASE WHEN e.capacity IS NULL
+  OR (SELECT COUNT(*) FROM registrations x WHERE x.event_id=e.id AND x.status='inscrito') < e.capacity
+  THEN 'inscrito' ELSE 'espera' END`;
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -196,30 +293,74 @@ export default {
       const now = nowLocal();
 
       if (request.method === "POST") {
-        // El estado se decide dentro del propio INSERT: D1 ejecuta cada sentencia de forma
-        // atómica, así que dos peticiones simultáneas no pueden ocupar la misma última plaza.
-        const r = await env.DB.prepare(
-          `INSERT INTO registrations (event_id, discord_id, status, created_at)
-           SELECT e.id, ?2,
-             CASE WHEN e.capacity IS NULL
-               OR (SELECT COUNT(*) FROM registrations x WHERE x.event_id=e.id AND x.status='inscrito') < e.capacity
-             THEN 'inscrito' ELSE 'espera' END,
-             datetime('now')
+        const fail = (error, status) => Response.json({ error }, { status, headers: noStore });
+        if (!(request.headers.get("content-type") || "").includes("application/json")) return fail("Tipo no válido", 415);
+        let b;
+        try { b = await request.json(); } catch (x) { return fail("JSON no válido", 400); }
+        const plan = parsePlan(b || {}, s.id);
+        if (plan.error) return fail(plan.error, 400);
+
+        const ev = await env.DB.prepare("SELECT type,status,starts_at FROM events WHERE id=?1").bind(eventId).first();
+        if (!ev || ev.type !== "quedada" || ev.status !== "publicado") return fail("Evento no disponible", 404);
+        if (ev.starts_at <= now) return fail("La inscripción está cerrada", 409);
+        const ya = await env.DB.prepare("SELECT 1 FROM registrations WHERE event_id=?1 AND discord_id=?2").bind(eventId, s.id).first();
+        if (ya) return fail("Ya estás inscrito en esta quedada", 409);
+
+        const others = [...plan.team.map((id) => [id, "A"]), ...plan.rivals.map((id) => [id, "B"])];
+        if (others.length) {
+          const ph = others.map((_, i) => "?" + (i + 2)).join(",");
+          const { results } = await env.DB.prepare(
+            `SELECT u.discord_id, u.name, r.match_id FROM users u
+             LEFT JOIN registrations r ON r.discord_id=u.discord_id AND r.event_id=?1
+             WHERE u.discord_id IN (${ph})`
+          ).bind(eventId, ...others.map((o) => o[0])).all();
+          if (results.length !== others.length) return fail("Algún jugador no es socio del club", 400);
+          const busy = results.filter((x) => x.match_id).map((x) => x.name);
+          if (busy.length) return fail(busy.join(", ") + " ya tiene partida en esta quedada", 409);
+        }
+
+        // Todo en un batch (transacción). El estado de cada jugador se calcula dentro de su
+        // propio INSERT, así que dos peticiones simultáneas no pueden ocupar la misma última plaza.
+        const matchId = others.length ? crypto.randomUUID() : null;
+        const stmts = [];
+        if (matchId) {
+          stmts.push(env.DB.prepare(
+            "INSERT INTO matches (id,event_id,activity,format,players,created_by) VALUES (?1,?2,?3,?4,?5,?6)"
+          ).bind(matchId, eventId, plan.activity, plan.format, plan.players, s.id));
+        }
+        stmts.push(env.DB.prepare(
+          `INSERT INTO registrations (event_id,discord_id,status,created_at,activity,format,players,looking,match_id,side)
+           SELECT e.id, ?2, ${STATE_SQL}, datetime('now'), ?4, ?5, ?6, ?7, ?8, ?9
            FROM events e
            WHERE e.id=?1 AND e.type='quedada' AND e.status='publicado' AND e.starts_at>?3
            ON CONFLICT(event_id, discord_id) DO NOTHING`
-        ).bind(eventId, s.id, now).run();
-        if (!r.meta.changes) {
-          const e = await env.DB.prepare("SELECT type,status,starts_at FROM events WHERE id=?1").bind(eventId).first();
-          if (!e || e.type !== "quedada" || e.status !== "publicado") {
-            return Response.json({ error: "Evento no disponible" }, { status: 404, headers: noStore });
-          }
-          if (e.starts_at <= now) {
-            return Response.json({ error: "La inscripción está cerrada" }, { status: 409, headers: noStore });
-          }
-          // Ya estaba inscrito: se devuelve su estado actual (petición idempotente).
+        ).bind(eventId, s.id, now, plan.activity, plan.format, plan.players, plan.looking, matchId, matchId ? "A" : null));
+        // Compañeros y rivales: se inscriben (o, si ya estaban inscritos sin partida, se les
+        // asigna esta). Solo si la inscripción de quien los añade se ha creado en este batch.
+        for (const [id, side] of others) {
+          stmts.push(env.DB.prepare(
+            `INSERT INTO registrations (event_id,discord_id,status,created_at,activity,format,players,looking,match_id,side,added_by)
+             SELECT e.id, ?2, ${STATE_SQL}, datetime('now'), ?3, ?4, ?5, 0, ?6, ?7, ?8
+             FROM events e
+             WHERE e.id=?1 AND EXISTS (SELECT 1 FROM registrations m WHERE m.event_id=?1 AND m.discord_id=?8 AND m.match_id=?6)
+             ON CONFLICT(event_id, discord_id) DO UPDATE SET
+               activity=excluded.activity, format=excluded.format, players=excluded.players, looking=0,
+               match_id=excluded.match_id, side=excluded.side, added_by=excluded.added_by
+             WHERE registrations.match_id IS NULL`
+          ).bind(eventId, id, plan.activity, plan.format, plan.players, matchId, side, s.id));
         }
-        return Response.json(await regState(env, eventId, s.id), { headers: noStore });
+        await env.DB.batch(stmts);
+
+        const st = await regState(env, eventId, s.id);
+        if (!st.status) return fail("No se pudo completar la inscripción. Inténtalo de nuevo.", 409);
+        let added = [];
+        if (matchId) {
+          ({ results: added } = await env.DB.prepare(
+            `SELECT u.name, r.status FROM registrations r JOIN users u ON u.discord_id=r.discord_id
+             WHERE r.match_id=?1 AND r.discord_id<>?2 ORDER BY r.id`
+          ).bind(matchId, s.id).all());
+        }
+        return Response.json({ ...st, added }, { headers: noStore });
       }
 
       const e = await env.DB.prepare("SELECT starts_at FROM events WHERE id=?1").bind(eventId).first();
@@ -227,9 +368,18 @@ export default {
       if (e.starts_at <= now) {
         return Response.json({ error: "El evento ya ha empezado" }, { status: 409, headers: noStore });
       }
-      const [del] = await env.DB.batch([
+      const [, del] = await env.DB.batch([
+        // Los demás jugadores de su partida vuelven a buscar rival.
+        env.DB.prepare(
+          `UPDATE registrations SET looking=1 WHERE event_id=?1 AND discord_id<>?2 AND match_id IS NOT NULL
+             AND match_id=(SELECT match_id FROM registrations WHERE event_id=?1 AND discord_id=?2)`
+        ).bind(eventId, s.id),
         env.DB.prepare("DELETE FROM registrations WHERE event_id=?1 AND discord_id=?2").bind(eventId, s.id),
         env.DB.prepare(PROMOTE_SQL).bind(eventId),
+        // Partidas que se han quedado sin jugadores.
+        env.DB.prepare(
+          "DELETE FROM matches WHERE event_id=?1 AND id NOT IN (SELECT match_id FROM registrations WHERE event_id=?1 AND match_id IS NOT NULL)"
+        ).bind(eventId),
       ]);
       if (!del.meta.changes) return Response.json({ error: "No estabas inscrito" }, { status: 404, headers: noStore });
       return Response.json(await regState(env, eventId, s.id), { headers: noStore });
@@ -240,13 +390,26 @@ export default {
       if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
       const { results } = await env.DB.prepare(
         `SELECT e.id, e.title, e.starts_at, e.location, e.capacity, e.status AS event_status,
-           r.status, r.created_at,
+           r.status, r.created_at, r.discord_id, r.activity, r.format, r.players, r.looking, r.match_id, r.side,
+           (SELECT name FROM users a WHERE a.discord_id=r.added_by) AS inscrito_por,
            CASE WHEN r.status='espera' THEN
              (SELECT COUNT(*) FROM registrations w WHERE w.event_id=r.event_id AND w.status='espera' AND w.id<=r.id)
            END AS posicion
          FROM registrations r JOIN events e ON e.id=r.event_id
          WHERE r.discord_id=?1 AND e.status IN ('publicado','cancelado')
          ORDER BY e.starts_at`
+      ).bind(s.id).all();
+      const players = results.some((r) => r.match_id) ? await matchPlayers(env, "discord_id=?1", s.id) : [];
+      const out = withPartners(results, players).map(({ discord_id, match_id, side, ...r }) => r);
+      return Response.json(out, { headers: { ...noStore, vary: "cookie" } });
+    }
+
+    // Socios para elegir compañero o rival (solo nombre; requiere sesión).
+    if (path === "/api/members" && request.method === "GET") {
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      const { results } = await env.DB.prepare(
+        "SELECT discord_id AS id, name FROM users WHERE discord_id<>?1 ORDER BY name COLLATE NOCASE"
       ).bind(s.id).all();
       return Response.json(results, { headers: { ...noStore, vary: "cookie" } });
     }
@@ -311,14 +474,21 @@ export default {
         const e = await env.DB.prepare("SELECT id,title FROM events WHERE id=?1").bind(eventId).first();
         if (!e) return new Response("No encontrado", { status: 404 });
         const { results } = await env.DB.prepare(
-          `SELECT u.name, u.nr_username, r.status, r.created_at
+          `SELECT u.name, u.nr_username, r.status, r.created_at, r.discord_id,
+             r.activity, r.format, r.players, r.looking, r.match_id, r.side,
+             (SELECT name FROM users a WHERE a.discord_id=r.added_by) AS inscrito_por
            FROM registrations r LEFT JOIN users u ON u.discord_id=r.discord_id
            WHERE r.event_id=?1
            ORDER BY CASE r.status WHEN 'inscrito' THEN 0 ELSE 1 END, r.id`
         ).bind(eventId).all();
-        if (!rgm[2]) return Response.json(results, { headers: noStore });
-        const lines = [["Nombre", "Usuario New Recruit", "Estado", "Fecha de inscripción (UTC)"]]
-          .concat(results.map((x) => [x.name, x.nr_username, ESTADOS[x.status] || x.status, x.created_at]))
+        const players = await matchPlayers(env, "event_id=?1", eventId);
+        const list = withPartners(results, players).map((r) => ({
+          name: r.name, nr_username: r.nr_username, status: r.status, created_at: r.created_at,
+          plan: r.plan, partida: partidaText(r), inscrito_por: r.inscrito_por,
+        }));
+        if (!rgm[2]) return Response.json(list, { headers: noStore });
+        const lines = [["Nombre", "Usuario New Recruit", "Estado", "Actividad", "Partida", "Inscrito por", "Fecha de inscripción (UTC)"]]
+          .concat(list.map((x) => [x.name, x.nr_username, ESTADOS[x.status] || x.status, x.plan, x.partida, x.inscrito_por, x.created_at]))
           .map((row) => row.map(csvCell).join(";"));
         return new Response("﻿" + lines.join("\r\n") + "\r\n", {
           headers: {

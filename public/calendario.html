@@ -43,6 +43,13 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
 .btn:disabled{opacity:.6;cursor:default}
 .ok{color:#9FD39B;font-weight:600}
 .err{color:#F0A39E;font-size:14px;min-height:20px;margin-top:6px}
+.fz{margin-top:8px}
+.fld{margin:0 0 12px;border:0;padding:0}
+.fld label,.fld legend{display:block;font-weight:600;font-size:14px;margin-bottom:4px;padding:0}
+.fld label.rad{display:flex;align-items:center;gap:8px;font-weight:400;font-size:15px;min-height:36px;margin:0}
+.fld select{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;min-height:44px}
+.fld input[type=radio]{width:18px;height:18px;accent-color:#D9B25A}
+.fz .row{gap:8px}
 </style>
 </head>
 <body>
@@ -143,37 +150,230 @@ function show(e) {
     return;
   }
   const r = mine.get(e.id);
-  if (r && r.status === "inscrito") add("p", "ok", "Estás inscrito.");
-  else if (r) add("p", "ok", "Estás en lista de espera" + (r.posicion ? " (posición " + r.posicion + ")." : "."));
-  else if (e.capacity && n >= e.capacity) add("p", "m", "No quedan plazas: entrarás en la lista de espera.");
-  const b = document.createElement("button");
-  b.type = "button";
-  b.className = r ? "btn alt" : "btn";
-  b.textContent = r ? "Cancelar inscripción" : "Apuntarme";
   const err = document.createElement("div");
   err.className = "err";
-  b.onclick = () => toggle(e, !r, b, err);
+  if (!r) {
+    if (e.capacity && n >= e.capacity) add("p", "m", "No quedan plazas: entrarás en la lista de espera.");
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn"; b.textContent = "Apuntarme";
+    b.onclick = () => openForm(e, box, b);
+    box.append(b, err);
+    return;
+  }
+  add("p", "ok", r.status === "inscrito" ? "Estás inscrito." : "Estás en lista de espera" + (r.posicion ? " (posición " + r.posicion + ")." : "."));
+  planLines(r).forEach((t) => add("p", "m", t));
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "btn alt"; b.textContent = "Cancelar inscripción";
+  b.onclick = () => cancel(e, b, err);
   box.append(b, err);
 }
 
-async function toggle(e, join, b, err) {
-  if (!join && !confirm("¿Cancelar tu inscripción?")) return;
+// Resumen de lo que va a hacer el usuario en la quedada.
+function planLines(r) {
+  const out = [];
+  if (r.plan) out.push(r.plan);
+  if (r.companeros && r.companeros.length) out.push("Compañero: " + r.companeros.join(", "));
+  if (r.rivales && r.rivales.length) out.push((r.activity === "necromunda" ? "Participantes: " : "Rival: ") + r.rivales.join(", "));
+  if (r.looking) out.push("Buscando rival.");
+  if (r.inscrito_por) out.push("Te inscribió " + r.inscrito_por + ".");
+  return out;
+}
+
+const ACTS = [
+  ["ver", "Ir a ver"], ["pintar", "Ir a pintar"], ["combat_patrol", "Ir a jugar Combat Patrol"],
+  ["40k_1000", "Ir a jugar 40k a 1k"], ["40k_2000", "Ir a jugar 40k a 2k"],
+  ["necromunda", "Ir a jugar Necromunda"], ["bloodbowl", "Ir a jugar Blood Bowl"],
+];
+let members = null;
+
+function mkSelect(id, opts) {
+  const s = document.createElement("select");
+  s.id = id;
+  opts.forEach(([v, t]) => {
+    const o = document.createElement("option");
+    o.value = v; o.textContent = t;
+    s.appendChild(o);
+  });
+  return s;
+}
+
+function mkField(text, control) {
+  const w = document.createElement("div");
+  w.className = "fld";
+  const l = document.createElement("label");
+  l.textContent = text;
+  l.htmlFor = control.id;
+  w.append(l, control);
+  return w;
+}
+
+// Formulario de inscripción: qué va a hacer y, si juega, con quién.
+async function openForm(e, box, startBtn) {
+  startBtn.disabled = true;
+  if (!members) {
+    try { const r = await fetch("/api/members"); members = r.ok ? await r.json() : []; } catch (x) { members = []; }
+  }
+  startBtn.remove();
+  const f = document.createElement("form");
+  f.className = "fz";
+  const act = mkSelect("f-act", [["", "— Elige una opción —"]].concat(ACTS));
+  const fmt = mkSelect("f-fmt", [["1v1", "1vs1"], ["1v2", "1vs2"], ["2v2", "2vs2"]]);
+  const side = mkSelect("f-side", [["solo", "Voy solo (contra 2)"], ["pareja", "Voy en pareja (contra 1)"]]);
+  const np = mkSelect("f-np", [1, 2, 3, 4, 5, 6, 7, 8, 9].map((x) => [String(x), String(x)]));
+  np.value = "2";
+  const wAct = mkField("¿Qué vas a hacer?", act);
+  const wFmt = mkField("Formato de la partida", fmt);
+  const wSide = mkField("¿Cómo vas en el 1vs2?", side);
+  const wNp = mkField("Número de participantes (contándote a ti)", np);
+
+  const wMode = document.createElement("fieldset");
+  wMode.className = "fld";
+  const lg = document.createElement("legend");
+  lg.textContent = "¿Tienes ya rival?";
+  wMode.appendChild(lg);
+  const radio = (value, text, checked) => {
+    const l = document.createElement("label");
+    l.className = "rad";
+    const i = document.createElement("input");
+    i.type = "radio"; i.name = "f-mode"; i.value = value; i.checked = checked;
+    l.append(i, " " + text);
+    wMode.appendChild(l);
+    return i;
+  };
+  radio("busco", "Busco rival", true);
+  const tengo = radio("tengo", "Ya tengo rival", false);
+
+  const slots = document.createElement("div");
+  const hint = document.createElement("p");
+  hint.className = "m";
+  hint.textContent = "Los jugadores que elijas quedarán inscritos en la quedada contigo. Solo aparecen los socios que han entrado alguna vez en la web.";
+  const err = document.createElement("div");
+  err.className = "err";
+  const ok = document.createElement("button");
+  ok.type = "submit"; ok.className = "btn"; ok.textContent = "Confirmar inscripción";
+  const back = document.createElement("button");
+  back.type = "button"; back.className = "btn alt"; back.textContent = "Volver";
+  back.onclick = () => show(e);
+  const acts = document.createElement("div");
+  acts.className = "row";
+  acts.append(ok, back);
+  f.append(wAct, wFmt, wSide, wNp, wMode, slots, err, acts);
+  box.appendChild(f);
+
+  // Huecos de compañeros y rivales según actividad y formato (el servidor aplica las mismas reglas).
+  function counts() {
+    const a = act.value;
+    if (a === "combat_patrol" || a === "40k_1000") {
+      if (fmt.value === "2v2") return { team: 1, rivals: 2 };
+      if (fmt.value === "1v2") return side.value === "pareja" ? { team: 1, rivals: 1 } : { team: 0, rivals: 2 };
+      return { team: 0, rivals: 1 };
+    }
+    if (a === "necromunda") return { team: 0, rivals: Number(np.value) - 1 };
+    if (a === "40k_2000" || a === "bloodbowl") return { team: 0, rivals: 1 };
+    return { team: 0, rivals: 0 };
+  }
+
+  function renderSlots() {
+    const prev = [...slots.querySelectorAll("select")].map((s) => s.value);
+    slots.textContent = "";
+    if (wMode.hidden || !tengo.checked) return;
+    const c = counts();
+    const necro = act.value === "necromunda";
+    const opts = [["", "— Sin decidir —"]].concat(members.map((x) => [x.id, x.name]));
+    let k = 0;
+    const add1 = (kind, i, total) => {
+      const s = mkSelect("f-" + kind + i, opts);
+      s.dataset.kind = kind;
+      if (prev[k] && members.some((x) => x.id === prev[k])) s.value = prev[k];
+      k++;
+      const name = kind === "team" ? "Compañero" : necro ? "Participante" : "Rival";
+      slots.appendChild(mkField(total > 1 ? name + " " + (i + 1) : name, s));
+    };
+    for (let i = 0; i < c.team; i++) add1("team", i, c.team);
+    for (let i = 0; i < c.rivals; i++) add1("rival", i, c.rivals);
+    if (!members.length) {
+      const p = document.createElement("p");
+      p.className = "m";
+      p.textContent = "Todavía no hay otros socios registrados en la web.";
+      slots.appendChild(p);
+    }
+    slots.appendChild(hint);
+  }
+
+  function update() {
+    const a = act.value;
+    const play = !["", "ver", "pintar"].includes(a);
+    wFmt.hidden = !(a === "combat_patrol" || a === "40k_1000");
+    wSide.hidden = wFmt.hidden || fmt.value !== "1v2";
+    wNp.hidden = a !== "necromunda";
+    const c = counts();
+    wMode.hidden = !play || c.team + c.rivals === 0;
+    renderSlots();
+  }
+  f.onchange = (x) => { if (!slots.contains(x.target)) update(); };
+  update();
+  act.focus();
+
+  f.onsubmit = async (x) => {
+    x.preventDefault();
+    err.textContent = "";
+    if (!act.value) { err.textContent = "Elige qué vas a hacer en la quedada."; return; }
+    const pick = (kind) => [...slots.querySelectorAll("select")].filter((s) => s.dataset.kind === kind && s.value).map((s) => s.value);
+    const teammates = pick("team"), rivals = pick("rival");
+    const all = teammates.concat(rivals);
+    if (!wMode.hidden && tengo.checked && !all.length) { err.textContent = "Elige al menos un jugador o marca «Busco rival»."; return; }
+    if (new Set(all).size !== all.length) { err.textContent = "Has elegido al mismo jugador dos veces."; return; }
+    ok.disabled = true;
+    try {
+      const r = await fetch("/api/events/" + e.id + "/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ activity: act.value, format: fmt.value, side: side.value, players: Number(np.value), teammates, rivals }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 401) { mine = null; show(e); return; }
+      if (!r.ok) { err.textContent = d.error || "No se pudo completar. Inténtalo de nuevo."; ok.disabled = false; return; }
+      e.inscritos = d.inscritos;
+      e.en_espera = d.en_espera;
+      await reloadMine();
+      show(e);
+      const espera = (d.added || []).filter((p) => p.status === "espera").map((p) => p.name);
+      if (espera.length) {
+        const p = document.createElement("p");
+        p.className = "m";
+        p.textContent = "Sin plaza, en lista de espera: " + espera.join(", ") + ".";
+        box.appendChild(p);
+      }
+    } catch (y) {
+      err.textContent = "No se pudo completar. Inténtalo de nuevo.";
+      ok.disabled = false;
+    }
+  };
+}
+
+async function cancel(e, b, err) {
+  if (!confirm("¿Cancelar tu inscripción?")) return;
   b.disabled = true;
   err.textContent = "";
   try {
-    const r = await fetch("/api/events/" + e.id + "/register", { method: join ? "POST" : "DELETE" });
+    const r = await fetch("/api/events/" + e.id + "/register", { method: "DELETE" });
     const d = await r.json().catch(() => ({}));
     if (r.status === 401) { mine = null; show(e); return; }
     if (!r.ok) { err.textContent = d.error || "No se pudo completar. Inténtalo de nuevo."; b.disabled = false; return; }
     e.inscritos = d.inscritos;
     e.en_espera = d.en_espera;
-    if (d.status) mine.set(e.id, { status: d.status, posicion: d.posicion });
-    else mine.delete(e.id);
+    mine.delete(e.id);
     show(e);
   } catch (x) {
     err.textContent = "No se pudo completar. Inténtalo de nuevo.";
     b.disabled = false;
   }
+}
+
+function reloadMine() {
+  return fetch("/api/my-registrations").then((r) => (r.ok ? r.json() : null)).then((d) => {
+    mine = d ? new Map(d.map((x) => [x.id, x])) : null;
+  }).catch(() => { mine = null; });
 }
 
 $("chips").onclick = (x) => {
@@ -186,11 +386,7 @@ $("chips").onclick = (x) => {
 $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
 
-const myRegs = fetch("/api/my-registrations").then((r) => (r.ok ? r.json() : null)).then((d) => {
-  mine = d ? new Map(d.map((x) => [x.id, x])) : null;
-}).catch(() => { mine = null; });
-
-Promise.all([fetch("/api/events").then((r) => r.json()), myRegs]).then(([d]) => {
+Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine()]).then(([d]) => {
   ev = d;
   const now = new Date().toISOString().slice(0, 16);
   const next = ev.find((e) => e.starts_at >= now);

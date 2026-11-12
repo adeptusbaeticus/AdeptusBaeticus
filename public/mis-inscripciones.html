@@ -72,6 +72,13 @@ function section(box, title, items, future) {
     else if (r.status === "inscrito") st = el("div", "st ok", "Inscrito");
     else st = el("div", "st w", "Lista de espera" + (r.posicion ? " · posición " + r.posicion : ""));
     info.appendChild(st);
+    const det = [];
+    if (r.plan) det.push(r.plan);
+    if (r.companeros && r.companeros.length) det.push("Compañero: " + r.companeros.join(", "));
+    if (r.rivales && r.rivales.length) det.push((r.activity === "necromunda" ? "Participantes: " : "Rival: ") + r.rivales.join(", "));
+    if (r.looking) det.push("Buscando rival");
+    if (r.inscrito_por) det.push("Te inscribió " + r.inscrito_por);
+    if (det.length) info.appendChild(el("div", "m", det.join(" · ")));
     row.appendChild(info);
     if (future && r.event_status !== "cancelado") {
       const acts = el("div");
