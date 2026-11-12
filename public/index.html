@@ -32,7 +32,6 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .post p{margin:0;color:#CFC9BA;font-size:15px}
 .ft{border-top:1px solid #2C3036;padding:32px 0 40px;color:#A8A293;font-size:14px}
 .lg{height:44px;width:auto;border-radius:6px;display:block}
-.post h3{font:600 20px/1.3 Inter,sans-serif;margin:10px 0 8px;color:#ECE7DC}
 .md{color:#CFC9BA;font-size:15px;overflow-wrap:anywhere}
 .md.corto{max-height:13.5em;overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
 .md p{margin:0 0 10px}
@@ -46,6 +45,12 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .md small{display:block;color:#A8A293;font-size:13px}
 .md .sp{background:#2C3036;color:transparent;border-radius:4px;cursor:pointer}
 .md .sp.v{color:inherit}
+/* Noticia destacada: imagen a la izquierda y texto a la derecha (apilado en móvil). */
+.destacada{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:48px;border-color:#D9B25A}
+.destacada .ph{flex:1 1 320px;height:auto;min-height:220px;max-height:420px;margin:0}
+.destacada .cuerpo{flex:1 1 360px;min-width:0}
+.destacada h3{font:700 26px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
+.aviso{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#15171A;background:#D9B25A;border-radius:999px;padding:3px 12px;margin-right:8px}
 .mas{background:none;border:0;color:#D9B25A;font:600 14px Inter,sans-serif;cursor:pointer;padding:8px 0;min-height:44px}
 </style>
 </head>
@@ -65,8 +70,12 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
     <h1>Club de Warhammer 40.000 en Málaga</h1>
     <p class="lead">Club gratuito para noveles. Quedada el primer sábado de cada mes en 2d6 Store.</p>
   </div>
-  <h2>Noticias del club</h2>
-  <div class="grid" id="posts"><span class="m">Cargando noticias...</span></div>
+  <section id="noticias" hidden>
+    <h2>Noticias del club</h2>
+    <div id="noticia"></div>
+  </section>
+  <h2>Últimas entradas del blog</h2>
+  <div class="grid" id="posts"><span class="m">Cargando entradas...</span></div>
   <div class="ft">Adeptus Baeticus</div>
 </div>
 <script>
@@ -154,49 +163,92 @@ function markdown(src, box) {
   }
 }
 
+// Noticia destacada: el último post publicado desde Discord.
 fetch("/api/posts")
   .then((r) => (r.ok ? r.json() : Promise.reject()))
   .then((posts) => {
+    const p = posts[0];
+    if (!p) return;
+    const box = document.getElementById("noticia");
+    const art = document.createElement("article");
+    art.className = "card destacada";
+    const ph = document.createElement("div");
+    ph.className = "ph";
+    if (p.image_url && p.image_url.startsWith("https://")) {
+      const im = document.createElement("img");
+      im.src = p.image_url; im.alt = "";
+      ph.appendChild(im);
+    }
+    const cuerpo = document.createElement("div");
+    cuerpo.className = "cuerpo";
+    const av = document.createElement("span");
+    av.className = "aviso"; av.textContent = "Importante";
+    const d = document.createElement("span");
+    d.className = "m"; d.textContent = fmt(p.created_at) + " · " + p.autor;
+    const h = document.createElement("h3");
+    h.textContent = p.titulo;
+    const md = document.createElement("div");
+    md.className = "md";
+    markdown(p.descripcion, md);
+    cuerpo.append(av, d, h, md);
+    art.append(ph, cuerpo);
+    box.appendChild(art);
+    document.getElementById("noticias").hidden = false;
+    // Las descripciones muy largas se recortan con «Leer más».
+    if (md.scrollHeight > 320) {
+      md.classList.add("corto");
+      md.style.maxHeight = "18em";
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "mas"; b.textContent = "Leer más";
+      b.setAttribute("aria-expanded", "false");
+      b.onclick = () => {
+        const abierto = md.classList.toggle("corto") === false;
+        md.style.maxHeight = abierto ? "" : "18em";
+        b.textContent = abierto ? "Leer menos" : "Leer más";
+        b.setAttribute("aria-expanded", String(abierto));
+      };
+      cuerpo.appendChild(b);
+    }
+  })
+  .catch(() => {});
+
+// Últimas entradas del blog (Blogspot).
+fetch("/api/blog")
+  .then((r) => r.json())
+  .then((posts) => {
     grid.textContent = "";
-    if (!posts.length) { grid.textContent = "Todavía no hay noticias publicadas."; return; }
-    posts.slice(0, 6).forEach((p) => {
+    if (!posts.length) { grid.textContent = "No se han podido cargar las entradas."; return; }
+    posts.slice(0, 8).forEach((p) => {
       const art = document.createElement("article");
       art.className = "card post";
       const ph = document.createElement("div");
       ph.className = "ph";
-      if (p.image_url && p.image_url.startsWith("https://")) {
+      if (p.image && p.image.startsWith("http")) {
         const im = document.createElement("img");
-        im.src = p.image_url; im.alt = ""; im.loading = "lazy";
+        im.src = p.image; im.alt = ""; im.loading = "lazy";
         ph.appendChild(im);
       }
       art.appendChild(ph);
+      if (p.tag) {
+        const t = document.createElement("span");
+        t.className = "tag"; t.textContent = p.tag;
+        art.appendChild(t); art.appendChild(document.createTextNode(" "));
+      }
       const d = document.createElement("span");
-      d.className = "m"; d.textContent = fmt(p.created_at) + " · " + p.autor;
+      d.className = "m"; d.textContent = new Date(p.date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
       art.appendChild(d);
       const h = document.createElement("h3");
-      h.textContent = p.titulo;
-      art.appendChild(h);
-      const md = document.createElement("div");
-      md.className = "md";
-      markdown(p.descripcion, md);
-      art.appendChild(md);
+      const a = document.createElement("a");
+      a.textContent = p.title;
+      if (p.url && p.url.startsWith("http")) a.href = p.url;
+      h.appendChild(a); art.appendChild(h);
+      const ex = document.createElement("p");
+      ex.textContent = p.excerpt;
+      art.appendChild(ex);
       grid.appendChild(art);
-      // Las descripciones largas se recortan con «Leer más».
-      if (md.scrollHeight > 230) {
-        md.classList.add("corto");
-        const b = document.createElement("button");
-        b.type = "button"; b.className = "mas"; b.textContent = "Leer más";
-        b.setAttribute("aria-expanded", "false");
-        b.onclick = () => {
-          const abierto = md.classList.toggle("corto") === false;
-          b.textContent = abierto ? "Leer menos" : "Leer más";
-          b.setAttribute("aria-expanded", String(abierto));
-        };
-        art.appendChild(b);
-      }
     });
   })
-  .catch(() => { grid.textContent = "No se han podido cargar las noticias."; });
+  .catch(() => { grid.textContent = "No se han podido cargar las entradas."; });
 </script>
 <script src="/auth.js"></script>
 </body>

@@ -1,4 +1,4 @@
-const FEED = "https://adeptus-baeticus.blogspot.com/feeds/posts/default?alt=json&max-results=6";
+const FEED = "https://adeptus-baeticus.blogspot.com/feeds/posts/default?alt=json&max-results=8";
 const COOKIE = "ab_session";
 const MAX_AGE = 3 * 24 * 3600;
 const enc = new TextEncoder();
