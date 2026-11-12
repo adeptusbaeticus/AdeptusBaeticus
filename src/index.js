@@ -218,6 +218,86 @@ const STATE_SQL = `CASE WHEN e.capacity IS NULL
   OR (SELECT COUNT(*) FROM registrations x WHERE x.event_id=e.id AND x.status='inscrito') < e.capacity
   THEN 'inscrito' ELSE 'espera' END`;
 
+// ===== Partidas: un socio busca partida y otros se unen =====
+
+// Días que quedan de la semana en curso (de hoy al domingo), "YYYY-MM-DD", hora de Madrid.
+function weekDays(now) {
+  const d = new Date(now.slice(0, 10) + "T00:00:00Z");
+  const dow = (d.getUTCDay() + 6) % 7; // 0 = lunes
+  const out = [];
+  for (let i = 0; i <= 6 - dow; i++) {
+    const x = new Date(d);
+    x.setUTCDate(d.getUTCDate() + i);
+    out.push(x.toISOString().slice(0, 10));
+  }
+  return out;
+}
+const HORA = /^([01]\d|2[0-3]):00$/;
+
+// Valida el formulario de "Buscar partida". Devuelve { error } o los datos a guardar.
+function parsePartida(b, now) {
+  const plan = parsePlan({ ...b, teammates: [], rivals: [] }, "");
+  if (plan.error) return plan;
+  if (plan.activity === "ver" || plan.activity === "pintar") return { error: "Elige una modalidad de juego" };
+  let ta = 1, tb = 1;
+  if (plan.activity === "necromunda") {
+    if (plan.players < 2) return { error: "En Necromunda hacen falta al menos 2 participantes" };
+    tb = plan.players - 1;
+  } else if (plan.format === "2v2") { ta = 2; tb = 2; }
+  else if (plan.format === "1v2") { if (b.side === "pareja") ta = 2; else tb = 2; }
+  const days = weekDays(now), today = now.slice(0, 10), hour = now.slice(11);
+  const seen = new Set(), availability = [];
+  for (const x of Array.isArray(b.availability) ? b.availability : []) {
+    const date = String((x && x.date) || ""), from = String((x && x.from) || ""), to = String((x && x.to) || "");
+    if (!days.includes(date) || seen.has(date) || !HORA.test(from) || !HORA.test(to) || from >= to) {
+      return { error: "Revisa los días y las horas" };
+    }
+    if (date === today && to <= hour) return { error: "Las horas que has marcado para hoy ya han pasado" };
+    seen.add(date);
+    availability.push({ date, from, to });
+  }
+  if (!availability.length) return { error: "Marca al menos un día con sus horas" };
+  availability.sort((x, y) => (x.date < y.date ? -1 : 1));
+  return { ...plan, team_a: ta, team_b: tb, availability };
+}
+
+// ¿Está `slot` ("YYYY-MM-DDTHH:MM") dentro de la disponibilidad?
+const inAvailability = (av, slot) =>
+  /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):00$/.test(slot) &&
+  av.some((x) => x.date === slot.slice(0, 10) && slot.slice(11) >= x.from && slot.slice(11) < x.to);
+
+// Primera mesa libre (1-5): ocupada si otra partida completa empieza a menos de 3 horas.
+const MESA_SQL = `(SELECT n FROM (SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
+  WHERE n NOT IN (SELECT q.mesa FROM partidas q WHERE q.id<>partidas.id AND q.status='completa' AND q.mesa IS NOT NULL
+    AND abs(julianday(q.starts_at) - julianday(partidas.starts_at)) * 24 < 3)
+  ORDER BY n LIMIT 1)`;
+
+// Partidas recientes (o una) con sus jugadores, vistas por el usuario `uid`.
+async function listPartidas(env, uid, id) {
+  const where = "p.status<>'cancelada' AND p.last_day>=date('now','-60 days')" + (id ? " AND p.id=?1" : "");
+  const args = id ? [id] : [];
+  const ps = await env.DB.prepare(
+    `SELECT p.*, u.name AS organiza FROM partidas p JOIN users u ON u.discord_id=p.created_by WHERE ${where} ORDER BY p.id`
+  ).bind(...args).all();
+  const js = await env.DB.prepare(
+    `SELECT j.partida_id, j.side, j.discord_id, u.name FROM partida_players j
+     JOIN partidas p ON p.id=j.partida_id JOIN users u ON u.discord_id=j.discord_id
+     WHERE ${where} ORDER BY j.created_at, j.rowid`
+  ).bind(...args).all();
+  return ps.results.map((p) => {
+    const jug = js.results.filter((j) => j.partida_id === p.id);
+    return {
+      id: p.id, activity: p.activity, format: p.format, players: p.players, plan: planText(p),
+      organiza: p.organiza, availability: JSON.parse(p.availability), starts_at: p.starts_at,
+      last_day: p.last_day, mesa: p.mesa, status: p.status, team_a: p.team_a, team_b: p.team_b,
+      jugadores: jug.map((j) => ({ name: j.name, side: j.side, yo: j.discord_id === uid })),
+      faltan: Math.max(0, p.team_a + p.team_b - jug.length),
+      mia: p.created_by === uid,
+      dentro: jug.some((j) => j.discord_id === uid),
+    };
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -508,6 +588,104 @@ export default {
       if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
       const list = (await openEntries(env, Number(lkm[1]))).filter((g) => g.join !== s.id && g.faltan > 0);
       return Response.json(list, { headers: { ...noStore, vary: "cookie" } });
+    }
+
+    // Partidas (requiere sesión: se ven nombres de socios).
+    if (path === "/api/partidas" || path.startsWith("/api/partidas/")) {
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (request.method !== "GET" && !sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      const fail = (error, status) => Response.json({ error }, { status, headers: noStore });
+      const ok = (data) => Response.json(data, { headers: { ...noStore, vary: "cookie" } });
+      const body = async () => {
+        if (!(request.headers.get("content-type") || "").includes("application/json")) return null;
+        try { return (await request.json()) || {}; } catch (x) { return null; }
+      };
+      const now = nowLocal();
+
+      if (path === "/api/partidas") {
+        if (request.method === "GET") return ok(await listPartidas(env, s.id));
+        if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+        const b = await body();
+        if (!b) return fail("JSON no válido", 400);
+        const p = parsePartida(b, now);
+        if (p.error) return fail(p.error, 400);
+        const n = await env.DB.prepare(
+          "SELECT COUNT(*) AS n FROM partidas WHERE created_by=?1 AND status<>'cancelada' AND last_day>=?2"
+        ).bind(s.id, now.slice(0, 10)).first();
+        if (n.n >= 5) return fail("Ya tienes 5 partidas abiertas", 409);
+        const r = await env.DB.prepare(
+          `INSERT INTO partidas (created_by,activity,format,players,team_a,team_b,availability,last_day)
+           VALUES (?1,?2,?3,?4,?5,?6,?7,?8)`
+        ).bind(s.id, p.activity, p.format, p.players, p.team_a, p.team_b, JSON.stringify(p.availability),
+          p.availability[p.availability.length - 1].date).run();
+        const id = r.meta.last_row_id;
+        await env.DB.prepare("INSERT INTO partida_players (partida_id,discord_id,side) VALUES (?1,?2,'A')").bind(id, s.id).run();
+        return ok((await listPartidas(env, s.id, id))[0]);
+      }
+
+      const pm = path.match(/^\/api\/partidas\/(\d+)(\/join)?$/);
+      if (!pm) return new Response("No encontrado", { status: 404 });
+      const pid = Number(pm[1]);
+      const p = await env.DB.prepare("SELECT * FROM partidas WHERE id=?1").bind(pid).first();
+      if (!p || p.status === "cancelada") return fail("La partida ya no existe", 404);
+
+      // Retirar la partida (quien la organiza o un admin).
+      if (!pm[2]) {
+        if (request.method !== "DELETE") return new Response("Método no permitido", { status: 405 });
+        if (p.created_by !== s.id && s.role !== "admin") return fail("Solo quien organiza puede retirarla", 403);
+        await env.DB.prepare("UPDATE partidas SET status='cancelada', mesa=NULL WHERE id=?1").bind(pid).run();
+        return ok({ ok: true });
+      }
+
+      if (request.method === "POST") {
+        if (p.status !== "abierta") return fail("La partida ya está completa", 409);
+        const b = (await body()) || {};
+        const slot = p.starts_at || String(b.slot || "");
+        if (!p.starts_at && !inAvailability(JSON.parse(p.availability), slot)) return fail("Elige un día y una hora de los que se ofrecen", 400);
+        if (slot <= now) return fail("Esa hora ya ha pasado", 409);
+        const { results: js } = await env.DB.prepare("SELECT discord_id, side FROM partida_players WHERE partida_id=?1").bind(pid).all();
+        if (js.some((j) => j.discord_id === s.id)) return fail("Ya estás en esta partida", 409);
+        const a = js.filter((j) => j.side === "A").length, bb = js.length - a;
+        const side = bb < p.team_b ? "B" : a < p.team_a ? "A" : null;
+        if (!side) return fail("La partida ya está completa", 409);
+        const [ins] = await env.DB.batch([
+          // El hueco se comprueba dentro del INSERT para que dos personas no ocupen el mismo.
+          env.DB.prepare(
+            `INSERT INTO partida_players (partida_id,discord_id,side)
+             SELECT ?1, ?2, ?3 WHERE EXISTS (SELECT 1 FROM partidas WHERE id=?1 AND status='abierta')
+               AND (SELECT COUNT(*) FROM partida_players WHERE partida_id=?1 AND side=?3) < ?4
+             ON CONFLICT DO NOTHING`
+          ).bind(pid, s.id, side, side === "A" ? p.team_a : p.team_b),
+          env.DB.prepare(
+            `UPDATE partidas SET starts_at=?2 WHERE id=?1 AND starts_at IS NULL
+               AND EXISTS (SELECT 1 FROM partida_players WHERE partida_id=?1 AND discord_id=?3)`
+          ).bind(pid, slot, s.id),
+          env.DB.prepare(
+            `UPDATE partidas SET status='completa', mesa=${MESA_SQL}
+             WHERE id=?1 AND status='abierta' AND (SELECT COUNT(*) FROM partida_players WHERE partida_id=?1) >= team_a + team_b`
+          ).bind(pid),
+        ]);
+        if (!ins.meta.changes) return fail("Alguien ha ocupado el hueco antes. Vuelve a intentarlo.", 409);
+        return ok((await listPartidas(env, s.id, pid))[0]);
+      }
+
+      if (request.method === "DELETE") {
+        if (p.created_by === s.id) return fail("Organizas esta partida: usa «Retirar partida»", 400);
+        if (p.starts_at && p.starts_at <= now) return fail("La partida ya ha empezado", 409);
+        const [del] = await env.DB.batch([
+          env.DB.prepare("DELETE FROM partida_players WHERE partida_id=?1 AND discord_id=?2").bind(pid, s.id),
+          // Si estaba completa, se vuelve a abrir y se libera la mesa.
+          env.DB.prepare("UPDATE partidas SET status='abierta', mesa=NULL WHERE id=?1 AND status='completa'").bind(pid),
+          // Si solo queda quien organiza, se vuelve a ofrecer toda su disponibilidad.
+          env.DB.prepare(
+            "UPDATE partidas SET starts_at=NULL WHERE id=?1 AND (SELECT COUNT(*) FROM partida_players WHERE partida_id=?1) <= 1"
+          ).bind(pid),
+        ]);
+        if (!del.meta.changes) return fail("No estabas en esta partida", 404);
+        return ok((await listPartidas(env, s.id, pid))[0]);
+      }
+      return new Response("Método no permitido", { status: 405 });
     }
 
     // Socios para elegir compañero o rival (solo nombre; requiere sesión).

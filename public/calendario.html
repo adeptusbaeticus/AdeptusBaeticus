@@ -31,8 +31,20 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
 .d{min-height:92px;background:#1F2328;border-radius:8px;padding:8px;font-size:14px}
 .d.n{background:#181B1F}
 .e{display:block;width:100%;border:0;text-align:left;cursor:pointer;font:600 12px Inter,sans-serif;border-radius:6px;padding:3px 6px;margin-top:6px}
-.q{background:#D9B25A;color:#15171A}
-.t2{background:#A3211B;color:#fff}
+/* Claro: abierto. Oscuro: completo o cerrado. */
+.q{background:#F0CE82;color:#15171A}.q.x{background:#8A6416;color:#fff}
+.t2{background:#F08A82;color:#15171A}.t2.x{background:#7A1712;color:#fff}
+.pt{background:#A8E0A0;color:#15171A}.pt.x{background:#2F6B2A;color:#fff}
+.ley{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:#A8A293}
+.ley span{display:inline-flex;align-items:center;gap:6px}
+.ley i{display:inline-block;width:14px;height:14px;border-radius:4px}
+.disp{margin:0 0 8px;padding-left:20px}
+.dia{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.dia .rad{text-transform:capitalize;min-width:130px}
+.hh{display:flex;align-items:center;gap:6px;color:#A8A293}
+.hh select{width:auto;min-height:40px;padding:6px 8px}
+.hh select:disabled{opacity:.45}
+.fld input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
 .card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
 .card h3{font:700 22px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
@@ -65,6 +77,8 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
       <button class="chip on" data-f="todos">Todos</button>
       <button class="chip" data-f="quedada">Quedadas</button>
       <button class="chip" data-f="torneo">Torneos</button>
+      <button class="chip" data-f="partida" id="chp" hidden>Partidas</button>
+      <button class="btn" id="bp" type="button" hidden style="margin:0">Buscar partida</button>
     </div>
     <div class="row">
       <button class="nv" id="prev" aria-label="Mes anterior">‹</button>
@@ -73,7 +87,12 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
     </div>
   </div>
   <div class="lay">
-    <div class="a"><div class="cal"><div class="g" id="g"></div></div></div>
+    <div class="a"><div class="cal"><div class="g" id="g"></div></div>
+      <div class="ley" aria-label="Leyenda">
+        <span><i class="q"></i>Quedada</span><span><i class="t2"></i>Torneo</span><span><i class="pt"></i>Partida</span>
+        <span>Color claro: abierto · oscuro: completo o cerrado</span>
+      </div>
+    </div>
     <div class="b"><div class="card" id="det"><p class="m">Selecciona un evento del calendario.</p></div></div>
   </div>
 </div>
@@ -104,14 +123,25 @@ function render() {
     cell.className = "d";
     cell.appendChild(document.createTextNode(d));
     const key = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+    const now = localNow();
     ev.filter((e) => (filtro === "todos" || e.type === filtro) && e.starts_at.startsWith(key))
       .forEach((e) => {
         const b = document.createElement("button");
-        b.className = "e " + (e.type === "torneo" ? "t2" : "q");
+        const llena = e.type === "quedada" && e.capacity && (e.inscritos || 0) >= e.capacity;
+        b.className = "e " + (e.type === "torneo" ? "t2" : "q") + (llena || e.starts_at <= now ? " x" : "");
         b.textContent = e.title;
         b.onclick = () => show(e);
         cell.appendChild(b);
       });
+    if (filtro === "todos" || filtro === "partida") {
+      partidas.filter((p) => partidaDias(p).includes(key)).forEach((p) => {
+        const b = document.createElement("button");
+        b.className = "e pt" + (p.status === "completa" || partidaCerrada(p) ? " x" : "");
+        b.textContent = CORTO[p.activity] + " · " + p.organiza;
+        b.onclick = () => showPartida(p);
+        cell.appendChild(b);
+      });
+    }
     g.appendChild(cell);
   }
 }
@@ -424,6 +454,248 @@ function reloadMine() {
   }).catch(() => { mine = null; });
 }
 
+// ===== Partidas =====
+let partidas = [];
+const CORTO = { combat_patrol: "Combat Patrol", "40k_1000": "40k a 1k", "40k_2000": "40k a 2k", necromunda: "Necromunda", bloodbowl: "Blood Bowl" };
+const JUEGOS = ACTS.filter(([v]) => v !== "ver" && v !== "pintar");
+
+// Hora local del navegador con el formato de starts_at (el servidor valida con la hora de Madrid).
+function localNow() {
+  const t = new Date();
+  t.setMinutes(t.getMinutes() - t.getTimezoneOffset());
+  return t.toISOString().slice(0, 16);
+}
+
+function partidaTitulo(p) {
+  let t = CORTO[p.activity] || p.activity;
+  if (p.activity === "necromunda") t += " · " + p.players + " participantes";
+  else if (p.activity === "combat_patrol" || p.activity === "40k_1000") t += " · " + p.format.replace("v", "vs");
+  return t;
+}
+
+// Días en los que aparece: el fijado o, si aún no hay fecha, todos los ofrecidos.
+const partidaDias = (p) => (p.starts_at ? [p.starts_at.slice(0, 10)] : p.availability.map((x) => x.date));
+const partidaCerrada = (p) => (p.starts_at ? p.starts_at <= localNow() : p.last_day < localNow().slice(0, 10));
+const fechaLarga = (d) => new Date(d + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+
+function showPartida(p) {
+  const box = $("det");
+  box.textContent = "";
+  const add = (tag, cls, txt) => {
+    const x = document.createElement(tag);
+    if (cls) x.className = cls;
+    x.textContent = txt;
+    box.appendChild(x);
+    return x;
+  };
+  add("span", "lb", "Partida");
+  add("h3", "", partidaTitulo(p));
+  add("p", "m", "Organiza: " + p.organiza);
+  if (p.starts_at) add("p", "", fechaLarga(p.starts_at.slice(0, 10)) + " · " + p.starts_at.slice(11, 16));
+  else {
+    add("p", "", "Puede jugar:");
+    const ul = document.createElement("ul");
+    ul.className = "disp";
+    p.availability.forEach((x) => {
+      const li = document.createElement("li");
+      li.textContent = fechaLarga(x.date) + " · de " + x.from + " a " + x.to;
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+  }
+
+  // Jugadores por bando, con los huecos libres.
+  const names = (side, total) => {
+    const xs = p.jugadores.filter((j) => j.side === side).map((j) => j.name + (j.yo ? " (tú)" : ""));
+    while (xs.length < total) xs.push("hueco libre");
+    return xs;
+  };
+  if (p.activity === "necromunda") add("p", "", "Participantes: " + names("A", p.team_a).concat(names("B", p.team_b)).join(", "));
+  else add("p", "", names("A", p.team_a).join(" y ") + " contra " + names("B", p.team_b).join(" y "));
+
+  const cerrada = partidaCerrada(p);
+  if (p.status === "completa") add("p", "ok", "Completa · " + (p.mesa ? "Mesa " + p.mesa : "sin mesa libre: avisa a un admin"));
+  else if (!cerrada) add("p", "m", "Abierta · falta" + (p.faltan > 1 ? "n " : " ") + p.faltan + " jugador" + (p.faltan > 1 ? "es" : ""));
+  if (cerrada) { add("p", "m", "La partida está cerrada."); return; }
+
+  const err = document.createElement("div");
+  err.className = "err";
+  const act = async (method, url, body, confirmTxt) => {
+    if (confirmTxt && !confirm(confirmTxt)) return;
+    err.textContent = "";
+    box.querySelectorAll("button").forEach((x) => { x.disabled = true; });
+    try {
+      const r = await fetch(url, {
+        method,
+        headers: body ? { "content-type": "application/json" } : {},
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        err.textContent = d.error || "No se pudo completar. Inténtalo de nuevo.";
+        box.querySelectorAll("button").forEach((x) => { x.disabled = false; });
+        if (r.status === 404) { await loadPartidas(); render(); }
+        return;
+      }
+      if (d.id) { partidas = partidas.map((x) => (x.id === d.id ? d : x)); render(); showPartida(d); }
+      else { partidas = partidas.filter((x) => x.id !== p.id); render(); $("det").textContent = "Partida retirada."; }
+    } catch (x) {
+      err.textContent = "No se pudo completar. Inténtalo de nuevo.";
+      box.querySelectorAll("button").forEach((y) => { y.disabled = false; });
+    }
+  };
+  const btn = (txt, cls, fn) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = cls; b.textContent = txt; b.onclick = fn;
+    box.appendChild(b);
+    return b;
+  };
+
+  if (p.mia) btn("Retirar partida", "btn alt", () => act("DELETE", "/api/partidas/" + p.id, null, "¿Retirar esta partida? Desaparecerá del calendario para todos."));
+  else if (p.dentro) btn("Salir de la partida", "btn alt", () => act("DELETE", "/api/partidas/" + p.id + "/join", null, "¿Salir de esta partida?"));
+  else if (p.status === "abierta") {
+    let slot = null;
+    if (!p.starts_at) {
+      // Elegir día y hora de entre los ofrecidos (solo los que aún no han pasado).
+      const now = localNow();
+      const opciones = [];
+      p.availability.forEach((x) => {
+        for (let h = +x.from.slice(0, 2); h < +x.to.slice(0, 2); h++) {
+          const v = x.date + "T" + String(h).padStart(2, "0") + ":00";
+          if (v > now) opciones.push(v);
+        }
+      });
+      if (!opciones.length) { add("p", "m", "Ya no quedan horas disponibles."); return; }
+      const dias = [...new Set(opciones.map((v) => v.slice(0, 10)))];
+      const dSel = mkSelect("pj-dia", dias.map((d) => [d, fechaLarga(d)]));
+      const hSel = mkSelect("pj-hora", []);
+      const fillH = () => {
+        hSel.textContent = "";
+        opciones.filter((v) => v.startsWith(dSel.value)).forEach((v) => {
+          const o = document.createElement("option");
+          o.value = v; o.textContent = v.slice(11);
+          hSel.appendChild(o);
+        });
+      };
+      dSel.onchange = fillH;
+      fillH();
+      box.append(mkField("Día", dSel), mkField("Hora de inicio", hSel));
+      slot = () => hSel.value;
+    }
+    btn("Unirme", "btn", () => act("POST", "/api/partidas/" + p.id + "/join", { slot: slot ? slot() : null }));
+  } else add("p", "m", "No se admiten más jugadores salvo que alguien se caiga.");
+  box.appendChild(err);
+}
+
+// Formulario "Buscar partida": modalidad y disponibilidad en lo que queda de semana.
+function openPartidaForm() {
+  const box = $("det");
+  box.textContent = "";
+  const lb = document.createElement("span");
+  lb.className = "lb"; lb.textContent = "Buscar partida";
+  const h = document.createElement("h3");
+  h.textContent = "¿A qué quieres jugar?";
+  box.append(lb, h);
+
+  const f = document.createElement("form");
+  f.className = "fz";
+  const act = mkSelect("bp-act", [["", "— Elige una modalidad —"]].concat(JUEGOS));
+  const fmt = mkSelect("bp-fmt", [["1v1", "1vs1"], ["1v2", "1vs2"], ["2v2", "2vs2"]]);
+  const side = mkSelect("bp-side", [["solo", "Voy solo (contra 2)"], ["pareja", "Voy en pareja (contra 1)"]]);
+  const np = mkSelect("bp-np", [2, 3, 4, 5, 6, 7, 8, 9].map((x) => [String(x), String(x)]));
+  const wFmt = mkField("Formato de la partida", fmt);
+  const wSide = mkField("¿Cómo vas en el 1vs2?", side);
+  const wNp = mkField("Número de participantes (contándote a ti)", np);
+
+  // Días de hoy al domingo, cada uno con su franja horaria.
+  const days = document.createElement("fieldset");
+  days.className = "fld";
+  const lg = document.createElement("legend");
+  lg.textContent = "¿Cuándo puedes esta semana?";
+  days.appendChild(lg);
+  const hrs = (a, b) => { const o = []; for (let i = a; i <= b; i++) { const v = String(i).padStart(2, "0") + ":00"; o.push([v, v]); } return o; };
+  const t = new Date();
+  const rows = [];
+  for (let i = 0; i <= (7 - t.getDay()) % 7; i++) {
+    const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + i);
+    const iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    const r = document.createElement("div");
+    r.className = "dia";
+    const l = document.createElement("label");
+    l.className = "rad";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    l.append(cb, " " + d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric" }));
+    const from = mkSelect("bp-from-" + i, hrs(8, 22));
+    const to = mkSelect("bp-to-" + i, hrs(9, 23));
+    from.value = "17:00"; to.value = "21:00";
+    from.setAttribute("aria-label", "Desde"); to.setAttribute("aria-label", "Hasta");
+    const span = document.createElement("span");
+    span.className = "hh";
+    span.append(from, " a ", to);
+    const sync = () => { from.disabled = to.disabled = !cb.checked; };
+    cb.onchange = sync;
+    sync();
+    r.append(l, span);
+    days.appendChild(r);
+    rows.push({ iso, cb, from, to });
+  }
+
+  const err = document.createElement("div");
+  err.className = "err";
+  const ok = document.createElement("button");
+  ok.type = "submit"; ok.className = "btn"; ok.textContent = "Publicar partida";
+  const back = document.createElement("button");
+  back.type = "button"; back.className = "btn alt"; back.textContent = "Volver";
+  back.onclick = () => { $("det").textContent = "Selecciona un evento del calendario."; };
+  const acts = document.createElement("div");
+  acts.className = "row";
+  acts.append(ok, back);
+  f.append(mkField("Modalidad", act), wFmt, wSide, wNp, days, err, acts);
+  box.appendChild(f);
+
+  const update = () => {
+    const a = act.value;
+    wFmt.hidden = !(a === "combat_patrol" || a === "40k_1000");
+    wSide.hidden = wFmt.hidden || fmt.value !== "1v2";
+    wNp.hidden = a !== "necromunda";
+  };
+  act.onchange = fmt.onchange = update;
+  update();
+  act.focus();
+
+  f.onsubmit = async (x) => {
+    x.preventDefault();
+    err.textContent = "";
+    if (!act.value) { err.textContent = "Elige una modalidad."; return; }
+    const availability = rows.filter((r) => r.cb.checked).map((r) => ({ date: r.iso, from: r.from.value, to: r.to.value }));
+    if (!availability.length) { err.textContent = "Marca al menos un día."; return; }
+    if (availability.some((r) => r.from >= r.to)) { err.textContent = "En cada día, la hora de fin debe ser posterior a la de inicio."; return; }
+    ok.disabled = true;
+    try {
+      const r = await fetch("/api/partidas", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ activity: act.value, format: fmt.value, side: side.value, players: Number(np.value), availability }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { err.textContent = d.error || "No se pudo publicar. Inténtalo de nuevo."; ok.disabled = false; return; }
+      partidas.push(d);
+      const first = partidaDias(d)[0];
+      y = +first.slice(0, 4); m = +first.slice(5, 7) - 1;
+      render();
+      showPartida(d);
+    } catch (y2) {
+      err.textContent = "No se pudo publicar. Inténtalo de nuevo.";
+      ok.disabled = false;
+    }
+  };
+}
+
+function loadPartidas() {
+  return fetch("/api/partidas").then((r) => (r.ok ? r.json() : [])).then((d) => { partidas = d; }).catch(() => { partidas = []; });
+}
+
 $("chips").onclick = (x) => {
   const f = x.target.dataset.f;
   if (!f) return;
@@ -434,7 +706,10 @@ $("chips").onclick = (x) => {
 $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
 
-Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine()]).then(([d]) => {
+$("bp").onclick = openPartidaForm;
+
+Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine().then(() => (mine ? loadPartidas() : null))]).then(([d]) => {
+  if (mine) $("bp").hidden = $("chp").hidden = false;
   ev = d;
   const now = new Date().toISOString().slice(0, 16);
   const next = ev.find((e) => e.starts_at >= now);
