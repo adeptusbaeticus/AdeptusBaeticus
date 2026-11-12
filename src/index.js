@@ -442,21 +442,27 @@ export default {
       if (e.starts_at <= now) {
         return Response.json({ error: "El evento ya ha empezado" }, { status: 409, headers: noStore });
       }
-      // Si tenía partida, el resto baja de formato (2vs2 → 1vs2 → 1vs1; Necromunda, menos
-      // participantes). Si solo queda uno, se deshace la partida y vuelve a buscar rival.
+      // Si tenía partida, el resto baja de formato (2vs2 → 1vs2 → 1vs1, también si se va quien
+      // iba solo en un 1vs2; Necromunda, menos participantes). Si solo queda uno, se deshace la
+      // partida y vuelve a buscar rival.
       const fix = [];
       const mine = await env.DB.prepare("SELECT match_id FROM registrations WHERE event_id=?1 AND discord_id=?2").bind(eventId, s.id).first();
       if (mine && mine.match_id) {
         const mid = mine.match_id;
         const m = await env.DB.prepare("SELECT activity, format, players FROM matches WHERE id=?1").bind(mid).first();
-        const rest = (await env.DB.prepare("SELECT side FROM registrations WHERE match_id=?1 AND discord_id<>?2").bind(mid, s.id).all()).results;
+        const rest = (await env.DB.prepare("SELECT id, side FROM registrations WHERE match_id=?1 AND discord_id<>?2 ORDER BY id").bind(mid, s.id).all()).results;
         const a = rest.filter((x) => x.side === "A").length, bb = rest.length - a;
         let set = null;
         if (rest.length <= 1) {
           fix.push(env.DB.prepare("UPDATE registrations SET match_id=NULL, side=NULL, looking=1 WHERE match_id=?1 AND discord_id<>?2").bind(mid, s.id));
         } else if (m && m.activity === "necromunda") set = { format: null, players: rest.length, looking: 0 };
         else if (a && bb) set = { format: shapeFormat(a, bb), players: null, looking: 0 };
-        else set = { format: m ? m.format : null, players: null, looking: 1 }; // una pareja sin rivales
+        else {
+          // Se va quien iba solo en un 1vs2: la pareja que queda pasa a jugar un 1vs1 entre sí.
+          set = { format: "1v1", players: null, looking: 0 };
+          fix.push(env.DB.prepare("UPDATE registrations SET side=CASE WHEN id=?1 THEN 'A' ELSE 'B' END WHERE match_id=?2 AND discord_id<>?3")
+            .bind(rest[0].id, mid, s.id));
+        }
         if (set) {
           fix.push(env.DB.prepare("UPDATE registrations SET format=?1, players=?2, looking=?3 WHERE match_id=?4 AND discord_id<>?5")
             .bind(set.format, set.players, set.looking, mid, s.id));
