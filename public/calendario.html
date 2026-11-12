@@ -45,6 +45,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
     <nav class="menu"><a href="/">Inicio</a><a class="on" href="/calendario.html">Calendario</a><a href="https://adeptus-baeticus.blogspot.com">Blog</a></nav>
+    <span id="auth"></span>
   </div>
   <div class="top">
     <h1>Calendario</h1>
@@ -139,5 +140,6 @@ fetch("/api/events").then((r) => r.json()).then((d) => {
 }).catch(() => render());
 render();
 </script>
+<script src="/auth.js"></script>
 </body>
 </html>
