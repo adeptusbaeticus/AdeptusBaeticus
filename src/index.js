@@ -344,6 +344,18 @@ const DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "añadir-post", description: "Publica un post en la web (imagen, título y descripción). Solo admins",
+    options: [{ type: 11, name: "imagen", description: "Imagen del post (PNG, JPG, GIF o WEBP, hasta 10 MB)", required: true }],
+  },
+  {
+    name: "editar-post", description: "Edita el título y la descripción de un post de la web. Solo admins",
+    options: [{ type: 4, name: "post", description: "Escribe parte del título para buscarlo", required: true, autocomplete: true }],
+  },
+  {
+    name: "borrar-post", description: "Borra un post de la web. Solo admins",
+    options: [{ type: 4, name: "post", description: "Escribe parte del título para buscarlo", required: true, autocomplete: true }],
+  },
+  {
     name: "borrar", description: "Borra una de tus publicaciones de la web",
     options: [{ type: 4, name: "id", description: "Número de la publicación", required: true, min_value: 1 }],
   },
@@ -522,6 +534,126 @@ const urlExpira = (u) => {
   return m ? parseInt(m[1], 16) : 0;
 };
 
+// ===== Posts de Inicio: /añadir-post, /editar-post y /borrar-post en #publicaciones-post-web =====
+const CANAL_POSTS = "publicaciones-post-web";
+const CMDS_POST = ["añadir-post", "editar-post", "borrar-post", "post-nuevo", "post-editar"];
+const TIPOS_IMG = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
+
+// Ventana emergente (modal) de Discord con título y descripción de varias líneas.
+function modalPost(customId, tituloModal, p) {
+  const campo = (id, label, style, max, value, placeholder) => ({
+    type: 1,
+    components: [{ type: 4, custom_id: id, label, style, max_length: max, required: true, value: value || undefined, placeholder }],
+  });
+  return Response.json({
+    type: 9,
+    data: {
+      custom_id: customId, title: tituloModal,
+      components: [
+        campo("titulo", "Título", 1, 120, p && p.titulo, "Título del post"),
+        campo("descripcion", "Descripción (admite el formato de Discord)", 2, 4000, p && p.descripcion,
+          "Puedes usar **negrita**, *cursiva*, listas, enlaces, saltos de línea…"),
+      ],
+    },
+  });
+}
+
+// Mensaje del bot en el canal: un embed con título, descripción e imagen.
+const embedPost = (p) => ({
+  title: p.titulo, description: p.descripcion, color: 0xd9b25a,
+  image: p.image_filename ? { url: "attachment://" + p.image_filename } : undefined,
+  footer: { text: "Publicado en la web · " + p.autor },
+});
+
+// Valores de los campos de un modal enviado (formato clásico con filas y formato nuevo con etiquetas).
+const valoresModal = (it) => Object.fromEntries(
+  (it.data.components || []).flatMap((r) => r.components || (r.component ? [r.component] : [])).map((c) => [c.custom_id, c.value])
+);
+
+// Sugerencias para elegir un post escribiendo parte del título.
+async function sugerenciasPosts(env, texto) {
+  const { results } = await env.DB.prepare(
+    "SELECT id, titulo, created_at FROM posts WHERE status='publicado' AND titulo LIKE ?1 ORDER BY id DESC LIMIT 25"
+  ).bind("%" + String(texto || "").slice(0, 80) + "%").all();
+  return results.map((p) => ({ name: (p.titulo + " · " + p.created_at.slice(0, 10)).slice(0, 100), value: p.id }));
+}
+
+// Comandos de posts que no abren ventana: publicar (al enviar el modal), editar (al enviar) y borrar.
+async function runPost(env, it, uid) {
+  const cmd = it.type === 5 ? it.data.custom_id.split(":")[0] : it.data.name;
+  if (cmd === "post-nuevo") {
+    const id = Number(it.data.custom_id.split(":")[1]);
+    const p = await env.DB.prepare("SELECT * FROM posts WHERE id=?1 AND status='pendiente'").bind(id).first();
+    if (!p || p.discord_id !== uid) return "Este formulario ha caducado. Vuelve a usar /añadir-post.";
+    const v = valoresModal(it);
+    const titulo = String(v.titulo || "").trim().slice(0, 120), descripcion = String(v.descripcion || "").trim().slice(0, 4000);
+    if (!titulo || !descripcion) return "El título y la descripción son obligatorios.";
+    const img = await fetch(p.image_src);
+    if (!img.ok) return "No se pudo leer la imagen (puede que haya caducado). Vuelve a usar /añadir-post.";
+    const filename = `post-${id}.${TIPOS_IMG[p.image_tipo] || "png"}`;
+    const datos = { ...p, titulo, descripcion, image_filename: filename };
+    const fd = new FormData();
+    fd.append("payload_json", JSON.stringify({ embeds: [embedPost(datos)], allowed_mentions: { parse: [] }, attachments: [{ id: 0, filename }] }));
+    fd.append("files[0]", await img.blob(), filename);
+    const pm = await bot(env, `/channels/${p.channel_id}/messages`, { method: "POST", body: fd });
+    if (!pm.ok) return `No se pudo publicar (error ${pm.status}). Revisa que el bot pueda escribir, adjuntar archivos e insertar enlaces en #${CANAL_POSTS}.`;
+    const msg = await pm.json();
+    const a = (msg.attachments || []).find((x) => x.filename === filename) || (msg.attachments || [])[0] || {};
+    await env.DB.prepare(
+      `UPDATE posts SET titulo=?2, descripcion=?3, message_id=?4, image_filename=?5, image_url=?6, width=?7, height=?8,
+         image_src=NULL, status='publicado' WHERE id=?1`
+    ).bind(id, titulo, descripcion, msg.id, filename, a.url || null, a.width || null, a.height || null).run();
+    return `✅ Post publicado en la web: «${titulo}».`;
+  }
+
+  const id = it.type === 5 ? Number(it.data.custom_id.split(":")[1]) : Number(((it.data.options || [])[0] || {}).value);
+  const p = await env.DB.prepare("SELECT * FROM posts WHERE id=?1 AND status='publicado'").bind(id).first();
+  if (!p) return "No se encuentra ese post. Elige uno de la lista que sugiere Discord.";
+
+  if (cmd === "post-editar") {
+    const v = valoresModal(it);
+    const titulo = String(v.titulo || "").trim().slice(0, 120), descripcion = String(v.descripcion || "").trim().slice(0, 4000);
+    if (!titulo || !descripcion) return "El título y la descripción son obligatorios.";
+    if (p.message_id) {
+      const r = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ embeds: [embedPost({ ...p, titulo, descripcion })], allowed_mentions: { parse: [] } }),
+      });
+      if (!r.ok && r.status !== 404) return `No se pudo editar el mensaje en Discord (error ${r.status}).`;
+    }
+    await env.DB.prepare("UPDATE posts SET titulo=?2, descripcion=?3, updated_at=datetime('now') WHERE id=?1").bind(id, titulo, descripcion).run();
+    return `✏️ Post actualizado: «${titulo}».`;
+  }
+
+  if (cmd === "borrar-post") {
+    if (p.message_id) {
+      const r = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "DELETE" });
+      if (!r.ok && r.status !== 404) return `No se pudo borrar el mensaje en Discord (error ${r.status}).`;
+    }
+    await env.DB.prepare("DELETE FROM posts WHERE id=?1").bind(id).run();
+    return `🗑️ Post «${p.titulo}» borrado de la web y del canal.`;
+  }
+  return "Acción desconocida.";
+}
+
+// Renueva enlaces de adjuntos de Discord que caducan en menos de una hora. Devuelve original → nuevo.
+async function renovarUrls(env, urls) {
+  const map = new Map();
+  const pronto = Date.now() / 1000 + 3600;
+  const viejos = [...new Set(urls.filter((u) => u && urlExpira(u) < pronto))];
+  if (!viejos.length || !env.DISCORD_BOT_TOKEN) return map;
+  for (let i = 0; i < viejos.length; i += 50) {
+    try {
+      const r = await bot(env, "/attachments/refresh-urls", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ attachment_urls: viejos.slice(i, i + 50) }),
+      });
+      if (r.ok) ((await r.json()).refreshed_urls || []).forEach((x) => map.set(x.original, x.refreshed));
+    } catch (e) {}
+  }
+  return map;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -536,14 +668,47 @@ export default {
       try { it = JSON.parse(raw); } catch (e) { return new Response("JSON no válido", { status: 400 }); }
       if (it.type === 1) return Response.json({ type: 1 }); // PING de verificación
       const reply = (content) => Response.json({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] } } });
-      if (it.type !== 2) return reply("Acción no soportada.");
+      // 2 = comando, 4 = autocompletado, 5 = envío de una ventana (modal)
+      if (![2, 4, 5].includes(it.type)) return reply("Acción no soportada.");
+      const cmd = it.type === 5 ? String((it.data || {}).custom_id || "").split(":")[0] : (it.data || {}).name;
+      const esPost = CMDS_POST.includes(cmd);
+      const role = it.member && it.guild_id === env.GUILD_ID ? roleOf(env, it.member.roles || []) : null;
+      if (it.type === 4) {
+        // Sugerencias de posts mientras se escribe (solo para admins).
+        const foco = ((it.data.options || []).find((o) => o.focused) || {}).value;
+        const choices = esPost && role === "admin" ? await sugerenciasPosts(env, foco) : [];
+        return Response.json({ type: 8, data: { choices } });
+      }
       if (!it.member || it.guild_id !== env.GUILD_ID) return reply("Usa este comando en el servidor del club.");
-      const role = roleOf(env, it.member.roles || []);
       if (!role) return reply("Necesitas uno de los roles del club para usar este comando.");
-      if (!it.channel || it.channel.name !== CANAL_PUBLICACIONES) return reply(`Usa este comando en #${CANAL_PUBLICACIONES}.`);
+      const canal = esPost ? CANAL_POSTS : CANAL_PUBLICACIONES;
+      if (!it.channel || it.channel.name !== canal) return reply(`Usa este comando en #${canal}.`);
+      if (esPost && role !== "admin") return reply("Solo los admins pueden gestionar los posts de la web.");
       if (!env.DISCORD_BOT_TOKEN) return reply("El bot aún no está configurado. Avisa a un admin.");
       const u = it.member.user;
       const name = it.member.nick || u.global_name || u.username;
+
+      // /añadir-post y /editar-post abren una ventana con el título y la descripción (respuesta inmediata).
+      if (it.type === 2 && cmd === "añadir-post") {
+        const optImg = ((it.data.options || []).find((o) => o.name === "imagen") || {}).value;
+        const att = ((it.data.resolved || {}).attachments || {})[optImg];
+        const tipo = att && (att.content_type || "").split(";")[0];
+        if (!att || !TIPOS_IMG[tipo]) return reply("La imagen debe ser PNG, JPG, GIF o WEBP.");
+        if (att.size > MAX_FOTO) return reply("La imagen puede ocupar como máximo 10 MB.");
+        // Borradores abandonados (formularios que nunca se enviaron).
+        await env.DB.prepare("DELETE FROM posts WHERE status='pendiente' AND created_at < datetime('now','-1 day')").run();
+        const r = await env.DB.prepare(
+          "INSERT INTO posts (discord_id, autor, channel_id, image_src, image_tipo) VALUES (?1,?2,?3,?4,?5)"
+        ).bind(u.id, name, it.channel_id, att.url, tipo).run();
+        return modalPost("post-nuevo:" + r.meta.last_row_id, "Nuevo post para la web");
+      }
+      if (it.type === 2 && cmd === "editar-post") {
+        const id = Number(((it.data.options || [])[0] || {}).value);
+        const p = await env.DB.prepare("SELECT * FROM posts WHERE id=?1 AND status='publicado'").bind(id).first();
+        if (!p) return reply("No se encuentra ese post. Elige uno de la lista que sugiere Discord.");
+        return modalPost("post-editar:" + id, "Editar post", p);
+      }
+
       // Se responde enseguida («pensando…», solo visible para quien lo usa) y el trabajo sigue en segundo plano.
       const edit = (content) => fetch(`${DAPI}/webhooks/${it.application_id}/${it.token}/messages/@original`, {
         method: "PATCH", headers: { "content-type": "application/json" },
@@ -551,10 +716,26 @@ export default {
       });
       ctx.waitUntil((async () => {
         let msg;
-        try { msg = await runCommand(env, it, u.id, name, role); } catch (e) { msg = "Algo ha fallado. Inténtalo de nuevo."; }
+        try { msg = esPost ? await runPost(env, it, u.id) : await runCommand(env, it, u.id, name, role); } catch (e) { msg = "Algo ha fallado. Inténtalo de nuevo."; }
         await edit(msg);
       })());
       return Response.json({ type: 5, data: { flags: 64 } });
+    }
+
+    // Posts de Inicio (públicos), con el enlace de la imagen renovado si va a caducar.
+    if (path === "/api/posts" && request.method === "GET") {
+      const { results } = await env.DB.prepare(
+        `SELECT id, titulo, descripcion, autor, image_url, width, height, created_at, updated_at
+         FROM posts WHERE status='publicado' ORDER BY id DESC LIMIT 20`
+      ).all();
+      const map = await renovarUrls(env, results.map((r) => r.image_url));
+      const upd = [];
+      results.forEach((r) => {
+        const nu = map.get(r.image_url);
+        if (nu && nu !== r.image_url) { r.image_url = nu; upd.push(env.DB.prepare("UPDATE posts SET image_url=?2 WHERE id=?1").bind(r.id, nu)); }
+      });
+      if (upd.length) await env.DB.batch(upd);
+      return Response.json(results, { headers: noStore });
     }
 
     // Galería pública: las publicaciones, con los enlaces de imagen renovados si van a caducar.

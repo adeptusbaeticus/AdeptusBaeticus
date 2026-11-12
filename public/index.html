@@ -32,6 +32,21 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .post p{margin:0;color:#CFC9BA;font-size:15px}
 .ft{border-top:1px solid #2C3036;padding:32px 0 40px;color:#A8A293;font-size:14px}
 .lg{height:44px;width:auto;border-radius:6px;display:block}
+.post h3{font:600 20px/1.3 Inter,sans-serif;margin:10px 0 8px;color:#ECE7DC}
+.md{color:#CFC9BA;font-size:15px;overflow-wrap:anywhere}
+.md.corto{max-height:13.5em;overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
+.md p{margin:0 0 10px}
+.md h4,.md h5,.md h6{font:600 17px Inter,sans-serif;color:#ECE7DC;margin:12px 0 6px}
+.md h5{font-size:16px}.md h6{font-size:15px}
+.md ul,.md ol{margin:0 0 10px;padding-left:22px}
+.md blockquote{margin:0 0 10px;padding-left:12px;border-left:3px solid #6B6558}
+.md code{background:#15171A;border-radius:4px;padding:1px 5px;font-size:14px}
+.md pre{background:#15171A;border-radius:8px;padding:10px;overflow-x:auto;margin:0 0 10px}
+.md pre code{padding:0}
+.md small{display:block;color:#A8A293;font-size:13px}
+.md .sp{background:#2C3036;color:transparent;border-radius:4px;cursor:pointer}
+.md .sp.v{color:inherit}
+.mas{background:none;border:0;color:#D9B25A;font:600 14px Inter,sans-serif;cursor:pointer;padding:8px 0;min-height:44px}
 </style>
 </head>
 <body>
@@ -50,49 +65,138 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
     <h1>Club de Warhammer 40.000 en Málaga</h1>
     <p class="lead">Club gratuito para noveles. Quedada el primer sábado de cada mes en 2d6 Store.</p>
   </div>
-  <h2>Últimas entradas del blog</h2>
-  <div class="grid" id="posts"><span class="m">Cargando entradas...</span></div>
+  <h2>Noticias del club</h2>
+  <div class="grid" id="posts"><span class="m">Cargando noticias...</span></div>
   <div class="ft">Adeptus Baeticus</div>
 </div>
 <script>
 const grid = document.getElementById("posts");
-const fmt = (d) => new Date(d).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
-fetch("/api/blog")
-  .then((r) => r.json())
+const fmt = (d) => new Date(d.replace(" ", "T") + "Z").toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
+
+// --- Formato de Discord a elementos de la página (sin innerHTML) ---
+const RE_INLINE = /(`[^`\n]+`)|(\*\*[\s\S]+?\*\*)|(__[\s\S]+?__)|(~~[\s\S]+?~~)|(\|\|[\s\S]+?\|\|)|(\*(?!\s)[^*\n]+?\*)|(_(?!\s)[^_\n]+?_)|(\[[^\]\n]+\]\(https?:\/\/[^\s)]+\))|(https?:\/\/[^\s<>]+[^\s<>.,;:!?)\]'"])|(<a?:\w+:\d+>)|(<@[!&]?\d+>)|(<#\d+>)/g;
+
+function enlace(href, texto) {
+  const a = document.createElement("a");
+  a.href = href; a.textContent = texto; a.target = "_blank"; a.rel = "noopener noreferrer nofollow";
+  return a;
+}
+
+function inline(texto, padre) {
+  let last = 0, m;
+  RE_INLINE.lastIndex = 0;
+  const cosas = [];
+  while ((m = RE_INLINE.exec(texto))) { cosas.push([m.index, m[0]]); }
+  cosas.forEach(([i, t]) => {
+    if (i > last) padre.appendChild(document.createTextNode(texto.slice(last, i)));
+    last = i + t.length;
+    const envuelve = (tag, inner, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; inline(inner, e); padre.appendChild(e); return e; };
+    if (t[0] === "`") { const c = document.createElement("code"); c.textContent = t.slice(1, -1); padre.appendChild(c); }
+    else if (t.startsWith("**")) envuelve("strong", t.slice(2, -2));
+    else if (t.startsWith("__")) envuelve("u", t.slice(2, -2));
+    else if (t.startsWith("~~")) envuelve("s", t.slice(2, -2));
+    else if (t.startsWith("||")) { const e = envuelve("span", t.slice(2, -2), "sp"); e.title = "Spoiler: pulsa para verlo"; e.onclick = () => e.classList.add("v"); }
+    else if (t[0] === "*" || t[0] === "_") envuelve("em", t.slice(1, -1));
+    else if (t[0] === "[") { const k = t.indexOf("]("); padre.appendChild(enlace(t.slice(k + 2, -1), t.slice(1, k))); }
+    else if (t.startsWith("http")) padre.appendChild(enlace(t, t));
+    else if (t.startsWith("<:") || t.startsWith("<a:")) padre.appendChild(document.createTextNode(":" + t.split(":")[1] + ":"));
+    else if (t.startsWith("<@")) padre.appendChild(document.createTextNode("@miembro"));
+    else if (t.startsWith("<#")) padre.appendChild(document.createTextNode("#canal"));
+  });
+  if (last < texto.length) padre.appendChild(document.createTextNode(texto.slice(last)));
+}
+
+function markdown(src, box) {
+  const lines = String(src || "").replace(/\r/g, "").split("\n");
+  let i = 0, par = null;
+  const cierra = () => { par = null; };
+  while (i < lines.length) {
+    const l = lines[i];
+    if (l.startsWith("```")) {
+      cierra();
+      const code = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith("```")) code.push(lines[i++]);
+      i++;
+      const pre = document.createElement("pre"), c = document.createElement("code");
+      c.textContent = code.join("\n"); pre.appendChild(c); box.appendChild(pre);
+      continue;
+    }
+    let m;
+    if ((m = /^(#{1,3}) (.+)$/.exec(l))) {
+      cierra();
+      const h = document.createElement("h" + (m[1].length + 3)); inline(m[2], h); box.appendChild(h); i++; continue;
+    }
+    if ((m = /^-# (.+)$/.exec(l))) { cierra(); const e = document.createElement("small"); inline(m[1], e); box.appendChild(e); i++; continue; }
+    if (/^>>> /.test(l) || /^> /.test(l)) {
+      cierra();
+      const q = document.createElement("blockquote");
+      const resto = /^>>> /.test(l);
+      const qs = [];
+      if (resto) { qs.push(l.slice(4)); i++; while (i < lines.length) qs.push(lines[i++]); }
+      else while (i < lines.length && /^> ?/.test(lines[i]) && lines[i].startsWith(">")) qs.push(lines[i++].replace(/^> ?/, ""));
+      markdown(qs.join("\n"), q); box.appendChild(q); continue;
+    }
+    if (/^\s*[-*] /.test(l) || /^\s*\d+\. /.test(l)) {
+      cierra();
+      const ol = /^\s*\d+\. /.test(l);
+      const lista = document.createElement(ol ? "ol" : "ul");
+      while (i < lines.length && (ol ? /^\s*\d+\. /.test(lines[i]) : /^\s*[-*] /.test(lines[i]))) {
+        const li = document.createElement("li"); inline(lines[i].replace(/^\s*([-*]|\d+\.) /, ""), li); lista.appendChild(li); i++;
+      }
+      box.appendChild(lista); continue;
+    }
+    if (!l.trim()) { cierra(); i++; continue; }
+    if (!par) { par = document.createElement("p"); box.appendChild(par); }
+    else par.appendChild(document.createElement("br"));
+    inline(l, par);
+    i++;
+  }
+}
+
+fetch("/api/posts")
+  .then((r) => (r.ok ? r.json() : Promise.reject()))
   .then((posts) => {
     grid.textContent = "";
-    if (!posts.length) { grid.textContent = "No se han podido cargar las entradas."; return; }
+    if (!posts.length) { grid.textContent = "Todavía no hay noticias publicadas."; return; }
     posts.slice(0, 6).forEach((p) => {
       const art = document.createElement("article");
       art.className = "card post";
       const ph = document.createElement("div");
       ph.className = "ph";
-      if (p.image && p.image.startsWith("http")) {
+      if (p.image_url && p.image_url.startsWith("https://")) {
         const im = document.createElement("img");
-        im.src = p.image; im.alt = ""; im.loading = "lazy";
+        im.src = p.image_url; im.alt = ""; im.loading = "lazy";
         ph.appendChild(im);
       }
       art.appendChild(ph);
-      if (p.tag) {
-        const t = document.createElement("span");
-        t.className = "tag"; t.textContent = p.tag;
-        art.appendChild(t); art.appendChild(document.createTextNode(" "));
-      }
       const d = document.createElement("span");
-      d.className = "m"; d.textContent = fmt(p.date);
+      d.className = "m"; d.textContent = fmt(p.created_at) + " · " + p.autor;
       art.appendChild(d);
       const h = document.createElement("h3");
-      const a = document.createElement("a");
-      a.textContent = p.title;
-      if (p.url && p.url.startsWith("http")) a.href = p.url;
-      h.appendChild(a); art.appendChild(h);
-      const ex = document.createElement("p");
-      ex.textContent = p.excerpt;
-      art.appendChild(ex);
+      h.textContent = p.titulo;
+      art.appendChild(h);
+      const md = document.createElement("div");
+      md.className = "md";
+      markdown(p.descripcion, md);
+      art.appendChild(md);
       grid.appendChild(art);
+      // Las descripciones largas se recortan con «Leer más».
+      if (md.scrollHeight > 230) {
+        md.classList.add("corto");
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "mas"; b.textContent = "Leer más";
+        b.setAttribute("aria-expanded", "false");
+        b.onclick = () => {
+          const abierto = md.classList.toggle("corto") === false;
+          b.textContent = abierto ? "Leer menos" : "Leer más";
+          b.setAttribute("aria-expanded", String(abierto));
+        };
+        art.appendChild(b);
+      }
     });
   })
-  .catch(() => { grid.textContent = "No se han podido cargar las entradas."; });
+  .catch(() => { grid.textContent = "No se han podido cargar las noticias."; });
 </script>
 <script src="/auth.js"></script>
 </body>
