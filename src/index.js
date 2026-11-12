@@ -337,6 +337,13 @@ const DISCORD_COMMANDS = [
     ],
   },
   {
+    name: "añadir", description: "Añade una foto al final de una de tus publicaciones",
+    options: [
+      { type: 4, name: "id", description: "Número de la publicación", required: true, min_value: 1 },
+      { type: 11, name: "imagen", description: "Foto (PNG, JPG, GIF o WEBP, hasta 10 MB)", required: true },
+    ],
+  },
+  {
     name: "borrar", description: "Borra una de tus publicaciones de la web",
     options: [{ type: 4, name: "id", description: "Número de la publicación", required: true, min_value: 1 }],
   },
@@ -416,7 +423,7 @@ async function runCommand(env, it, uid, name, role) {
     const msg = await pm.json();
     // Mismo orden en que se adjuntaron.
     const imgs = names.map((n) => (msg.attachments || []).find((a) => a.filename === n)).filter(Boolean)
-      .map((a) => ({ url: a.url, width: a.width || null, height: a.height || null }));
+      .map((a) => ({ url: a.url, filename: a.filename, width: a.width || null, height: a.height || null }));
     const first = imgs[0] || {};
     await env.DB.prepare(
       "UPDATE publicaciones SET message_id=?2, image_url=?3, width=?4, height=?5, imagenes=?6, status='publicada', numero_discord=?7 WHERE id=?1"
@@ -444,6 +451,50 @@ async function runCommand(env, it, uid, name, role) {
     }
     await env.DB.prepare("UPDATE publicaciones SET texto=?2, numero_discord=numero, updated_at=datetime('now') WHERE id=?1").bind(p.id, texto).run();
     return `✏️ Texto de la publicación ${p.numero} actualizado.`;
+  }
+
+  if (cmd === "añadir") {
+    if (p.discord_id !== uid) return "Solo puedes añadir fotos a tus propias publicaciones.";
+    let imgs = [];
+    try { imgs = JSON.parse(p.imagenes || "[]"); } catch (e) {}
+    if (imgs.length >= 10) return `La publicación ${p.numero} ya tiene 10 fotos, que es el máximo.`;
+    const att = ((it.data.resolved || {}).attachments || {})[opt.imagen];
+    const EXT = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
+    const tipo = att && (att.content_type || "").split(";")[0];
+    if (!att || !EXT[tipo]) return "La imagen debe ser PNG, JPG, GIF o WEBP.";
+    if (att.size > MAX_FOTO) return "La foto puede ocupar como máximo 10 MB.";
+    if (!p.message_id) return "No se encuentra el mensaje de esta publicación en Discord.";
+    const img = await fetch(att.url);
+    if (!img.ok) return "No se pudo leer la imagen. Inténtalo de nuevo.";
+    const blob = await img.blob();
+    // Se conservan los adjuntos que ya tiene el mensaje (por su id) y se añade el nuevo al final.
+    const gm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`);
+    if (!gm.ok) return `No se pudo leer el mensaje de la publicación en Discord (error ${gm.status}).`;
+    const antes = (await gm.json()).attachments || [];
+    const filename = `publicacion-${p.id}-${Date.now()}.${EXT[tipo]}`;
+    const fd = new FormData();
+    fd.append("payload_json", JSON.stringify({
+      attachments: antes.map((a) => ({ id: a.id })).concat([{ id: 0, filename }]),
+    }));
+    fd.append("files[0]", blob, filename);
+    const pm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "PATCH", body: fd });
+    if (!pm.ok) {
+      return pm.status === 413 ? "La foto ocupa demasiado para Discord." : `No se pudo añadir la foto en Discord (error ${pm.status}).`;
+    }
+    const despues = (await pm.json()).attachments || [];
+    // El orden lo marca la web (no Discord): cada foto se localiza por su nombre de archivo y la nueva va al final.
+    const nombre = (u) => decodeURIComponent((String(u || "").split("?")[0].split("/").pop()) || "");
+    const usados = new Set();
+    const orden = imgs.map((im) => despues.find((d) => d.filename === (im.filename || nombre(im.url)) && !usados.has(d.id)))
+      .filter((d) => d && usados.add(d.id))
+      .concat(despues.filter((d) => !usados.has(d.id) && d.filename !== filename))
+      .concat(despues.filter((d) => d.filename === filename));
+    const nuevas = orden.map((a) => ({ url: a.url, filename: a.filename, width: a.width || null, height: a.height || null }));
+    const first = nuevas[0] || {};
+    await env.DB.prepare(
+      "UPDATE publicaciones SET imagenes=?2, image_url=?3, width=?4, height=?5, updated_at=datetime('now') WHERE id=?1"
+    ).bind(p.id, JSON.stringify(nuevas), first.url || null, first.width || null, first.height || null).run();
+    return `➕ Foto añadida al final de la publicación ${p.numero}. Ahora tiene ${nuevas.length} fotos.`;
   }
 
   if (cmd === "borrar") {
