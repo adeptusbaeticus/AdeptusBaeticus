@@ -146,7 +146,7 @@ async function toggleRegs(e, panel) {
   head.className = "row";
   const sum = document.createElement("span");
   sum.className = "m";
-  sum.textContent = "Inscritos: " + ins + (e.capacity ? " de " + e.capacity : "") + " · En espera: " + (list.length - ins);
+  sum.textContent = "Inscritos: " + ins + (e.capacity ? " de " + e.capacity + " · Libres: " + Math.max(0, e.capacity - ins) : "") + " · En espera: " + (list.length - ins);
   const csv = document.createElement("a");
   csv.className = "chip";
   csv.href = "/api/admin/events/" + e.id + "/registrations.csv";

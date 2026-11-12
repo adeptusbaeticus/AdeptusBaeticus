@@ -214,7 +214,10 @@ function show(e) {
     return;
   }
   const n = e.inscritos || 0;
-  add("p", "m", e.capacity ? "Plazas: " + n + " de " + e.capacity : "Inscritos: " + n + " (sin límite de plazas)");
+  // Siempre se muestran las plazas que quedan libres.
+  add("p", "m", (e.capacity
+    ? (e.capacity - n > 0 ? "Plazas libres: " + (e.capacity - n) + " de " + e.capacity : "Sin plazas libres (" + n + " de " + e.capacity + " ocupadas)")
+    : "Plazas libres: sin límite · " + n + (n === 1 ? " inscrito" : " inscritos")));
   if (e.en_espera) add("p", "m", "En lista de espera: " + e.en_espera);
 
   // Hora local del navegador con el formato de starts_at (el servidor valida con la hora de Madrid).

@@ -211,7 +211,10 @@ Promise.all([
   c.append(h, nuevo("p", "", fechaLarga(e.starts_at.slice(0, 10)) + " · " + e.starts_at.slice(11, 16)));
   if (e.location) { const l = nuevo("p", "m", e.location); l.setAttribute("translate", "no"); c.appendChild(l); }
   const n = e.inscritos || 0;
-  c.appendChild(nuevo("p", "m", e.capacity ? "Plazas: " + n + " de " + e.capacity : "Inscritos: " + n + " (sin límite de plazas)"));
+  // Siempre se muestran las plazas que quedan libres.
+  c.appendChild(nuevo("p", "m", (e.capacity
+    ? (e.capacity - n > 0 ? "Plazas libres: " + (e.capacity - n) + " de " + e.capacity : "Sin plazas libres (" + n + " de " + e.capacity + " ocupadas)")
+    : "Plazas libres: sin límite · " + n + (n === 1 ? " inscrito" : " inscritos"))));
   const enlace = "/calendario.html?evento=" + e.id;
   const r = mias && mias.find((x) => x.id === e.id);
   if (mias === null) c.appendChild(enlaceBtn("Entra con Discord para apuntarte", "/auth/login"));
