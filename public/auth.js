@@ -72,6 +72,12 @@
       box.appendChild(im);
     }
     box.appendChild(document.createTextNode(me.name + " · "));
+    if (me.role === "admin") {
+      const ad = document.createElement("a");
+      ad.href = "/admin.html";
+      ad.textContent = "Admin";
+      box.append(" · ", ad);
+    }
     const out = document.createElement("a");
     out.href = "/auth/logout";
     out.textContent = "Salir";
