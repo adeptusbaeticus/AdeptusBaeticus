@@ -92,8 +92,8 @@ select.chip{appearance:auto;padding:8px 12px}
       <select id="fm" class="chip" aria-label="Modalidad" hidden>
         <option value="">Todas las modalidades</option>
         <option value="combat_patrol">Combat Patrol</option>
-        <option value="40k_1000">40k a 1k</option>
-        <option value="40k_2000">40k a 2k</option>
+        <option value="40k_1000">40k a 1K</option>
+        <option value="40k_2000">40k a 2K</option>
         <option value="necromunda">Necromunda</option>
         <option value="bloodbowl">Blood Bowl</option>
       </select>
@@ -263,7 +263,7 @@ function planLines(r) {
 
 const ACTS = [
   ["ver", "Ir a ver"], ["pintar", "Ir a pintar"], ["combat_patrol", "Ir a jugar Combat Patrol"],
-  ["40k_1000", "Ir a jugar 40k a 1k"], ["40k_2000", "Ir a jugar 40k a 2k"],
+  ["40k_1000", "Ir a jugar 40k a 1K"], ["40k_2000", "Ir a jugar 40k a 2K"],
   ["necromunda", "Ir a jugar Necromunda"], ["bloodbowl", "Ir a jugar Blood Bowl"],
 ];
 let members = null;
@@ -395,7 +395,7 @@ async function openForm(e, box, startBtn) {
   slots.onchange = syncPicks;
 
   // Con «Busco rival»: gente de esta quedada que busca rival para lo mismo.
-  // 40k a 1k comparte todos sus formatos; Combat Patrol, solo el mismo formato.
+  // 40k a 1K comparte todos sus formatos; Combat Patrol, solo el mismo formato.
   function renderCands() {
     const prev = (cands.querySelector("input:checked") || {}).value || "";
     cands.textContent = "";
@@ -508,7 +508,7 @@ function reloadMine() {
 
 // ===== Partidas =====
 let partidas = [];
-const CORTO = { combat_patrol: "Combat Patrol", "40k_1000": "40k a 1k", "40k_2000": "40k a 2k", necromunda: "Necromunda", bloodbowl: "Blood Bowl" };
+const CORTO = { combat_patrol: "Combat Patrol", "40k_1000": "40k a 1K", "40k_2000": "40k a 2K", necromunda: "Necromunda", bloodbowl: "Blood Bowl" };
 const JUEGOS = ACTS.filter(([v]) => v !== "ver" && v !== "pintar");
 
 // Hora local del navegador con el formato de starts_at (el servidor valida con la hora de Madrid).

@@ -97,8 +97,8 @@ const ACTIVIDADES = {
   ver: "Ir a ver",
   pintar: "Ir a pintar",
   combat_patrol: "Ir a jugar Combat Patrol",
-  "40k_1000": "Ir a jugar 40k a 1k",
-  "40k_2000": "Ir a jugar 40k a 2k",
+  "40k_1000": "Ir a jugar 40k a 1K",
+  "40k_2000": "Ir a jugar 40k a 2K",
   necromunda: "Ir a jugar Necromunda",
   bloodbowl: "Ir a jugar Blood Bowl",
 };
@@ -191,7 +191,7 @@ const shapeFull = (fmt, a, b) => (SHAPES[fmt] || []).some(([x, y]) => a === x &&
 const shapeFormat = (a, b) => ({ "1,1": "1v1", "1,2": "1v2", "2,2": "2v2" })[[a, b].sort().join()] || null;
 const needed = (r) => (r.activity === "necromunda" ? r.players || 1 : { "1v1": 2, "1v2": 3, "2v2": 4 }[r.format] || 2);
 
-// ¿Puede alguien que busca rival con `plan` unirse a la entrada `r`? 40k a 1k comparte todos
+// ¿Puede alguien que busca rival con `plan` unirse a la entrada `r`? 40k a 1K comparte todos
 // sus formatos; Combat Patrol exige el mismo formato; el resto, el mismo juego.
 const compatible = (plan, r) =>
   plan.activity === r.activity && (plan.activity !== "combat_patrol" || plan.format === r.format);

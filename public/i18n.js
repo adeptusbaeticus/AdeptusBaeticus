@@ -52,8 +52,8 @@
     "Apuntarme": "Sign me up", "Cancelar inscripción": "Cancel sign-up",
     "¿Qué vas a hacer?": "What will you do?", "— Elige una opción —": "— Choose an option —",
     "Ir a ver": "Just watching", "Ir a pintar": "Painting",
-    "Ir a jugar Combat Patrol": "Playing Combat Patrol", "Ir a jugar 40k a 1k": "Playing 40k at 1k",
-    "Ir a jugar 40k a 2k": "Playing 40k at 2k", "Ir a jugar Necromunda": "Playing Necromunda",
+    "Ir a jugar Combat Patrol": "Playing Combat Patrol", "Ir a jugar 40k a 1K": "Playing 40k at 1K",
+    "Ir a jugar 40k a 2K": "Playing 40k at 2K", "Ir a jugar Necromunda": "Playing Necromunda",
     "Ir a jugar Blood Bowl": "Playing Blood Bowl",
     "Formato de la partida": "Game format", "¿Cómo vas en el 1vs2?": "How are you playing the 1v2?",
     "Voy solo (contra 2)": "On my own (against 2)", "Voy en pareja (contra 1)": "As a pair (against 1)",
@@ -218,9 +218,9 @@
 
   // Frases de la interfaz dentro de textos compuestos (fechas, planes, listas de jugadores…).
   const PHRASES = [
-    ["Ir a jugar 40k a 1k", "Playing 40k at 1k"], ["Ir a jugar 40k a 2k", "Playing 40k at 2k"],
+    ["Ir a jugar 40k a 1K", "Playing 40k at 1K"], ["Ir a jugar 40k a 2K", "Playing 40k at 2K"],
     ["Ir a jugar ", "Playing "], ["Ir a ver", "Just watching"], ["Ir a pintar", "Painting"],
-    ["40k a 1k", "40k at 1k"], ["40k a 2k", "40k at 2k"],
+    ["40k a 1K", "40k at 1K"], ["40k a 2K", "40k at 2K"],
     [" participantes", " players"], ["Participantes: ", "Players: "],
     ["Compañero: ", "Teammate: "], ["Rival: ", "Opponent: "], ["Te inscribió ", "Signed up by "],
     ["Buscando rival", "Looking for an opponent"], ["Lista de espera", "Waiting list"], [" · posición ", " · position "],
