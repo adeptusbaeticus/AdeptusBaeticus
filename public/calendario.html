@@ -44,6 +44,9 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
 .hh{display:flex;align-items:center;gap:6px;color:#A8A293}
 .hh select{width:auto;min-height:40px;padding:6px 8px}
 .hh select:disabled{opacity:.45}
+.gest{margin-top:24px;padding-top:16px;border-top:1px solid #2C3036}
+.gest .row{gap:8px}
+select.chip{appearance:auto;padding:8px 12px}
 .fld input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
 .card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
@@ -78,6 +81,14 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
       <button class="chip" data-f="quedada">Quedadas</button>
       <button class="chip" data-f="torneo">Torneos</button>
       <button class="chip" data-f="partida" id="chp" hidden>Partidas</button>
+      <select id="fm" class="chip" aria-label="Modalidad" hidden>
+        <option value="">Todas las modalidades</option>
+        <option value="combat_patrol">Combat Patrol</option>
+        <option value="40k_1000">40k a 1k</option>
+        <option value="40k_2000">40k a 2k</option>
+        <option value="necromunda">Necromunda</option>
+        <option value="bloodbowl">Blood Bowl</option>
+      </select>
       <button class="btn" id="bp" type="button" hidden style="margin:0">Buscar partida</button>
     </div>
     <div class="row">
@@ -134,7 +145,8 @@ function render() {
         cell.appendChild(b);
       });
     if (filtro === "todos" || filtro === "partida") {
-      partidas.filter((p) => partidaDias(p).includes(key)).forEach((p) => {
+      const fm = filtro === "partida" ? $("fm").value : "";
+      partidas.filter((p) => partidaDias(p).includes(key) && (!fm || p.activity === fm)).forEach((p) => {
         const b = document.createElement("button");
         b.className = "e pt" + (p.status === "completa" || partidaCerrada(p) ? " x" : "");
         // Hora fijada o, si aún no la hay, la franja ofrecida ese día.
@@ -675,8 +687,13 @@ function openPartidaForm() {
   const acts = document.createElement("div");
   acts.className = "row";
   acts.append(ok, back);
+  const nota = document.createElement("p");
+  nota.className = "m";
+  nota.textContent = "Se publica una partida independiente por cada día que marques, cada una con sus propios rivales.";
+  days.appendChild(nota);
   f.append(mkField("Modalidad", act), wFmt, wSide, wNp, days, err, acts);
   box.appendChild(f);
+  box.appendChild(gestionPartidas());
 
   const update = () => {
     const a = act.value;
@@ -704,16 +721,74 @@ function openPartidaForm() {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { err.textContent = d.error || "No se pudo publicar. Inténtalo de nuevo."; ok.disabled = false; return; }
-      partidas.push(d);
-      const first = partidaDias(d)[0];
+      partidas.push(...d);
+      const first = partidaDias(d[0])[0];
       y = +first.slice(0, 4); m = +first.slice(5, 7) - 1;
       render();
-      showPartida(d);
+      showPartida(d[0]);
+      if (d.length > 1) {
+        const n = document.createElement("p");
+        n.className = "ok";
+        n.textContent = "Se han publicado " + d.length + " partidas, una por cada día.";
+        $("det").insertBefore(n, $("det").children[1]);
+      }
     } catch (y2) {
       err.textContent = "No se pudo publicar. Inténtalo de nuevo.";
       ok.disabled = false;
     }
   };
+}
+
+// Botones para borrar en bloque mis partidas de esta semana (todas o solo las vacías).
+function gestionPartidas() {
+  const w = document.createElement("div");
+  w.className = "gest";
+  const mias = partidas.filter((p) => p.mia && !partidaCerrada(p));
+  const vacias = mias.filter((p) => p.jugadores.length <= 1);
+  const h = document.createElement("p");
+  h.className = "lb";
+  h.textContent = "Mis partidas de esta semana";
+  const info = document.createElement("p");
+  info.className = "m";
+  info.textContent = mias.length
+    ? mias.length + (mias.length === 1 ? " publicada, " : " publicadas, ") + vacias.length + " sin rivales todavía."
+    : "No tienes partidas publicadas.";
+  w.append(h, info);
+  if (!mias.length) return w;
+  const err = document.createElement("div");
+  err.className = "err";
+  const borrar = async (soloVacias, b) => {
+    const n = soloVacias ? vacias.length : mias.length;
+    const q = soloVacias
+      ? "¿Borrar tus " + n + " partidas sin rivales?"
+      : "¿Borrar todas tus partidas de esta semana (" + n + ")? Las que ya tienen rivales también desaparecerán.";
+    if (!confirm(q)) return;
+    b.disabled = true;
+    err.textContent = "";
+    try {
+      const r = await fetch("/api/partidas" + (soloVacias ? "?solo=vacias" : ""), { method: "DELETE" });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { err.textContent = d.error || "No se pudo borrar."; b.disabled = false; return; }
+      await loadPartidas();
+      render();
+      openPartidaForm();
+      const ok = document.createElement("p");
+      ok.className = "ok";
+      ok.textContent = d.borradas === 1 ? "Se ha borrado 1 partida." : "Se han borrado " + d.borradas + " partidas.";
+      $("det").appendChild(ok);
+    } catch (x) { err.textContent = "No se pudo borrar."; b.disabled = false; }
+  };
+  const mk = (txt, solo, disabled) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn alt"; b.textContent = txt; b.disabled = disabled;
+    b.onclick = () => borrar(solo, b);
+    return b;
+  };
+  const row = document.createElement("div");
+  row.className = "row";
+  row.append(mk("Borrar mis partidas vacías (" + vacias.length + ")", true, !vacias.length), mk("Borrar todas mis partidas de esta semana", false, false));
+  w.append(row, err);
+  return w;
 }
 
 function loadPartidas() {
@@ -725,8 +800,10 @@ $("chips").onclick = (x) => {
   if (!f) return;
   filtro = f;
   document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === x.target));
+  $("fm").hidden = f !== "partida";
   render();
 };
+$("fm").onchange = render;
 $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
 

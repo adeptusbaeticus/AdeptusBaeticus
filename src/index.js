@@ -260,6 +260,8 @@ function parsePartida(b, now) {
   return { ...plan, team_a: ta, team_b: tb, availability };
 }
 
+const MAX_PARTIDAS = 14; // partidas abiertas por socio
+
 // ¿Está `slot` ("YYYY-MM-DDTHH:MM") dentro de la disponibilidad?
 const inAvailability = (av, slot) =>
   /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):00$/.test(slot) &&
@@ -604,6 +606,17 @@ export default {
 
       if (path === "/api/partidas") {
         if (request.method === "GET") return ok(await listPartidas(env, s.id));
+        // Borrar en bloque mis partidas que aún no han pasado (todas o solo las vacías).
+        if (request.method === "DELETE") {
+          const vacias = url.searchParams.get("solo") === "vacias";
+          const r = await env.DB.prepare(
+            `UPDATE partidas SET status='cancelada', mesa=NULL
+             WHERE created_by=?1 AND status<>'cancelada'
+               AND ((starts_at IS NULL AND last_day>=?2) OR starts_at>?3)
+               ${vacias ? "AND (SELECT COUNT(*) FROM partida_players j WHERE j.partida_id=partidas.id) <= 1" : ""}`
+          ).bind(s.id, now.slice(0, 10), now).run();
+          return ok({ borradas: r.meta.changes });
+        }
         if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
         const b = await body();
         if (!b) return fail("JSON no válido", 400);
@@ -612,15 +625,20 @@ export default {
         const n = await env.DB.prepare(
           "SELECT COUNT(*) AS n FROM partidas WHERE created_by=?1 AND status<>'cancelada' AND last_day>=?2"
         ).bind(s.id, now.slice(0, 10)).first();
-        if (n.n >= 5) return fail("Ya tienes 5 partidas abiertas", 409);
-        const r = await env.DB.prepare(
-          `INSERT INTO partidas (created_by,activity,format,players,team_a,team_b,availability,last_day)
-           VALUES (?1,?2,?3,?4,?5,?6,?7,?8)`
-        ).bind(s.id, p.activity, p.format, p.players, p.team_a, p.team_b, JSON.stringify(p.availability),
-          p.availability[p.availability.length - 1].date).run();
-        const id = r.meta.last_row_id;
-        await env.DB.prepare("INSERT INTO partida_players (partida_id,discord_id,side) VALUES (?1,?2,'A')").bind(id, s.id).run();
-        return ok((await listPartidas(env, s.id, id))[0]);
+        if (n.n + p.availability.length > MAX_PARTIDAS) {
+          return fail(`Puedes tener como máximo ${MAX_PARTIDAS} partidas abiertas (ahora tienes ${n.n})`, 409);
+        }
+        // Una partida independiente por cada día marcado, cada una con sus propios rivales.
+        const ids = [];
+        for (const av of p.availability) {
+          const r = await env.DB.prepare(
+            `INSERT INTO partidas (created_by,activity,format,players,team_a,team_b,availability,last_day)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)`
+          ).bind(s.id, p.activity, p.format, p.players, p.team_a, p.team_b, JSON.stringify([av]), av.date).run();
+          ids.push(r.meta.last_row_id);
+          await env.DB.prepare("INSERT INTO partida_players (partida_id,discord_id,side) VALUES (?1,?2,'A')").bind(r.meta.last_row_id, s.id).run();
+        }
+        return ok((await listPartidas(env, s.id)).filter((x) => ids.includes(x.id)));
       }
 
       const pm = path.match(/^\/api\/partidas\/(\d+)(\/join)?$/);

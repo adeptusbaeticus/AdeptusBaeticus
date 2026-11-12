@@ -156,6 +156,37 @@ async function loadPartidas() {
   box.appendChild(el("h2", "", "Mis partidas"));
   const now = localNow();
   const cerrada = (p) => (p.starts_at ? p.starts_at <= now : p.last_day < now.slice(0, 10));
+
+  // Borrar en bloque las partidas que he publicado y aún no han pasado.
+  const mias = list.filter((p) => p.mia && !cerrada(p));
+  const vacias = mias.filter((p) => p.jugadores.length <= 1);
+  if (mias.length) {
+    const g = el("div", "row");
+    g.style.justifyContent = "flex-start";
+    const err = el("div", "err");
+    const mk = (txt, solo, n) => {
+      const b = el("button", "chip", txt);
+      b.type = "button";
+      b.disabled = !n;
+      b.onclick = async () => {
+        const q = solo ? "¿Borrar tus " + n + " partidas sin rivales?"
+          : "¿Borrar todas tus partidas de esta semana (" + n + ")? Las que ya tienen rivales también desaparecerán.";
+        if (!confirm(q)) return;
+        b.disabled = true;
+        err.textContent = "";
+        try {
+          const r = await fetch("/api/partidas" + (solo ? "?solo=vacias" : ""), { method: "DELETE" });
+          if (r.ok) { await loadPartidas(); return; }
+          const d = await r.json().catch(() => ({}));
+          err.textContent = d.error || "No se pudo borrar.";
+        } catch (x) { err.textContent = "No se pudo borrar."; }
+        b.disabled = false;
+      };
+      return b;
+    };
+    g.append(mk("Borrar mis partidas vacías (" + vacias.length + ")", true, vacias.length), mk("Borrar todas mis partidas de esta semana (" + mias.length + ")", false, mias.length));
+    box.append(g, err);
+  }
   const key = (p) => p.starts_at || p.availability[0].date;
   list.sort((a, b) => (cerrada(a) - cerrada(b)) || (key(a) < key(b) ? -1 : 1));
   list.forEach((p) => {
