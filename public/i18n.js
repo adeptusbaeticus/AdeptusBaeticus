@@ -257,7 +257,8 @@
   // --- Aplicación sobre la página (y sobre lo que se pinte después) ---
   const ORIG = new WeakMap(); // nodo de texto → texto original en español
   const ATTRS = ["placeholder", "aria-label", "title", "alt"];
-  const protegido = (el) => !!(el && el.closest && el.closest('[translate="no"], script, style, svg'));
+  // <html translate="no"> solo evita el traductor automático del navegador (choca con este); no protege nada aquí.
+  const protegido = (el) => !!(el && el.closest && el.closest('[translate="no"]:not(html), script, style, svg'));
 
   function textoNodo(n) {
     if (protegido(n.parentElement)) return;
@@ -297,6 +298,7 @@
   const tituloEs = document.title;
   function todo() {
     document.documentElement.lang = lang;
+    document.documentElement.setAttribute("translate", "no");
     document.title = tr(tituloEs);
     recorrer(document.body);
     document.querySelectorAll(".lang button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
