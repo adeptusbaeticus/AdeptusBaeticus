@@ -480,7 +480,8 @@ export default {
           } catch (e) {}
         }
       }
-      return Response.json(results, { headers: { "cache-control": "public, max-age=300" } });
+      // Sin caché: las fotos nuevas, editadas o borradas tienen que verse al momento.
+      return Response.json(results, { headers: noStore });
     }
 
     if (path === "/auth/login") {
