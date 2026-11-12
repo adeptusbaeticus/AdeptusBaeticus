@@ -109,9 +109,27 @@ export default {
 
     if (path === "/api/me") {
       const s = await readSession(env, request);
-      return Response.json(s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role } : null, {
-        headers: { "cache-control": "no-store" },
-      });
+      let nr = null;
+      if (s) {
+        const row = await env.DB.prepare("SELECT nr_username FROM users WHERE discord_id=?1").bind(s.id).first();
+        nr = row ? row.nr_username : null;
+      }
+      return Response.json(
+        s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role, nr_username: nr } : null,
+        { headers: { "cache-control": "no-store" } }
+      );
+    }
+
+    if (path === "/api/profile" && request.method === "POST") {
+      const s = await readSession(env, request);
+      if (!s) return new Response("No autorizado", { status: 401 });
+      let nr = "";
+      try { nr = String((await request.json()).nr_username || "").trim(); } catch (e) {}
+      if (!/^[\p{L}\p{N} ._@-]{2,40}$/u.test(nr)) {
+        return Response.json({ error: "Usuario no válido" }, { status: 400 });
+      }
+      await env.DB.prepare("UPDATE users SET nr_username=?1 WHERE discord_id=?2").bind(nr, s.id).run();
+      return Response.json({ ok: true, nr_username: nr });
     }
 
     if (path === "/api/events") {
