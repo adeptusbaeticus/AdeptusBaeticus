@@ -40,6 +40,58 @@ function roleOf(env, roles) {
   return null;
 }
 
+// Hora actual en Madrid con el mismo formato que events.starts_at ("YYYY-MM-DDTHH:MM").
+function nowLocal() {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date()).map((x) => [x.type, x.value])
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+// Mismo origen para peticiones que modifican datos (además de SameSite=Lax).
+const sameOrigin = (request, url) => {
+  const o = request.headers.get("origin");
+  return !o || o === url.origin;
+};
+
+const noStore = { "cache-control": "no-store" };
+
+// Pasa a 'inscrito' a los primeros de la lista de espera mientras queden plazas
+// (todos si no hay límite). Solo en quedadas publicadas.
+const PROMOTE_SQL = `UPDATE registrations SET status='inscrito' WHERE id IN (
+  SELECT id FROM registrations WHERE event_id=?1 AND status='espera' ORDER BY id
+  LIMIT (SELECT CASE
+    WHEN e.status<>'publicado' OR e.type<>'quedada' THEN 0
+    WHEN e.capacity IS NULL THEN -1
+    ELSE MAX(0, e.capacity - (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='inscrito'))
+  END FROM events e WHERE e.id=?1))`;
+
+// Recuentos del evento y estado del usuario (status null si no está inscrito).
+function regState(env, eventId, uid) {
+  return env.DB.prepare(
+    `SELECT
+      (SELECT COUNT(*) FROM registrations WHERE event_id=?1 AND status='inscrito') AS inscritos,
+      (SELECT COUNT(*) FROM registrations WHERE event_id=?1 AND status='espera') AS en_espera,
+      r.status AS status,
+      CASE WHEN r.status='espera' THEN
+        (SELECT COUNT(*) FROM registrations w WHERE w.event_id=?1 AND w.status='espera' AND w.id<=r.id)
+      END AS posicion
+    FROM (SELECT 1) LEFT JOIN registrations r ON r.event_id=?1 AND r.discord_id=?2`
+  ).bind(eventId, uid).first();
+}
+
+// Celda CSV: neutraliza fórmulas de Excel y escapa comillas.
+function csvCell(v) {
+  let s = v == null ? "" : String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+const ESTADOS = { inscrito: "Inscrito", espera: "Lista de espera" };
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -131,7 +183,74 @@ export default {
       await env.DB.prepare("UPDATE users SET nr_username=?1 WHERE discord_id=?2").bind(nr, s.id).run();
       return Response.json({ ok: true, nr_username: nr });
     }
-    
+
+    const regm = path.match(/^\/api\/events\/(\d+)\/register$/);
+    if (regm) {
+      if (request.method !== "POST" && request.method !== "DELETE") {
+        return new Response("Método no permitido", { status: 405, headers: { allow: "POST, DELETE" } });
+      }
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      const eventId = Number(regm[1]);
+      const now = nowLocal();
+
+      if (request.method === "POST") {
+        // El estado se decide dentro del propio INSERT: D1 ejecuta cada sentencia de forma
+        // atómica, así que dos peticiones simultáneas no pueden ocupar la misma última plaza.
+        const r = await env.DB.prepare(
+          `INSERT INTO registrations (event_id, discord_id, status, created_at)
+           SELECT e.id, ?2,
+             CASE WHEN e.capacity IS NULL
+               OR (SELECT COUNT(*) FROM registrations x WHERE x.event_id=e.id AND x.status='inscrito') < e.capacity
+             THEN 'inscrito' ELSE 'espera' END,
+             datetime('now')
+           FROM events e
+           WHERE e.id=?1 AND e.type='quedada' AND e.status='publicado' AND e.starts_at>?3
+           ON CONFLICT(event_id, discord_id) DO NOTHING`
+        ).bind(eventId, s.id, now).run();
+        if (!r.meta.changes) {
+          const e = await env.DB.prepare("SELECT type,status,starts_at FROM events WHERE id=?1").bind(eventId).first();
+          if (!e || e.type !== "quedada" || e.status !== "publicado") {
+            return Response.json({ error: "Evento no disponible" }, { status: 404, headers: noStore });
+          }
+          if (e.starts_at <= now) {
+            return Response.json({ error: "La inscripción está cerrada" }, { status: 409, headers: noStore });
+          }
+          // Ya estaba inscrito: se devuelve su estado actual (petición idempotente).
+        }
+        return Response.json(await regState(env, eventId, s.id), { headers: noStore });
+      }
+
+      const e = await env.DB.prepare("SELECT starts_at FROM events WHERE id=?1").bind(eventId).first();
+      if (!e) return Response.json({ error: "Evento no disponible" }, { status: 404, headers: noStore });
+      if (e.starts_at <= now) {
+        return Response.json({ error: "El evento ya ha empezado" }, { status: 409, headers: noStore });
+      }
+      const [del] = await env.DB.batch([
+        env.DB.prepare("DELETE FROM registrations WHERE event_id=?1 AND discord_id=?2").bind(eventId, s.id),
+        env.DB.prepare(PROMOTE_SQL).bind(eventId),
+      ]);
+      if (!del.meta.changes) return Response.json({ error: "No estabas inscrito" }, { status: 404, headers: noStore });
+      return Response.json(await regState(env, eventId, s.id), { headers: noStore });
+    }
+
+    if (path === "/api/my-registrations" && request.method === "GET") {
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      const { results } = await env.DB.prepare(
+        `SELECT e.id, e.title, e.starts_at, e.location, e.capacity, e.status AS event_status,
+           r.status, r.created_at,
+           CASE WHEN r.status='espera' THEN
+             (SELECT COUNT(*) FROM registrations w WHERE w.event_id=r.event_id AND w.status='espera' AND w.id<=r.id)
+           END AS posicion
+         FROM registrations r JOIN events e ON e.id=r.event_id
+         WHERE r.discord_id=?1 AND e.status IN ('publicado','cancelado')
+         ORDER BY e.starts_at`
+      ).bind(s.id).all();
+      return Response.json(results, { headers: { ...noStore, vary: "cookie" } });
+    }
+
     if (path.startsWith("/api/admin/")) {
       const s = await readSession(env, request);
       if (!s) return new Response("No autorizado", { status: 401 });
@@ -176,17 +295,48 @@ export default {
           ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status).run();
           return Response.json({ ok: true, id: r.meta.last_row_id });
         }
-        await env.DB.prepare(
-          "UPDATE events SET type=?1,title=?2,starts_at=?3,location=?4,description=?5,capacity=?6,nr_tournament_id=?7,status=?8 WHERE id=?9"
-        ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, Number(idm[1])).run();
+        await env.DB.batch([
+          env.DB.prepare(
+            "UPDATE events SET type=?1,title=?2,starts_at=?3,location=?4,description=?5,capacity=?6,nr_tournament_id=?7,status=?8 WHERE id=?9"
+          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, Number(idm[1])),
+          // Si se han ampliado las plazas, entra gente de la lista de espera.
+          env.DB.prepare(PROMOTE_SQL).bind(Number(idm[1])),
+        ]);
         return Response.json({ ok: true });
+      }
+
+      const rgm = path.match(/^\/api\/admin\/events\/(\d+)\/registrations(\.csv)?$/);
+      if (rgm && request.method === "GET") {
+        const eventId = Number(rgm[1]);
+        const e = await env.DB.prepare("SELECT id,title FROM events WHERE id=?1").bind(eventId).first();
+        if (!e) return new Response("No encontrado", { status: 404 });
+        const { results } = await env.DB.prepare(
+          `SELECT u.name, u.nr_username, r.status, r.created_at
+           FROM registrations r LEFT JOIN users u ON u.discord_id=r.discord_id
+           WHERE r.event_id=?1
+           ORDER BY CASE r.status WHEN 'inscrito' THEN 0 ELSE 1 END, r.id`
+        ).bind(eventId).all();
+        if (!rgm[2]) return Response.json(results, { headers: noStore });
+        const lines = [["Nombre", "Usuario New Recruit", "Estado", "Fecha de inscripción (UTC)"]]
+          .concat(results.map((x) => [x.name, x.nr_username, ESTADOS[x.status] || x.status, x.created_at]))
+          .map((row) => row.map(csvCell).join(";"));
+        return new Response("﻿" + lines.join("\r\n") + "\r\n", {
+          headers: {
+            ...noStore,
+            "content-type": "text/csv; charset=utf-8",
+            "content-disposition": `attachment; filename="inscritos-evento-${eventId}.csv"`,
+          },
+        });
       }
       return new Response("No encontrado", { status: 404 });
     }
     
     if (path === "/api/events") {
       const { results } = await env.DB.prepare(
-        "SELECT id,type,title,starts_at,location,description,capacity FROM events WHERE status='publicado' ORDER BY starts_at"
+        `SELECT e.id,e.type,e.title,e.starts_at,e.location,e.description,e.capacity,
+           (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='inscrito') AS inscritos,
+           (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='espera') AS en_espera
+         FROM events e WHERE e.status='publicado' ORDER BY e.starts_at`
       ).all();
       return Response.json(results, { headers: { "cache-control": "public, max-age=60" } });
     }

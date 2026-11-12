@@ -26,6 +26,11 @@ textarea{min-height:80px}
 .chip{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:8px 16px;min-height:44px;font:500 14px Inter,sans-serif;cursor:pointer}
 .row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
+a.chip{display:inline-flex;align-items:center;box-sizing:border-box;text-decoration:none}
+.regs{flex-basis:100%;border-top:1px solid #2C3036;padding-top:16px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid #2C3036}
+th{color:#D9B25A;font-weight:600}
 </style>
 </head>
 <body>
@@ -88,9 +93,60 @@ function renderList() {
     acts.append(mkBtn("Editar", () => edit(e)));
     if (e.status !== "cancelado") acts.append(mkBtn("Cancelar evento", () => setStatus(e, "cancelado", "¿Cancelar este evento?")));
     else acts.append(mkBtn("Publicar de nuevo", () => setStatus(e, "publicado")));
-    row.append(info, acts);
+    const panel = document.createElement("div");
+    panel.className = "regs";
+    panel.hidden = true;
+    if (e.type === "quedada") acts.append(mkBtn("Inscritos", () => toggleRegs(e, panel)));
+    row.append(info, acts, panel);
     box.appendChild(row);
   });
+}
+
+async function toggleRegs(e, panel) {
+  if (!panel.hidden) { panel.hidden = true; return; }
+  panel.hidden = false;
+  panel.textContent = "Cargando...";
+  let list;
+  try {
+    const r = await fetch("/api/admin/events/" + e.id + "/registrations");
+    if (!r.ok) throw new Error();
+    list = await r.json();
+  } catch (x) { panel.textContent = "No se pudo cargar la lista de inscritos."; return; }
+  panel.textContent = "";
+  const ins = list.filter((x) => x.status === "inscrito").length;
+  const head = document.createElement("div");
+  head.className = "row";
+  const sum = document.createElement("span");
+  sum.className = "m";
+  sum.textContent = "Inscritos: " + ins + (e.capacity ? " de " + e.capacity : "") + " · En espera: " + (list.length - ins);
+  const csv = document.createElement("a");
+  csv.className = "chip";
+  csv.href = "/api/admin/events/" + e.id + "/registrations.csv";
+  csv.textContent = "Descargar CSV";
+  head.append(sum, csv);
+  panel.appendChild(head);
+  if (!list.length) {
+    const p = document.createElement("p");
+    p.className = "m"; p.textContent = "Todavía no hay inscritos.";
+    panel.appendChild(p);
+    return;
+  }
+  const t = document.createElement("table");
+  const tr = t.createTHead().insertRow();
+  ["#", "Nombre", "Usuario New Recruit", "Estado", "Fecha de inscripción"].forEach((h) => {
+    const th = document.createElement("th"); th.textContent = h; tr.appendChild(th);
+  });
+  const tb = t.createTBody();
+  list.forEach((x, i) => {
+    const r = tb.insertRow();
+    const fecha = x.created_at ? new Date(x.created_at.replace(" ", "T") + "Z").toLocaleString("es-ES") : "";
+    [String(i + 1), x.name || "(sin nombre)", x.nr_username || "—", x.status === "inscrito" ? "Inscrito" : "Lista de espera", fecha]
+      .forEach((v) => { r.insertCell().textContent = v; });
+  });
+  const wrap = document.createElement("div");
+  wrap.style.overflowX = "auto";
+  wrap.appendChild(t);
+  panel.appendChild(wrap);
 }
 
 async function load() {

@@ -38,6 +38,11 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
 .card h3{font:700 22px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
 .card p{margin:0 0 8px}
 .m{color:#A8A293;font-size:14px}
+.btn{display:inline-block;background:#A3211B;color:#fff;border:0;border-radius:8px;padding:12px 20px;font:600 15px Inter,sans-serif;cursor:pointer;min-height:44px;box-sizing:border-box;text-decoration:none;margin-top:8px}
+.btn.alt{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
+.btn:disabled{opacity:.6;cursor:default}
+.ok{color:#9FD39B;font-weight:600}
+.err{color:#F0A39E;font-size:14px;min-height:20px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -69,6 +74,8 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const $ = (id) => document.getElementById(id);
 let ev = [], filtro = "todos";
+// Inscripciones del usuario por id de evento; null si no ha iniciado sesión.
+let mine = null;
 const hoy = new Date();
 let y = hoy.getFullYear(), m = hoy.getMonth();
 
@@ -117,8 +124,56 @@ function show(e) {
   add("p", "", f + " · " + e.starts_at.slice(11, 16));
   if (e.location) add("p", "m", e.location);
   if (e.description) add("p", "", e.description);
-  if (e.capacity) add("p", "m", "Plazas: " + e.capacity);
-  add("p", "m", "La inscripción se activará con el login de Discord.");
+  if (e.type !== "quedada") {
+    if (e.capacity) add("p", "m", "Plazas: " + e.capacity);
+    return;
+  }
+  const n = e.inscritos || 0;
+  add("p", "m", e.capacity ? "Plazas: " + n + " de " + e.capacity : "Inscritos: " + n + " (sin límite de plazas)");
+  if (e.en_espera) add("p", "m", "En lista de espera: " + e.en_espera);
+
+  // Hora local del navegador con el formato de starts_at (el servidor valida con la hora de Madrid).
+  const t = new Date();
+  t.setMinutes(t.getMinutes() - t.getTimezoneOffset());
+  if (e.starts_at <= t.toISOString().slice(0, 16)) { add("p", "m", "La inscripción está cerrada."); return; }
+  if (mine === null) {
+    const a = document.createElement("a");
+    a.className = "btn"; a.href = "/auth/login"; a.textContent = "Entra con Discord para apuntarte";
+    box.appendChild(a);
+    return;
+  }
+  const r = mine.get(e.id);
+  if (r && r.status === "inscrito") add("p", "ok", "Estás inscrito.");
+  else if (r) add("p", "ok", "Estás en lista de espera" + (r.posicion ? " (posición " + r.posicion + ")." : "."));
+  else if (e.capacity && n >= e.capacity) add("p", "m", "No quedan plazas: entrarás en la lista de espera.");
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = r ? "btn alt" : "btn";
+  b.textContent = r ? "Cancelar inscripción" : "Apuntarme";
+  const err = document.createElement("div");
+  err.className = "err";
+  b.onclick = () => toggle(e, !r, b, err);
+  box.append(b, err);
+}
+
+async function toggle(e, join, b, err) {
+  if (!join && !confirm("¿Cancelar tu inscripción?")) return;
+  b.disabled = true;
+  err.textContent = "";
+  try {
+    const r = await fetch("/api/events/" + e.id + "/register", { method: join ? "POST" : "DELETE" });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 401) { mine = null; show(e); return; }
+    if (!r.ok) { err.textContent = d.error || "No se pudo completar. Inténtalo de nuevo."; b.disabled = false; return; }
+    e.inscritos = d.inscritos;
+    e.en_espera = d.en_espera;
+    if (d.status) mine.set(e.id, { status: d.status, posicion: d.posicion });
+    else mine.delete(e.id);
+    show(e);
+  } catch (x) {
+    err.textContent = "No se pudo completar. Inténtalo de nuevo.";
+    b.disabled = false;
+  }
 }
 
 $("chips").onclick = (x) => {
@@ -131,7 +186,11 @@ $("chips").onclick = (x) => {
 $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
 
-fetch("/api/events").then((r) => r.json()).then((d) => {
+const myRegs = fetch("/api/my-registrations").then((r) => (r.ok ? r.json() : null)).then((d) => {
+  mine = d ? new Map(d.map((x) => [x.id, x])) : null;
+}).catch(() => { mine = null; });
+
+Promise.all([fetch("/api/events").then((r) => r.json()), myRegs]).then(([d]) => {
   ev = d;
   const now = new Date().toISOString().slice(0, 16);
   const next = ev.find((e) => e.starts_at >= now);

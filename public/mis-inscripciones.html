@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mis inscripciones · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px 64px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+.menu{display:flex;gap:24px;flex-wrap:wrap}
+.menu a{color:#ECE7DC;text-decoration:none;font-weight:500;padding:8px 0;border-bottom:2px solid transparent}
+.menu a:hover,.menu a.on{border-color:#D9B25A}
+h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 24px}
+h2{font:700 24px Cinzel,Georgia,serif;margin:32px 0 16px}
+.card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.m{color:#A8A293;font-size:14px}
+.st{font-weight:600}
+.st.ok{color:#9FD39B}.st.w{color:#D9B25A}.st.x{color:#F0A39E}
+.chip{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:8px 16px;min-height:44px;font:500 14px Inter,sans-serif;cursor:pointer}
+.chip:disabled{opacity:.6;cursor:default}
+.btn{display:inline-block;background:#A3211B;color:#fff;border-radius:8px;padding:12px 20px;font:600 15px Inter,sans-serif;text-decoration:none}
+.err{color:#F0A39E;font-size:14px}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="https://adeptus-baeticus.blogspot.com">Blog</a></nav>
+    <span id="auth"></span>
+  </div>
+  <h1>Mis inscripciones</h1>
+  <p id="msg" class="m">Cargando...</p>
+  <div id="prox"></div>
+  <div id="pas"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+
+function localNow() {
+  const t = new Date();
+  t.setMinutes(t.getMinutes() - t.getTimezoneOffset());
+  return t.toISOString().slice(0, 16);
+}
+
+function el(tag, cls, txt) {
+  const x = document.createElement(tag);
+  if (cls) x.className = cls;
+  if (txt != null) x.textContent = txt;
+  return x;
+}
+
+function section(box, title, items, future) {
+  box.textContent = "";
+  if (!items.length) return;
+  box.appendChild(el("h2", "", title));
+  items.forEach((r) => {
+    const row = el("div", "row card");
+    const info = el("div");
+    info.appendChild(el("strong", "", r.title));
+    const f = new Date(r.starts_at).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    info.appendChild(el("div", "m", f + " · " + r.starts_at.slice(11, 16) + (r.location ? " · " + r.location : "")));
+    let st;
+    if (r.event_status === "cancelado") st = el("div", "st x", "Evento cancelado");
+    else if (r.status === "inscrito") st = el("div", "st ok", "Inscrito");
+    else st = el("div", "st w", "Lista de espera" + (r.posicion ? " · posición " + r.posicion : ""));
+    info.appendChild(st);
+    row.appendChild(info);
+    if (future && r.event_status !== "cancelado") {
+      const acts = el("div");
+      const b = el("button", "chip", "Cancelar inscripción");
+      b.type = "button";
+      const err = el("div", "err");
+      b.onclick = () => cancel(r, b, err);
+      acts.append(b, err);
+      row.appendChild(acts);
+    }
+    box.appendChild(row);
+  });
+}
+
+async function cancel(r, b, err) {
+  if (!confirm("¿Cancelar tu inscripción en «" + r.title + "»?")) return;
+  b.disabled = true;
+  err.textContent = "";
+  try {
+    const res = await fetch("/api/events/" + r.id + "/register", { method: "DELETE" });
+    if (res.ok || res.status === 404) { await load(); return; }
+    const d = await res.json().catch(() => ({}));
+    err.textContent = d.error || "No se pudo cancelar.";
+  } catch (x) {
+    err.textContent = "No se pudo cancelar.";
+  }
+  b.disabled = false;
+}
+
+async function load() {
+  let res;
+  try { res = await fetch("/api/my-registrations"); } catch (x) { $("msg").textContent = "No se pudieron cargar tus inscripciones."; return; }
+  if (res.status === 401) {
+    $("msg").textContent = "";
+    const a = el("a", "btn", "Entra con Discord para ver tus inscripciones");
+    a.href = "/auth/login";
+    $("msg").appendChild(a);
+    return;
+  }
+  if (!res.ok) { $("msg").textContent = "No se pudieron cargar tus inscripciones."; return; }
+  const list = await res.json();
+  const now = localNow();
+  const fut = list.filter((r) => r.starts_at > now);
+  const past = list.filter((r) => r.starts_at <= now).reverse();
+  $("msg").textContent = list.length ? "" : "Aún no te has apuntado a ninguna quedada.";
+  if (!list.length) {
+    $("msg").append(" ");
+    const a = el("a", "", "Ver el calendario");
+    a.href = "/calendario.html";
+    $("msg").appendChild(a);
+  }
+  section($("prox"), "Próximas", fut, true);
+  section($("pas"), "Pasadas", past, false);
+}
+
+load();
+</script>
+<script src="/auth.js"></script>
+</body>
+</html>

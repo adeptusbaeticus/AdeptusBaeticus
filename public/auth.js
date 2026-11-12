@@ -71,17 +71,16 @@
       im.style.cssText = "width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px";
       box.appendChild(im);
     }
-    box.appendChild(document.createTextNode(me.name + " · "));
-    if (me.role === "admin") {
-      const ad = document.createElement("a");
-      ad.href = "/admin.html";
-      ad.textContent = "Admin";
-      box.append(" · ", ad);
-    }
-    const out = document.createElement("a");
-    out.href = "/auth/logout";
-    out.textContent = "Salir";
-    box.appendChild(out);
+    box.appendChild(document.createTextNode(me.name));
+    const link = (href, txt) => {
+      const a = document.createElement("a");
+      a.href = href;
+      a.textContent = txt;
+      box.append(" · ", a);
+    };
+    link("/mis-inscripciones.html", "Mis inscripciones");
+    if (me.role === "admin") link("/admin.html", "Admin");
+    link("/auth/logout", "Salir");
     if (!me.nr_username) askNr();
   } else {
     const a = document.createElement("a");
