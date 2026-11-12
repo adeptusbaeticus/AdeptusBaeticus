@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calendario · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+.menu{display:flex;gap:24px;flex-wrap:wrap}
+.menu a{color:#ECE7DC;text-decoration:none;font-weight:500;padding:8px 0;border-bottom:2px solid transparent}
+.menu a:hover,.menu a.on{border-color:#D9B25A}
+h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:40px 0 24px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip,.nv{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:8px 16px;min-height:44px;font:500 14px Inter,sans-serif;cursor:pointer}
+.chip.on{background:#D9B25A;color:#15171A;border-color:#D9B25A}
+.nv{border-radius:8px;width:44px;padding:0;font-size:20px}
+.mes{font:600 18px Inter,sans-serif;min-width:150px;text-align:center}
+.lay{display:flex;gap:32px;flex-wrap:wrap;padding-bottom:64px}
+.a{flex:2 1 560px}.b{flex:1 1 320px}
+.cal{overflow-x:auto}
+.g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;min-width:560px}
+.h{font-size:13px;color:#A8A293;text-align:center;padding:6px 0;font-weight:600}
+.d{min-height:92px;background:#1F2328;border-radius:8px;padding:8px;font-size:14px}
+.d.n{background:#181B1F}
+.e{display:block;width:100%;border:0;text-align:left;cursor:pointer;font:600 12px Inter,sans-serif;border-radius:6px;padding:3px 6px;margin-top:6px}
+.q{background:#D9B25A;color:#15171A}
+.t2{background:#A3211B;color:#fff}
+.card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
+.lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
+.card h3{font:700 22px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
+.card p{margin:0 0 8px}
+.m{color:#A8A293;font-size:14px}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <nav class="menu"><a href="/">Inicio</a><a class="on" href="/calendario.html">Calendario</a><a href="https://adeptus-baeticus.blogspot.com">Blog</a></nav>
+  </div>
+  <div class="top">
+    <h1>Calendario</h1>
+    <div class="row" id="chips">
+      <button class="chip on" data-f="todos">Todos</button>
+      <button class="chip" data-f="quedada">Quedadas</button>
+      <button class="chip" data-f="torneo">Torneos</button>
+    </div>
+    <div class="row">
+      <button class="nv" id="prev" aria-label="Mes anterior">‹</button>
+      <span class="mes" id="mes"></span>
+      <button class="nv" id="next" aria-label="Mes siguiente">›</button>
+    </div>
+  </div>
+  <div class="lay">
+    <div class="a"><div class="cal"><div class="g" id="g"></div></div></div>
+    <div class="b"><div class="card" id="det"><p class="m">Selecciona un evento del calendario.</p></div></div>
+  </div>
+</div>
+<script>
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const $ = (id) => document.getElementById(id);
+let ev = [], filtro = "todos";
+const hoy = new Date();
+let y = hoy.getFullYear(), m = hoy.getMonth();
+
+function render() {
+  $("mes").textContent = MESES[m] + " " + y;
+  const g = $("g");
+  g.textContent = "";
+  ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].forEach((d) => {
+    const h = document.createElement("div");
+    h.className = "h"; h.textContent = d; g.appendChild(h);
+  });
+  const off = (new Date(y, m, 1).getDay() + 6) % 7;
+  const days = new Date(y, m + 1, 0).getDate();
+  for (let i = 0; i < off; i++) {
+    const e = document.createElement("div"); e.className = "d n"; g.appendChild(e);
+  }
+  for (let d = 1; d <= days; d++) {
+    const cell = document.createElement("div");
+    cell.className = "d";
+    cell.appendChild(document.createTextNode(d));
+    const key = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+    ev.filter((e) => (filtro === "todos" || e.type === filtro) && e.starts_at.startsWith(key))
+      .forEach((e) => {
+        const b = document.createElement("button");
+        b.className = "e " + (e.type === "torneo" ? "t2" : "q");
+        b.textContent = e.title;
+        b.onclick = () => show(e);
+        cell.appendChild(b);
+      });
+    g.appendChild(cell);
+  }
+}
+
+function show(e) {
+  const box = $("det");
+  box.textContent = "";
+  const add = (tag, cls, txt) => {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    el.textContent = txt;
+    box.appendChild(el);
+  };
+  add("span", "lb", e.type === "torneo" ? "Torneo" : "Quedada");
+  add("h3", "", e.title);
+  const f = new Date(e.starts_at).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  add("p", "", f + " · " + e.starts_at.slice(11, 16));
+  if (e.location) add("p", "m", e.location);
+  if (e.description) add("p", "", e.description);
+  if (e.capacity) add("p", "m", "Plazas: " + e.capacity);
+  add("p", "m", "La inscripción se activará con el login de Discord.");
+}
+
+$("chips").onclick = (x) => {
+  const f = x.target.dataset.f;
+  if (!f) return;
+  filtro = f;
+  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === x.target));
+  render();
+};
+$("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
+$("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
+
+fetch("/api/events").then((r) => r.json()).then((d) => {
+  ev = d;
+  const now = new Date().toISOString().slice(0, 16);
+  const next = ev.find((e) => e.starts_at >= now);
+  if (next) { y = +next.starts_at.slice(0, 4); m = +next.starts_at.slice(5, 7) - 1; }
+  render();
+}).catch(() => render());
+render();
+</script>
+</body>
+</html>
