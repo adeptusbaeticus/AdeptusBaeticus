@@ -598,7 +598,7 @@ async function runPost(env, it, uid) {
     const pm = await bot(env, `/channels/${p.channel_id}/messages`, { method: "POST", body: fd });
     if (!pm.ok) return `No se pudo publicar (error ${pm.status}). Revisa que el bot pueda escribir, adjuntar archivos e insertar enlaces en #${CANAL_POSTS}.`;
     const msg = await pm.json();
-    const a = (msg.attachments || []).find((x) => x.filename === filename) || (msg.attachments || [])[0] || {};
+    const a = imagenDeMensaje(msg, filename);
     await env.DB.prepare(
       `UPDATE posts SET titulo=?2, descripcion=?3, message_id=?4, image_filename=?5, image_url=?6, width=?7, height=?8,
          image_src=NULL, status='publicado' WHERE id=?1`
@@ -634,6 +634,14 @@ async function runPost(env, it, uid) {
     return `🗑️ Post «${p.titulo}» borrado de la web y del canal.`;
   }
   return "Acción desconocida.";
+}
+
+// Imagen de un mensaje del bot: si va dentro del embed, Discord no la lista como adjunto sino en embeds[].image.
+function imagenDeMensaje(msg, filename) {
+  const a = (msg.attachments || []).find((x) => x.filename === filename) || (msg.attachments || [])[0];
+  if (a && a.url) return a;
+  const im = ((msg.embeds || [])[0] || {}).image || {};
+  return { url: im.url || null, width: im.width || null, height: im.height || null };
 }
 
 // Renueva enlaces de adjuntos de Discord que caducan en menos de una hora. Devuelve original → nuevo.
@@ -728,8 +736,21 @@ export default {
         `SELECT id, titulo, descripcion, autor, image_url, width, height, created_at, updated_at
          FROM posts WHERE status='publicado' ORDER BY id DESC LIMIT 20`
       ).all();
-      const map = await renovarUrls(env, results.map((r) => r.image_url));
       const upd = [];
+      // Posts sin enlace de imagen guardado: se recupera del mensaje del bot.
+      for (const r of results.filter((x) => !x.image_url).slice(0, 5)) {
+        const p = await env.DB.prepare("SELECT channel_id, message_id, image_filename FROM posts WHERE id=?1").bind(r.id).first();
+        if (!p || !p.message_id || !env.DISCORD_BOT_TOKEN) continue;
+        try {
+          const gm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`);
+          if (!gm.ok) continue;
+          const a = imagenDeMensaje(await gm.json(), p.image_filename);
+          if (!a.url) continue;
+          Object.assign(r, { image_url: a.url, width: a.width, height: a.height });
+          upd.push(env.DB.prepare("UPDATE posts SET image_url=?2, width=?3, height=?4 WHERE id=?1").bind(r.id, a.url, a.width, a.height));
+        } catch (e) {}
+      }
+      const map = await renovarUrls(env, results.map((r) => r.image_url));
       results.forEach((r) => {
         const nu = map.get(r.image_url);
         if (nu && nu !== r.image_url) { r.image_url = nu; upd.push(env.DB.prepare("UPDATE posts SET image_url=?2 WHERE id=?1").bind(r.id, nu)); }
