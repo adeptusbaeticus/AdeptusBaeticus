@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px 64px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+h1{font:700 36px/1.1 Cinzel,Georgia,serif;margin:32px 0 16px}
+h2{font:700 24px Cinzel,Georgia,serif;margin:32px 0 16px}
+.card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
+.m{color:#A8A293;font-size:14px}
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+label{display:block;font-weight:600;font-size:14px;margin-bottom:4px}
+input,select,textarea{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit}
+textarea{min-height:80px}
+.full{grid-column:1/-1}
+.btn{background:#A3211B;color:#fff;border:0;border-radius:8px;padding:12px 20px;font:600 15px Inter,sans-serif;cursor:pointer;min-height:44px}
+.chip{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:8px 16px;min-height:44px;font:500 14px Inter,sans-serif;cursor:pointer}
+.row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <span id="auth"></span>
+  </div>
+  <h1>Administración de eventos</h1>
+  <p id="gate" class="m">Cargando...</p>
+  <div id="app" hidden>
+    <form id="f" class="card">
+      <div class="fg">
+        <div><label for="type">Tipo</label><select id="type"><option value="quedada">Quedada</option><option value="torneo">Torneo</option></select></div>
+        <div><label for="title">Título</label><input id="title" required maxlength="120"></div>
+        <div><label for="starts">Fecha y hora</label><input id="starts" type="datetime-local" required></div>
+        <div><label for="loc">Lugar</label><input id="loc" maxlength="160"></div>
+        <div><label for="cap">Plazas (opcional)</label><input id="cap" type="number" min="1" max="1000"></div>
+        <div><label for="nr">Enlace o ID de New Recruit (torneos)</label><input id="nr" maxlength="80"></div>
+        <div><label for="status">Estado</label><select id="status"><option value="publicado">Publicado</option><option value="borrador">Borrador</option><option value="cancelado">Cancelado</option></select></div>
+        <div class="full"><label for="desc">Descripción</label><textarea id="desc" maxlength="1000"></textarea></div>
+      </div>
+      <p id="msg" class="m" style="min-height:20px;margin:12px 0 0"></p>
+      <div class="acts" style="margin-top:8px">
+        <button class="btn" type="submit" id="save">Crear evento</button>
+        <button class="chip" type="button" id="reset">Limpiar</button>
+      </div>
+    </form>
+    <h2>Eventos</h2>
+    <div id="list"></div>
+  </div>
+</div>
+<script src="/auth.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let events = [], editing = null;
+
+function mkBtn(txt, fn) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = txt; b.onclick = fn;
+  return b;
+}
+
+function renderList() {
+  const box = $("list");
+  box.textContent = "";
+  if (!events.length) { box.textContent = "No hay eventos."; return; }
+  events.forEach((e) => {
+    const row = document.createElement("div");
+    row.className = "row card";
+    const info = document.createElement("div");
+    const t = document.createElement("strong");
+    t.textContent = e.title;
+    const m = document.createElement("div");
+    m.className = "m";
+    m.textContent = e.starts_at.replace("T", " ") + " · " + (e.type === "torneo" ? "Torneo" : "Quedada") + " · " + e.status;
+    info.append(t, m);
+    const acts = document.createElement("div");
+    acts.className = "acts";
+    acts.append(mkBtn("Editar", () => edit(e)));
+    if (e.status !== "cancelado") acts.append(mkBtn("Cancelar evento", () => setStatus(e, "cancelado", "¿Cancelar este evento?")));
+    else acts.append(mkBtn("Publicar de nuevo", () => setStatus(e, "publicado")));
+    row.append(info, acts);
+    box.appendChild(row);
+  });
+}
+
+async function load() {
+  const r = await fetch("/api/admin/events");
+  if (!r.ok) { $("gate").hidden = false; $("gate").textContent = "No se pudieron cargar los eventos."; return; }
+  events = await r.json();
+  renderList();
+}
+
+function resetForm() {
+  editing = null;
+  $("f").reset();
+  $("save").textContent = "Crear evento";
+}
+
+function edit(e) {
+  editing = e.id;
+  $("type").value = e.type;
+  $("title").value = e.title;
+  $("starts").value = e.starts_at;
+  $("loc").value = e.location || "";
+  $("cap").value = e.capacity || "";
+  $("nr").value = e.nr_tournament_id || "";
+  $("status").value = e.status;
+  $("desc").value = e.description || "";
+  $("save").textContent = "Guardar cambios";
+  $("msg").textContent = "Editando: " + e.title;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function send(id, data) {
+  $("msg").textContent = "";
+  const r = await fetch(id ? "/api/admin/events/" + id : "/api/admin/events", {
+    method: id ? "PUT" : "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) { $("msg").textContent = "No se pudo guardar. Revisa los datos."; return false; }
+  return true;
+}
+
+async function setStatus(e, status, q) {
+  if (q && !confirm(q)) return;
+  if (await send(e.id, { ...e, status })) await load();
+}
+
+$("f").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const ok = await send(editing, {
+    type: $("type").value, title: $("title").value, starts_at: $("starts").value,
+    location: $("loc").value, description: $("desc").value, capacity: $("cap").value,
+    nr_tournament_id: $("nr").value, status: $("status").value,
+  });
+  if (ok) { resetForm(); await load(); $("msg").textContent = "Guardado."; }
+};
+$("reset").onclick = () => { resetForm(); $("msg").textContent = ""; };
+
+fetch("/api/me").then((r) => r.json()).then((me) => {
+  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); }
+  else $("gate").textContent = me ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
+}).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
+</script>
+</body>
+</html>
