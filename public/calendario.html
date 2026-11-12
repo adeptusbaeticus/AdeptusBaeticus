@@ -234,6 +234,7 @@ function show(e) {
     if (e.capacity && n >= e.capacity) add("p", "m", "No quedan plazas: entrarás en la lista de espera.");
     const b = document.createElement("button");
     b.type = "button"; b.className = "btn"; b.textContent = "Apuntarme";
+    b.dataset.accion = "apuntarme";
     b.onclick = () => openForm(e, box, b);
     box.append(b, err);
     return;
@@ -851,7 +852,25 @@ Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine().then(() =>
   const next = ev.find((e) => e.starts_at >= now);
   if (next) { y = +next.starts_at.slice(0, 4); m = +next.starts_at.slice(5, 7) - 1; }
   render();
+  abrirDesdeEnlace();
 }).catch(() => render());
+
+// Enlaces directos desde Inicio: ?evento=ID (y &apuntarme=1 para abrir el formulario) o ?partida=ID.
+function abrirDesdeEnlace() {
+  const q = new URLSearchParams(location.search);
+  const irA = (fecha) => { y = +fecha.slice(0, 4); m = +fecha.slice(5, 7) - 1; render(); };
+  const e = ev.find((x) => String(x.id) === q.get("evento"));
+  if (e) {
+    irA(e.starts_at);
+    show(e);
+    const b = $("det").querySelector('[data-accion="apuntarme"]');
+    if (q.get("apuntarme") === "1" && b) b.click();
+  }
+  const p = partidas.find((x) => String(x.id) === q.get("partida"));
+  if (p) { irA(partidaDias(p)[0]); showPartida(p); }
+  if (q.get("buscar") === "1" && mine) openPartidaForm();
+  if (e || p) $("det").scrollIntoView({ block: "nearest" });
+}
 render();
 </script>
 <script src="/i18n.js"></script>

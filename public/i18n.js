@@ -19,6 +19,11 @@
     "Club de Warhammer 40.000 en Málaga": "Warhammer 40,000 club in Málaga",
     "Club gratuito para noveles. Quedada el primer sábado de cada mes en": "Free club for newcomers. Meetup on the first Saturday of every month at",
     "Noticias del club": "Club news", "Importante": "Important",
+    "Próxima quedada": "Next meetup", "No hay ninguna quedada programada.": "No meetup scheduled.",
+    "Ver mi inscripción": "See my sign-up", "No hay partidas abiertas ahora mismo.": "There are no open games right now.",
+    "Entra con Discord para ver las partidas y unirte.": "Log in with Discord to see the games and join.",
+    "No se pudieron cargar las partidas.": "Could not load the games.",
+    "ene": "Jan", "abr": "Apr", "ago": "Aug", "sept": "Sep", "dic": "Dec",
     "Últimas entradas del blog": "Latest blog posts", "Cargando entradas...": "Loading posts...",
     "No se han podido cargar las entradas.": "Could not load the posts.",
     "Leer más": "Read more", "Leer menos": "Read less", "Spoiler: pulsa para verlo": "Spoiler: click to reveal",
@@ -222,7 +227,7 @@
     ["Organiza: ", "Organiser: "], ["hueco libre", "free spot"], [" (tú)", " (you)"], ["tú contra", "you against"],
     [" contra ", " against "], ["Jugar con ", "Play with "], [" · faltan ", " · needed: "],
     ["En el equipo de ", "On the team of "], ["Contra ", "Against "], [" (con ", " (with "],
-    [" · de ", " · from "], [" a las ", " at "], [" y ", " and "],
+    [" · de ", " · from "], [" a las ", " at "], [" y ", " and "], [" / ", " / "],
   ];
 
   function fechas(t) {
