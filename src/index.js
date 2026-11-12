@@ -647,7 +647,10 @@ export default {
         const { results: js } = await env.DB.prepare("SELECT discord_id, side FROM partida_players WHERE partida_id=?1").bind(pid).all();
         if (js.some((j) => j.discord_id === s.id)) return fail("Ya estás en esta partida", 409);
         const a = js.filter((j) => j.side === "A").length, bb = js.length - a;
-        const side = bb < p.team_b ? "B" : a < p.team_a ? "A" : null;
+        // Bando elegido (no en Necromunda); si no se elige, primero rival y luego compañero.
+        const want = p.activity !== "necromunda" && (b.side === "A" || b.side === "B") ? b.side : null;
+        if (want && (want === "A" ? a >= p.team_a : bb >= p.team_b)) return fail("Ese bando ya está completo", 409);
+        const side = want || (bb < p.team_b ? "B" : a < p.team_a ? "A" : null);
         if (!side) return fail("La partida ya está completa", 409);
         const [ins] = await env.DB.batch([
           // El hueco se comprueba dentro del INSERT para que dos personas no ocupen el mismo.

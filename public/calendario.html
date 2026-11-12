@@ -582,7 +582,28 @@ function showPartida(p) {
       box.append(mkField("Día", dSel), mkField("Hora de inicio", hSel));
       slot = () => hSel.value;
     }
-    btn("Unirme", "btn", () => act("POST", "/api/partidas/" + p.id + "/join", { slot: slot ? slot() : null }));
+    // Elegir bando si hay hueco en los dos (no en Necromunda).
+    let side = null;
+    const libres = (sd) => (sd === "A" ? p.team_a : p.team_b) - p.jugadores.filter((j) => j.side === sd).length;
+    if (p.activity !== "necromunda" && libres("A") > 0 && libres("B") > 0) {
+      const de = (sd) => p.jugadores.filter((j) => j.side === sd).map((j) => j.name).join(" y ");
+      const fs = document.createElement("fieldset");
+      fs.className = "fld";
+      const lg = document.createElement("legend");
+      lg.textContent = "¿En qué bando?";
+      fs.appendChild(lg);
+      [["B", "Contra " + de("A") + (de("B") ? " (con " + de("B") + ")" : "")], ["A", "En el equipo de " + de("A")]].forEach(([v, txt], i) => {
+        const l = document.createElement("label");
+        l.className = "rad";
+        const r = document.createElement("input");
+        r.type = "radio"; r.name = "pj-side"; r.value = v; r.checked = i === 0;
+        l.append(r, " " + txt);
+        fs.appendChild(l);
+      });
+      box.appendChild(fs);
+      side = () => (fs.querySelector("input:checked") || {}).value;
+    }
+    btn("Unirme", "btn", () => act("POST", "/api/partidas/" + p.id + "/join", { slot: slot ? slot() : null, side: side ? side() : null }));
   } else add("p", "m", "No se admiten más jugadores salvo que alguien se caiga.");
   box.appendChild(err);
 }

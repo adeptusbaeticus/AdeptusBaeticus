@@ -40,6 +40,7 @@ h2{font:700 24px Cinzel,Georgia,serif;margin:32px 0 16px}
   <p id="msg" class="m">Cargando...</p>
   <div id="prox"></div>
   <div id="pas"></div>
+  <div id="parts"></div>
 </div>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -134,7 +135,74 @@ async function load() {
   section($("pas"), "Pasadas", past, false);
 }
 
+// ===== Mis partidas =====
+const CORTO = { combat_patrol: "Combat Patrol", "40k_1000": "40k a 1k", "40k_2000": "40k a 2k", necromunda: "Necromunda", bloodbowl: "Blood Bowl" };
+const fechaLarga = (d) => new Date(d + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+
+function partidaTitulo(p) {
+  let t = CORTO[p.activity] || p.activity;
+  if (p.activity === "necromunda") t += " · " + p.players + " participantes";
+  else if (p.activity === "combat_patrol" || p.activity === "40k_1000") t += " · " + p.format.replace("v", "vs");
+  return t;
+}
+
+async function loadPartidas() {
+  const box = $("parts");
+  let list = [];
+  try { const r = await fetch("/api/partidas"); if (r.ok) list = await r.json(); } catch (x) {}
+  list = list.filter((p) => p.dentro);
+  box.textContent = "";
+  if (!list.length) return;
+  box.appendChild(el("h2", "", "Mis partidas"));
+  const now = localNow();
+  const cerrada = (p) => (p.starts_at ? p.starts_at <= now : p.last_day < now.slice(0, 10));
+  const key = (p) => p.starts_at || p.availability[0].date;
+  list.sort((a, b) => (cerrada(a) - cerrada(b)) || (key(a) < key(b) ? -1 : 1));
+  list.forEach((p) => {
+    const row = el("div", "row card");
+    const info = el("div");
+    info.appendChild(el("strong", "", partidaTitulo(p)));
+    if (p.starts_at) info.appendChild(el("div", "m", fechaLarga(p.starts_at.slice(0, 10)) + " · " + p.starts_at.slice(11, 16)));
+    else info.appendChild(el("div", "m", "Sin fecha aún. Puede: " + p.availability.map((x) => fechaLarga(x.date) + " de " + x.from + " a " + x.to).join("; ")));
+    const names = (side, total) => {
+      const xs = p.jugadores.filter((j) => j.side === side).map((j) => (j.yo ? "tú" : j.name));
+      while (xs.length < total) xs.push("hueco libre");
+      return xs;
+    };
+    info.appendChild(el("div", "m", p.activity === "necromunda"
+      ? "Participantes: " + names("A", p.team_a).concat(names("B", p.team_b)).join(", ")
+      : names("A", p.team_a).join(" y ") + " contra " + names("B", p.team_b).join(" y ")));
+    const c = cerrada(p);
+    if (c) info.appendChild(el("div", "st", "Cerrada"));
+    else if (p.status === "completa") info.appendChild(el("div", "st ok", "Completa · " + (p.mesa ? "Mesa " + p.mesa : "sin mesa libre")));
+    else info.appendChild(el("div", "st w", "Abierta · falta" + (p.faltan > 1 ? "n " : " ") + p.faltan));
+    row.appendChild(info);
+    if (!c) {
+      const acts = el("div");
+      const b = el("button", "chip", p.mia ? "Retirar partida" : "Salir de la partida");
+      b.type = "button";
+      const err = el("div", "err");
+      b.onclick = async () => {
+        if (!confirm(p.mia ? "¿Retirar esta partida? Desaparecerá del calendario para todos." : "¿Salir de esta partida?")) return;
+        b.disabled = true;
+        err.textContent = "";
+        try {
+          const r = await fetch("/api/partidas/" + p.id + (p.mia ? "" : "/join"), { method: "DELETE" });
+          if (r.ok || r.status === 404) { await loadPartidas(); return; }
+          const d = await r.json().catch(() => ({}));
+          err.textContent = d.error || "No se pudo completar.";
+        } catch (x) { err.textContent = "No se pudo completar."; }
+        b.disabled = false;
+      };
+      acts.append(b, err);
+      row.appendChild(acts);
+    }
+    box.appendChild(row);
+  });
+}
+
 load();
+loadPartidas();
 </script>
 <script src="/auth.js"></script>
 </body>
