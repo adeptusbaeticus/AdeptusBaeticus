@@ -30,6 +30,9 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0}
 .h{font-size:13px;color:#A8A293;text-align:center;padding:6px 0;font-weight:600}
 .d{min-height:92px;background:#1F2328;border-radius:8px;padding:8px;font-size:14px}
 .d.n{background:#181B1F}
+.d.hoy{box-shadow:inset 0 0 0 2px #D9B25A;background:#262A30}
+.d .dn{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:999px;background:#D9B25A;color:#15171A;font-weight:700}
+.d .hoy-tag{margin-left:6px;font-size:12px;font-weight:600;color:#D9B25A;text-transform:uppercase;letter-spacing:.06em}
 .e{display:block;width:100%;border:0;text-align:left;cursor:pointer;font:600 12px Inter,sans-serif;border-radius:6px;padding:3px 6px;margin-top:6px}
 /* Claro: abierto. Oscuro: completo o cerrado. */
 .q{background:#F0CE82;color:#15171A}.q.x{background:#8A6416;color:#fff}
@@ -134,10 +137,23 @@ function render() {
   }
   for (let d = 1; d <= days; d++) {
     const cell = document.createElement("div");
-    cell.className = "d";
-    cell.appendChild(document.createTextNode(d));
     const key = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
     const now = localNow();
+    cell.className = "d";
+    if (key === now.slice(0, 10)) {
+      // Día actual: borde dorado, número resaltado y etiqueta «Hoy».
+      cell.className = "d hoy";
+      cell.setAttribute("aria-current", "date");
+      const num = document.createElement("span");
+      num.className = "dn";
+      num.textContent = d;
+      const tag = document.createElement("span");
+      tag.className = "hoy-tag";
+      tag.textContent = "Hoy";
+      cell.append(num, tag);
+    } else {
+      cell.appendChild(document.createTextNode(d));
+    }
     ev.filter((e) => (filtro === "todos" || e.type === filtro) && e.starts_at.startsWith(key))
       .forEach((e) => {
         const b = document.createElement("button");
