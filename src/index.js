@@ -322,10 +322,11 @@ const bot = (env, path, init = {}) =>
 
 const DISCORD_COMMANDS = [
   {
-    name: "publicar", description: "Publica una foto en la galería de la web",
+    name: "publicar", description: "Publica hasta 10 fotos en la galería de la web",
     options: [
-      { type: 11, name: "imagen", description: "La foto (PNG, JPG, GIF o WEBP, hasta 10 MB)", required: true },
-      { type: 3, name: "texto", description: "Texto que acompaña a la foto", required: false, max_length: 500 },
+      { type: 11, name: "imagen", description: "Foto (PNG, JPG, GIF o WEBP, hasta 10 MB)", required: true },
+      { type: 3, name: "texto", description: "Texto que acompaña a las fotos", required: false, max_length: 500 },
+      ...[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({ type: 11, name: "imagen" + n, description: "Foto " + n + " (opcional)", required: false })),
     ],
   },
   {
@@ -342,6 +343,8 @@ const DISCORD_COMMANDS = [
 ];
 
 // Texto del mensaje del bot en el canal (menciona al autor sin notificarle).
+const MAX_FOTO = 10 * 1024 * 1024; // por foto
+const MAX_ALBUM = 25 * 1024 * 1024; // entre todas las de una publicación
 const pubMensaje = (id, uid, texto) => `📸 **Publicación ${id}** · <@${uid}>` + (texto ? "\n" + texto : "");
 
 // Ejecuta un comando y devuelve el texto de la respuesta privada para quien lo usa.
@@ -350,35 +353,50 @@ async function runCommand(env, it, uid, name, role) {
   const cmd = it.data.name;
 
   if (cmd === "publicar") {
-    const att = ((it.data.resolved || {}).attachments || {})[opt.imagen];
-    const tipo = att && (att.content_type || "").split(";")[0];
+    // Hasta 10 fotos en un único álbum con un solo ID.
+    const resolved = (it.data.resolved || {}).attachments || {};
+    const keys = ["imagen", ...[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => "imagen" + n)];
+    const atts = keys.filter((k) => opt[k]).map((k) => resolved[opt[k]]);
     const EXT = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
-    if (!att || !EXT[tipo]) return "La imagen debe ser PNG, JPG, GIF o WEBP.";
-    if (att.size > 10 * 1024 * 1024) return "La imagen no puede pasar de 10 MB.";
+    if (!atts.length || atts.some((a) => !a || !EXT[(a.content_type || "").split(";")[0]])) {
+      return "Todas las imágenes deben ser PNG, JPG, GIF o WEBP.";
+    }
+    if (atts.some((a) => a.size > MAX_FOTO)) return "Cada foto puede ocupar como máximo 10 MB.";
+    if (atts.reduce((t, a) => t + a.size, 0) > MAX_ALBUM) return "Entre todas las fotos no pueden pasar de 25 MB. Prueba con menos fotos o más ligeras.";
     const texto = String(opt.texto || "").trim().slice(0, 500) || null;
-    const img = await fetch(att.url);
-    if (!img.ok) return "No se pudo leer la imagen. Inténtalo de nuevo.";
-    const blob = await img.blob();
+    const blobs = await Promise.all(atts.map(async (a) => {
+      const r = await fetch(a.url);
+      return r.ok ? r.blob() : null;
+    }));
+    if (blobs.some((b) => !b)) return "No se pudo leer alguna de las imágenes. Inténtalo de nuevo.";
     const r = await env.DB.prepare("INSERT INTO publicaciones (discord_id, autor, texto, channel_id) VALUES (?1,?2,?3,?4)")
       .bind(uid, name, texto, it.channel_id).run();
     const id = r.meta.last_row_id;
-    const filename = `publicacion-${id}.${EXT[tipo]}`;
+    const names = atts.map((a, i) => `publicacion-${id}-${i + 1}.${EXT[(a.content_type || "").split(";")[0]]}`);
     const fd = new FormData();
     fd.append("payload_json", JSON.stringify({
-      content: pubMensaje(id, uid, texto), allowed_mentions: { parse: [] }, attachments: [{ id: 0, filename }],
+      content: pubMensaje(id, uid, texto), allowed_mentions: { parse: [] },
+      attachments: names.map((filename, i) => ({ id: i, filename })),
     }));
-    fd.append("files[0]", blob, filename);
+    blobs.forEach((b, i) => fd.append(`files[${i}]`, b, names[i]));
     const pm = await bot(env, `/channels/${it.channel_id}/messages`, { method: "POST", body: fd });
     if (!pm.ok) {
       await env.DB.prepare("DELETE FROM publicaciones WHERE id=?1").bind(id).run();
-      return `No se pudo publicar (error ${pm.status}). Revisa que el bot pueda escribir y adjuntar archivos en #${CANAL_PUBLICACIONES}.`;
+      return pm.status === 413
+        ? "Las fotos ocupan demasiado para Discord. Prueba con menos fotos o más ligeras."
+        : `No se pudo publicar (error ${pm.status}). Revisa que el bot pueda escribir y adjuntar archivos en #${CANAL_PUBLICACIONES}.`;
     }
     const msg = await pm.json();
-    const a = (msg.attachments || [])[0] || {};
+    // Mismo orden en que se adjuntaron.
+    const imgs = names.map((n) => (msg.attachments || []).find((a) => a.filename === n)).filter(Boolean)
+      .map((a) => ({ url: a.url, width: a.width || null, height: a.height || null }));
+    const first = imgs[0] || {};
     await env.DB.prepare(
-      "UPDATE publicaciones SET message_id=?2, image_url=?3, width=?4, height=?5, status='publicada' WHERE id=?1"
-    ).bind(id, msg.id, a.url || null, a.width || null, a.height || null).run();
-    return `✅ Publicada en la web con ID **${id}**.\nPara cambiar el texto: \`/editar id:${id}\` · Para quitarla: \`/borrar id:${id}\``;
+      "UPDATE publicaciones SET message_id=?2, image_url=?3, width=?4, height=?5, imagenes=?6, status='publicada' WHERE id=?1"
+    ).bind(id, msg.id, first.url || null, first.width || null, first.height || null, JSON.stringify(imgs)).run();
+    const n = imgs.length;
+    return `✅ Publicada en la web con ID **${id}**` + (n > 1 ? ` (${n} fotos)` : "") +
+      `.\nPara cambiar el texto: \`/editar id:${id}\` · Para quitarla: \`/borrar id:${id}\``;
   }
 
   const p = await env.DB.prepare("SELECT * FROM publicaciones WHERE id=?1").bind(Number(opt.id)).first();
@@ -454,31 +472,44 @@ export default {
     // Galería pública: las publicaciones, con los enlaces de imagen renovados si van a caducar.
     if (path === "/api/galeria" && request.method === "GET") {
       const { results } = await env.DB.prepare(
-        "SELECT id, autor, texto, image_url, width, height, created_at, updated_at FROM publicaciones WHERE status='publicada' ORDER BY id DESC LIMIT 300"
+        `SELECT id, autor, texto, imagenes, image_url, width, height, created_at, updated_at
+         FROM publicaciones WHERE status='publicada' ORDER BY id DESC LIMIT 300`
       ).all();
+      for (const r of results) {
+        let imgs = [];
+        try { imgs = JSON.parse(r.imagenes || "[]"); } catch (e) {}
+        if (!imgs.length && r.image_url) imgs = [{ url: r.image_url, width: r.width, height: r.height }];
+        r.imagenes = imgs;
+        delete r.image_url; delete r.width; delete r.height;
+      }
+      // Los enlaces de Discord caducan: se renuevan los que caducan en menos de una hora.
       const pronto = Date.now() / 1000 + 3600;
-      const viejos = results.filter((r) => r.image_url && urlExpira(r.image_url) < pronto);
+      const viejos = [];
+      results.forEach((r) => r.imagenes.forEach((im) => { if (im.url && urlExpira(im.url) < pronto) viejos.push(im.url); }));
       if (viejos.length && env.DISCORD_BOT_TOKEN) {
+        const map = new Map();
         for (let i = 0; i < viejos.length; i += 50) {
-          const lote = viejos.slice(i, i + 50);
           try {
             const r = await bot(env, "/attachments/refresh-urls", {
               method: "POST", headers: { "content-type": "application/json" },
-              body: JSON.stringify({ attachment_urls: lote.map((x) => x.image_url) }),
+              body: JSON.stringify({ attachment_urls: viejos.slice(i, i + 50) }),
             });
-            if (!r.ok) continue;
-            const map = new Map(((await r.json()).refreshed_urls || []).map((x) => [x.original, x.refreshed]));
-            const upd = [];
-            for (const x of lote) {
-              const nu = map.get(x.image_url);
-              if (nu && nu !== x.image_url) {
-                upd.push(env.DB.prepare("UPDATE publicaciones SET image_url=?2 WHERE id=?1").bind(x.id, nu));
-                x.image_url = nu;
-              }
-            }
-            if (upd.length) await env.DB.batch(upd);
+            if (r.ok) ((await r.json()).refreshed_urls || []).forEach((x) => map.set(x.original, x.refreshed));
           } catch (e) {}
         }
+        const upd = [];
+        for (const r of results) {
+          let cambia = false;
+          r.imagenes.forEach((im) => {
+            const nu = map.get(im.url);
+            if (nu && nu !== im.url) { im.url = nu; cambia = true; }
+          });
+          if (cambia) {
+            upd.push(env.DB.prepare("UPDATE publicaciones SET imagenes=?2, image_url=?3 WHERE id=?1")
+              .bind(r.id, JSON.stringify(r.imagenes), r.imagenes[0].url));
+          }
+        }
+        if (upd.length) await env.DB.batch(upd);
       }
       // Sin caché: las fotos nuevas, editadas o borradas tienen que verse al momento.
       return Response.json(results, { headers: noStore });
