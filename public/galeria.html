@@ -22,12 +22,17 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .m{color:#A8A293;font-size:14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:24px}
 .post{background:#1F2328;border:1px solid #2C3036;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
-.post button{position:relative;display:block;border:0;padding:0;background:#2A2F36;cursor:zoom-in;aspect-ratio:1/1;width:100%}
+.post .foto{position:relative;display:block;border:0;padding:0;background:#2A2F36;cursor:zoom-in;aspect-ratio:1/1;width:100%}
 .post .n{position:absolute;top:8px;right:8px;background:rgba(21,23,26,.85);color:#ECE7DC;border-radius:999px;padding:2px 10px;font:600 13px Inter,sans-serif}
 .post img{width:100%;height:100%;object-fit:cover;display:block}
 .post .tx{padding:16px}
 .post p{margin:0 0 8px;white-space:pre-line;overflow-wrap:anywhere}
 .post .who{display:flex;justify-content:space-between;gap:8px;color:#A8A293;font-size:13px}
+.post .pie{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}
+.bless{display:inline-flex;align-items:center;gap:6px;background:#15171A;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:6px 14px;min-height:40px;font:600 14px Inter,sans-serif;cursor:pointer}
+.bless.on{background:#D9B25A;color:#15171A;border-color:#D9B25A}
+.bless:disabled{cursor:default;opacity:.75}
+.bless .ic{font-size:16px;line-height:1}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;z-index:50;gap:12px}
 .ov img{max-width:100%;max-height:74vh;border-radius:8px}
 .ov .nav2{display:flex;align-items:center;gap:12px}
@@ -103,18 +108,45 @@ function ampliar(p, start) {
   close.focus();
 }
 
-fetch("/api/galeria").then((r) => (r.ok ? r.json() : Promise.reject())).then((list) => {
+// Botón de «Bendición del Emperador» (una por socio y publicación).
+function bendicion(p, sesion) {
+  const b = el("button", "bless");
+  b.type = "button";
+  const pinta = () => {
+    b.textContent = "";
+    b.classList.toggle("on", p.bendecida);
+    b.append(el("span", "ic", "🦅"), el("span", "", String(p.bendiciones)));
+    b.title = !sesion ? "Entra con Discord para dar tu bendición"
+      : p.bendecida ? "Retirar tu bendición" : "Dar la bendición del Emperador";
+    b.setAttribute("aria-label", p.bendiciones + (p.bendiciones === 1 ? " bendición" : " bendiciones") + ". " + b.title);
+    b.setAttribute("aria-pressed", p.bendecida ? "true" : "false");
+  };
+  pinta();
+  if (!sesion) { b.disabled = true; return b; }
+  b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const r = await fetch("/api/galeria/" + p.id + "/bendicion", { method: p.bendecida ? "DELETE" : "POST" });
+      if (r.ok) { const d = await r.json(); p.bendiciones = d.bendiciones; p.bendecida = d.bendecida; pinta(); }
+    } catch (e) {}
+    b.disabled = false;
+  };
+  return b;
+}
+
+fetch("/api/galeria").then((r) => (r.ok ? r.json() : Promise.reject())).then((data) => {
+  const list = data.publicaciones || [];
   const g = $("grid");
   $("msg").textContent = list.length ? "" : "Todavía no hay fotos publicadas.";
   if (!list.length) return;
   $("msg").hidden = true;
   list.filter((p) => p.imagenes && p.imagenes.length).forEach((p) => {
     const card = el("article", "post");
-    const b = el("button");
+    const b = el("button", "foto");
     b.type = "button";
     const portada = p.imagenes[0] || {};
     const n = p.imagenes.length;
-    b.setAttribute("aria-label", "Ampliar publicación " + p.id + (n > 1 ? " (" + n + " fotos)" : ""));
+    b.setAttribute("aria-label", "Ampliar publicación " + p.numero + (n > 1 ? " (" + n + " fotos)" : ""));
     const im = el("img");
     im.src = portada.url;
     im.alt = p.texto || "Foto de " + p.autor;
@@ -126,8 +158,11 @@ fetch("/api/galeria").then((r) => (r.ok ? r.json() : Promise.reject())).then((li
     const tx = el("div", "tx");
     if (p.texto) tx.appendChild(el("p", "", p.texto));
     const who = el("div", "who");
-    who.append(el("span", "", p.autor), el("span", "", fecha(p.created_at) + " · #" + p.id));
+    who.append(el("span", "", p.autor), el("span", "", fecha(p.created_at)));
     tx.appendChild(who);
+    const pie = el("div", "pie");
+    pie.append(bendicion(p, data.sesion), el("span", "m", "#" + p.numero));
+    tx.appendChild(pie);
     card.append(b, tx);
     g.appendChild(card);
   });
