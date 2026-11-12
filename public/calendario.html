@@ -210,9 +210,9 @@ function mkField(text, control) {
 // Formulario de inscripción: qué va a hacer y, si juega, con quién.
 async function openForm(e, box, startBtn) {
   startBtn.disabled = true;
-  if (!members) {
-    try { const r = await fetch("/api/members"); members = r.ok ? await r.json() : []; } catch (x) { members = []; }
-  }
+  const getJson = (u) => fetch(u).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  let looking;
+  [members, looking] = await Promise.all([members ? members : getJson("/api/members"), getJson("/api/events/" + e.id + "/looking")]);
   startBtn.remove();
   const f = document.createElement("form");
   f.className = "fz";
@@ -244,6 +244,7 @@ async function openForm(e, box, startBtn) {
   const tengo = radio("tengo", "Ya tengo rival", false);
 
   const slots = document.createElement("div");
+  const cands = document.createElement("div");
   const hint = document.createElement("p");
   hint.className = "m";
   hint.textContent = "Los jugadores que elijas quedarán inscritos en la quedada contigo. Solo aparecen los socios que han entrado alguna vez en la web.";
@@ -257,7 +258,7 @@ async function openForm(e, box, startBtn) {
   const acts = document.createElement("div");
   acts.className = "row";
   acts.append(ok, back);
-  f.append(wAct, wFmt, wSide, wNp, wMode, slots, err, acts);
+  f.append(wAct, wFmt, wSide, wNp, wMode, cands, slots, err, acts);
   box.appendChild(f);
 
   // Huecos de compañeros y rivales según actividad y formato (el servidor aplica las mismas reglas).
@@ -298,6 +299,51 @@ async function openForm(e, box, startBtn) {
       slots.appendChild(p);
     }
     slots.appendChild(hint);
+    syncPicks();
+  }
+
+  // Un jugador elegido en un hueco desaparece de los demás desplegables.
+  function syncPicks() {
+    const sels = [...slots.querySelectorAll("select")];
+    sels.forEach((s) => {
+      const taken = new Set(sels.filter((o) => o !== s && o.value).map((o) => o.value));
+      [...s.options].forEach((o) => { o.hidden = o.disabled = !!o.value && taken.has(o.value); });
+    });
+  }
+  slots.onchange = syncPicks;
+
+  // Con «Busco rival»: gente de esta quedada que busca rival para lo mismo.
+  // 40k a 1k comparte todos sus formatos; Combat Patrol, solo el mismo formato.
+  function renderCands() {
+    const prev = (cands.querySelector("input:checked") || {}).value || "";
+    cands.textContent = "";
+    if (wMode.hidden || tengo.checked) return;
+    const a = act.value;
+    const list = looking.filter((g) => g.activity === a && (a !== "combat_patrol" || g.format === fmt.value));
+    const fs = document.createElement("fieldset");
+    fs.className = "fld";
+    const lg = document.createElement("legend");
+    lg.textContent = list.length ? "También buscan rival" : "Ahora mismo nadie más busca rival para esto.";
+    fs.appendChild(lg);
+    if (list.length) {
+      const opt = (value, text) => {
+        const l = document.createElement("label");
+        l.className = "rad";
+        const i = document.createElement("input");
+        i.type = "radio"; i.name = "f-join"; i.value = value; i.checked = value === prev;
+        l.append(i, " " + text);
+        fs.appendChild(l);
+        return i;
+      };
+      const none = opt("", "Seguir buscando rival");
+      list.forEach((g) => opt(g.join, "Jugar con " + g.names.join(" y ") + " — " + g.plan + (g.faltan > 1 ? " · faltan " + g.faltan : "")));
+      if (!fs.querySelector("input:checked")) none.checked = true;
+      const p = document.createElement("p");
+      p.className = "m";
+      p.textContent = "Si te unes a alguien, jugarás en su formato.";
+      fs.appendChild(p);
+    }
+    cands.appendChild(fs);
   }
 
   function update() {
@@ -309,8 +355,9 @@ async function openForm(e, box, startBtn) {
     const c = counts();
     wMode.hidden = !play || c.team + c.rivals === 0;
     renderSlots();
+    renderCands();
   }
-  f.onchange = (x) => { if (!slots.contains(x.target)) update(); };
+  f.onchange = (x) => { if (!slots.contains(x.target) && !cands.contains(x.target)) update(); };
   update();
   act.focus();
 
@@ -321,6 +368,7 @@ async function openForm(e, box, startBtn) {
     const pick = (kind) => [...slots.querySelectorAll("select")].filter((s) => s.dataset.kind === kind && s.value).map((s) => s.value);
     const teammates = pick("team"), rivals = pick("rival");
     const all = teammates.concat(rivals);
+    const join = !wMode.hidden && !tengo.checked ? (cands.querySelector("input:checked") || {}).value || "" : "";
     if (!wMode.hidden && tengo.checked && !all.length) { err.textContent = "Elige al menos un jugador o marca «Busco rival»."; return; }
     if (new Set(all).size !== all.length) { err.textContent = "Has elegido al mismo jugador dos veces."; return; }
     ok.disabled = true;
@@ -328,7 +376,7 @@ async function openForm(e, box, startBtn) {
       const r = await fetch("/api/events/" + e.id + "/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ activity: act.value, format: fmt.value, side: side.value, players: Number(np.value), teammates, rivals }),
+        body: JSON.stringify({ activity: act.value, format: fmt.value, side: side.value, players: Number(np.value), teammates, rivals, join }),
       });
       const d = await r.json().catch(() => ({}));
       if (r.status === 401) { mine = null; show(e); return; }
