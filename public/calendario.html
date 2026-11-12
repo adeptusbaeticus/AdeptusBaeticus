@@ -137,7 +137,10 @@ function render() {
       partidas.filter((p) => partidaDias(p).includes(key)).forEach((p) => {
         const b = document.createElement("button");
         b.className = "e pt" + (p.status === "completa" || partidaCerrada(p) ? " x" : "");
-        b.textContent = CORTO[p.activity] + " · " + p.organiza;
+        // Hora fijada o, si aún no la hay, la franja ofrecida ese día.
+        const av = p.availability.find((x) => x.date === key);
+        const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
+        b.textContent = (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza;
         b.onclick = () => showPartida(p);
         cell.appendChild(b);
       });
@@ -649,7 +652,7 @@ function openPartidaForm() {
     l.append(cb, " " + d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric" }));
     const from = mkSelect("bp-from-" + i, hrs(8, 22));
     const to = mkSelect("bp-to-" + i, hrs(9, 23));
-    from.value = "17:00"; to.value = "21:00";
+    from.value = "20:00"; to.value = "23:00";
     from.setAttribute("aria-label", "Desde"); to.setAttribute("aria-label", "Hasta");
     const span = document.createElement("span");
     span.className = "hh";
