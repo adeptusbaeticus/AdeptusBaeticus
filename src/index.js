@@ -131,7 +131,59 @@ export default {
       await env.DB.prepare("UPDATE users SET nr_username=?1 WHERE discord_id=?2").bind(nr, s.id).run();
       return Response.json({ ok: true, nr_username: nr });
     }
+    
+    if (path.startsWith("/api/admin/")) {
+      const s = await readSession(env, request);
+      if (!s) return new Response("No autorizado", { status: 401 });
+      if (s.role !== "admin") return new Response("Prohibido", { status: 403 });
 
+      if (path === "/api/admin/events" && request.method === "GET") {
+        const { results } = await env.DB.prepare("SELECT * FROM events ORDER BY starts_at DESC").all();
+        return Response.json(results, { headers: { "cache-control": "no-store" } });
+      }
+
+      const idm = path.match(/^\/api\/admin\/events\/(\d+)$/);
+      const isCreate = path === "/api/admin/events" && request.method === "POST";
+      const isUpdate = idm && request.method === "PUT";
+      if (isCreate || isUpdate) {
+        if (!(request.headers.get("content-type") || "").includes("application/json")) {
+          return new Response("Tipo no válido", { status: 415 });
+        }
+        let b;
+        try { b = await request.json(); } catch (e) { return Response.json({ error: "JSON no válido" }, { status: 400 }); }
+        const clean = (v, n) => (v == null || String(v).trim() === "" ? null : String(v).trim().slice(0, n));
+        const ev = {
+          type: b.type,
+          title: clean(b.title, 120),
+          starts_at: b.starts_at,
+          location: clean(b.location, 160),
+          description: clean(b.description, 1000),
+          capacity: b.capacity === "" || b.capacity == null ? null : parseInt(b.capacity, 10),
+          nr: clean(b.nr_tournament_id, 80),
+          status: b.status || "publicado",
+        };
+        const okCap = ev.capacity === null || (ev.capacity > 0 && ev.capacity <= 1000);
+        if (
+          !["quedada", "torneo"].includes(ev.type) || !ev.title ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(ev.starts_at || "") ||
+          !["publicado", "borrador", "cancelado"].includes(ev.status) || !okCap
+        ) {
+          return Response.json({ error: "Datos no válidos" }, { status: 400 });
+        }
+        if (isCreate) {
+          const r = await env.DB.prepare(
+            "INSERT INTO events (type,title,starts_at,location,description,capacity,nr_tournament_id,status) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)"
+          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status).run();
+          return Response.json({ ok: true, id: r.meta.last_row_id });
+        }
+        await env.DB.prepare(
+          "UPDATE events SET type=?1,title=?2,starts_at=?3,location=?4,description=?5,capacity=?6,nr_tournament_id=?7,status=?8 WHERE id=?9"
+        ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, Number(idm[1])).run();
+        return Response.json({ ok: true });
+      }
+      return new Response("No encontrado", { status: 404 });
+    }
+    
     if (path === "/api/events") {
       const { results } = await env.DB.prepare(
         "SELECT id,type,title,starts_at,location,description,capacity FROM events WHERE status='publicado' ORDER BY starts_at"
