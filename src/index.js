@@ -15,7 +15,7 @@ export default {
       const j = await r.json();
       const posts = (j.feed.entry || []).map((e) => {
         const html = (e.content && e.content.$t) || "";
-        const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        const text = html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
         const img = (html.match(/<img[^>]+src="([^"]+)"/) || [])[1] || null;
         const link = (e.link.find((l) => l.rel === "alternate") || {}).href;
         return {
