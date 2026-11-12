@@ -73,6 +73,7 @@ th{color:#D9B25A;font-weight:600}
     <div id="list"></div>
   </div>
 </div>
+<script src="/i18n.js"></script>
 <script src="/auth.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -94,6 +95,7 @@ function renderList() {
     const info = document.createElement("div");
     const t = document.createElement("strong");
     t.textContent = e.title;
+    t.setAttribute("translate", "no");
     const m = document.createElement("div");
     m.className = "m";
     m.textContent = e.starts_at.replace("T", " ") + " · " + (e.type === "torneo" ? "Torneo" : "Quedada") + " · " + e.status;

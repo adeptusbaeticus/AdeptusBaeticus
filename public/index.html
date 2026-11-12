@@ -188,8 +188,10 @@ fetch("/api/posts")
     d.className = "m"; d.textContent = fmt(p.created_at) + " · " + p.autor;
     const h = document.createElement("h3");
     h.textContent = p.titulo;
+    h.setAttribute("translate", "no");
     const md = document.createElement("div");
     md.className = "md";
+    md.setAttribute("translate", "no");
     markdown(p.descripcion, md);
     cuerpo.append(av, d, h, md);
     art.append(ph, cuerpo);
@@ -241,16 +243,19 @@ fetch("/api/blog")
       const h = document.createElement("h3");
       const a = document.createElement("a");
       a.textContent = p.title;
+      a.setAttribute("translate", "no");
       if (p.url && p.url.startsWith("http")) a.href = p.url;
       h.appendChild(a); art.appendChild(h);
       const ex = document.createElement("p");
       ex.textContent = p.excerpt;
+      ex.setAttribute("translate", "no");
       art.appendChild(ex);
       grid.appendChild(art);
     });
   })
   .catch(() => { grid.textContent = "No se han podido cargar las entradas."; });
 </script>
+<script src="/i18n.js"></script>
 <script src="/auth.js"></script>
 </body>
 </html>

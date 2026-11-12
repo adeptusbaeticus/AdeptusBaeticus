@@ -160,6 +160,7 @@ function render() {
         const llena = e.type === "quedada" && e.capacity && (e.inscritos || 0) >= e.capacity;
         b.className = "e " + (e.type === "torneo" ? "t2" : "q") + (llena || e.starts_at <= now ? " x" : "");
         b.textContent = e.title;
+        b.setAttribute("translate", "no");
         b.onclick = () => show(e);
         cell.appendChild(b);
       });
@@ -188,13 +189,14 @@ function show(e) {
     if (cls) el.className = cls;
     el.textContent = txt;
     box.appendChild(el);
+    return el;
   };
   add("span", "lb", e.type === "torneo" ? "Torneo" : "Quedada");
-  add("h3", "", e.title);
+  add("h3", "", e.title).setAttribute("translate", "no");
   const f = new Date(e.starts_at).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
   add("p", "", f + " · " + e.starts_at.slice(11, 16));
-  if (e.location) add("p", "m", e.location);
-  if (e.description) add("p", "", e.description);
+  if (e.location) add("p", "m", e.location).setAttribute("translate", "no");
+  if (e.description) add("p", "", e.description).setAttribute("translate", "no");
   if (e.type !== "quedada") {
     if (e.capacity) add("p", "m", "Plazas: " + e.capacity);
     return;
@@ -840,6 +842,7 @@ Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine().then(() =>
 }).catch(() => render());
 render();
 </script>
+<script src="/i18n.js"></script>
 <script src="/auth.js"></script>
 </body>
 </html>

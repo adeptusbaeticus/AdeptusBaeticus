@@ -10,6 +10,7 @@
   let me = null;
   try { me = await (await fetch("/api/me")).json(); } catch (e) {}
   box.textContent = "";
+  if (window.abI18n) box.appendChild(window.abI18n.selector());
 
   function askNr() {
     const ov = document.createElement("div");
@@ -71,7 +72,10 @@
       im.style.cssText = "width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px";
       box.appendChild(im);
     }
-    box.appendChild(document.createTextNode(me.name));
+    const nm = document.createElement("span");
+    nm.textContent = me.name;
+    nm.setAttribute("translate", "no");
+    box.appendChild(nm);
     const link = (href, txt) => {
       const a = document.createElement("a");
       a.href = href;

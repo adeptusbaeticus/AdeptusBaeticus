@@ -65,7 +65,9 @@ function section(box, title, items, future) {
   items.forEach((r) => {
     const row = el("div", "row card");
     const info = el("div");
-    info.appendChild(el("strong", "", r.title));
+    const tit = el("strong", "", r.title);
+    tit.setAttribute("translate", "no");
+    info.appendChild(tit);
     const f = new Date(r.starts_at).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
     info.appendChild(el("div", "m", f + " · " + r.starts_at.slice(11, 16) + (r.location ? " · " + r.location : "")));
     let st;
@@ -235,6 +237,7 @@ async function loadPartidas() {
 load();
 loadPartidas();
 </script>
+<script src="/i18n.js"></script>
 <script src="/auth.js"></script>
 </body>
 </html>

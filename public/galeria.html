@@ -196,7 +196,7 @@ function tarjeta(p) {
   if (n > 1) b.appendChild(el("span", "n", "1/" + n));
   b.onclick = () => ampliar(p);
   const tx = el("div", "tx");
-  if (p.texto) tx.appendChild(el("p", "", p.texto));
+  if (p.texto) { const t = el("p", "", p.texto); t.setAttribute("translate", "no"); tx.appendChild(t); }
   const who = el("div", "who");
   who.append(el("span", "", p.autor), el("span", "", fecha(p.created_at)));
   tx.appendChild(who);
@@ -239,5 +239,6 @@ fetch("/api/galeria").then((r) => (r.ok ? r.json() : Promise.reject())).then((d)
   pintar();
 }).catch(() => { $("msg").textContent = "No se pudo cargar la galería."; });
 </script>
+<script src="/i18n.js"></script>
 <script src="/auth.js"></script>
 </body>
