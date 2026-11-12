@@ -9,7 +9,7 @@
   // Textos completos.
   const EXACT = {
     // Menú y páginas
-    "Inicio": "Home", "Blog": "Blog", "Calendario": "Calendar", "Galería": "Gallery", "Admin": "Admin", "Salir": "Log out",
+    "Inicio": "Home", "Blog": "Blog", "Instagram": "Instagram", "Enlaces": "Links", "Calendario": "Calendar", "Galería": "Gallery", "Admin": "Admin", "Salir": "Log out",
     "Mis inscripciones": "My sign-ups", "Entrar con Discord": "Log in with Discord",
     "Adeptus Baeticus": "Adeptus Baeticus",
     "Calendario · Adeptus Baeticus": "Calendar · Adeptus Baeticus",
