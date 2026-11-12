@@ -58,14 +58,6 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .btn{display:inline-block;background:#A3211B;color:#fff;border:0;border-radius:8px;padding:12px 20px;font:600 15px Inter,sans-serif;text-decoration:none;min-height:44px;box-sizing:border-box;margin:8px 8px 0 0}
 .btn.alt{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
 .btn:hover{color:#fff;filter:brightness(1.1)}.btn.alt:hover{color:#ECE7DC}
-/* Lista de partidas */
-.pl{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:48px}
-.pli{display:flex;flex-direction:column;gap:4px;background:#1F2328;border:1px solid #2C3036;border-left:6px solid #A8E0A0;border-radius:10px;padding:14px 16px;color:#ECE7DC;text-decoration:none}
-.pli.x{border-left-color:#2F6B2A}
-.pli:hover{border-color:#6B6558;color:#ECE7DC}
-.pli strong{font-size:16px}
-.pli .est{font-size:14px;font-weight:600;color:#A8E0A0}
-.pli.x .est{color:#9FD39B}
 /* Noticia destacada: imagen a la izquierda y texto a la derecha (apilado en móvil). */
 .destacada{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:48px;border-color:#D9B25A}
 .destacada .ph{flex:1 1 320px;height:auto;min-height:220px;max-height:420px;margin:0}
@@ -93,10 +85,6 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
   <section>
     <h2>Próxima quedada</h2>
     <div id="quedada"><span class="m">Cargando...</span></div>
-  </section>
-  <section>
-    <h2>Partidas</h2>
-    <div id="partidas"><span class="m">Cargando...</span></div>
   </section>
   <section id="noticias" hidden>
     <h2>Noticias del club</h2>
@@ -238,47 +226,7 @@ Promise.all([
   box.appendChild(card);
 }).catch(() => { $("quedada").textContent = "No se pudieron cargar los eventos."; });
 
-// Partidas que aún no han pasado (solo con sesión: muestran nombres).
-const CORTO = { combat_patrol: "Combat Patrol", "40k_1000": "40k a 1k", "40k_2000": "40k a 2k", necromunda: "Necromunda", bloodbowl: "Blood Bowl" };
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
-function partidaTitulo(p) {
-  let t = CORTO[p.activity] || p.activity;
-  if (p.activity === "necromunda") t += " · " + p.players + " participantes";
-  else if (p.activity === "combat_patrol" || p.activity === "40k_1000") t += " · " + p.format.replace("v", "vs");
-  return t;
-}
-fetch("/api/partidas").then((r) => (r.status === 401 ? null : r.ok ? r.json() : [])).then((list) => {
-  const box = $("partidas");
-  box.textContent = "";
-  if (list === null) {
-    const p = nuevo("p", "m");
-    p.appendChild(enlaceBtn("Entra con Discord para ver las partidas y unirte.", "/auth/login", "btn alt"));
-    box.appendChild(p);
-    return;
-  }
-  const now = localNow();
-  const cerrada = (p) => (p.starts_at ? p.starts_at <= now : p.last_day < now.slice(0, 10));
-  const clave = (p) => p.starts_at || p.availability[0].date + "T" + p.availability[0].from;
-  const vivas = list.filter((p) => !cerrada(p)).sort((a, b) => (clave(a) < clave(b) ? -1 : 1));
-  if (!vivas.length) {
-    box.append(nuevo("p", "m", "No hay partidas abiertas ahora mismo."), enlaceBtn("Buscar partida", "/calendario.html?buscar=1"));
-    return;
-  }
-  const ul = nuevo("div", "pl");
-  vivas.forEach((p) => {
-    const a = nuevo("a", "pli" + (p.status === "completa" ? " x" : ""));
-    a.href = "/calendario.html?partida=" + p.id;
-    const cuando = p.starts_at
-      ? fechaLarga(p.starts_at.slice(0, 10)) + " · " + p.starts_at.slice(11, 16)
-      : p.availability.map((x) => fechaLarga(x.date) + " · de " + x.from + " a " + x.to).join(" / ");
-    const est = p.status === "completa"
-      ? "Completa · " + (p.mesa ? "Mesa " + p.mesa : "sin mesa libre")
-      : "Abierta · falta" + (p.faltan > 1 ? "n " : " ") + p.faltan + " jugador" + (p.faltan > 1 ? "es" : "");
-    a.append(nuevo("strong", "", partidaTitulo(p)), nuevo("span", "m", cuando), nuevo("span", "m", "Organiza: " + p.organiza), nuevo("span", "est", est));
-    ul.appendChild(a);
-  });
-  box.append(ul, enlaceBtn("Buscar partida", "/calendario.html?buscar=1", "btn alt"));
-}).catch(() => { $("partidas").textContent = "No se pudieron cargar las partidas."; });
 
 // Noticia destacada: el último post publicado desde Discord.
 fetch("/api/posts")
