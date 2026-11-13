@@ -34,8 +34,8 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fil input,.fil select{min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit}
 .fil input{flex:1 1 240px}
 .fil select{flex:0 1 220px}
-.cerrado{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #A3211B;border-radius:12px;padding:20px 24px;margin:8px 0 24px}
-.cerrado p{margin:0;flex:1 1 260px;font-size:17px}
+.cerrado{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #A3211B;border-radius:12px;padding:12px 18px;margin:0 0 20px}
+.cerrado p{margin:0;flex:1 1 260px;font-size:15px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
 .mb{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:#1F2328;border:1px solid #2C3036;border-radius:14px;padding:20px 14px 16px;color:inherit;font:inherit;cursor:pointer;width:100%}
 .mb:hover,.mb:focus-visible{border-color:#D9B25A;outline:none}
@@ -105,7 +105,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
   <h1>Miembros</h1>
   <p class="lead">Los socios del club, las facciones que juegan y dónde encontrarlos. Pulsa en una ficha para verla entera.</p>
   <div class="cerrado" id="cerrado" hidden>
-    <p>Regístrate con Discord para ver los miembros del club.</p>
+    <p>Entra con Discord para ver las cuentas de los socios y editar tu ficha.</p>
     <a class="btn" href="/auth/login">Entrar con Discord</a>
   </div>
   <div class="fil" id="fil">
@@ -313,13 +313,10 @@ function editar(m) {
 
 async function carga() {
   const r = await fetch("/api/miembros");
-  if (r.status === 401) {
-    // Sin sesión: solo el aviso para entrar.
-    $("cerrado").hidden = false; $("fil").hidden = true; $("grid").textContent = "";
-    return;
-  }
   if (!r.ok) throw new Error();
   D = await r.json();
+  // Sin sesión se ve el listado, pero no las cuentas: aviso para entrar.
+  $("cerrado").hidden = D.sesion;
   const sel = $("ffac"), v = sel.value;
   while (sel.options.length > 1) sel.remove(1);
   const usadas = new Set(D.miembros.flatMap((m) => m.facciones));
