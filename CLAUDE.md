@@ -23,3 +23,17 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   nunca `innerHTML`. No tocar `wrangler.jsonc` ni secretos sin permiso expreso.
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.
+
+## Gran Liga Adeptus
+
+- Edición = Fase I (ida) + Fase II (vuelta, cruces sorteados de nuevo); campeón de cada fase y global.
+  Todos contra todos, rondas de 2 semanas (domingo 22:00 → domingo de cierre 14:00, hora de Madrid);
+  la ronda siguiente a la última es la de aplazadas.
+- **El calendario (rondas y mesas) es el del club**, no el de New Recruit: en New Recruit las partidas
+  son un «pod» sin orden y su campo `round` es un correlativo sin significado. De New Recruit solo se
+  toman el enlace de cada partida y los resultados, asignados **por la pareja de jugadores**
+  (`id_participant`), que es única en cada fase.
+- Datos de New Recruit con su API oficial (secretos `NR_LOGIN`/`NR_PASSWORD`) y **el mínimo de
+  peticiones**: las visitas nunca consultan New Recruit; actualización automática como mucho cada 6 h
+  durante la fase y una tras cada cierre; manual con 15 min de espera mínima; sin reintentos en bucle.
+- Las listas se guardan pero de momento no se publican (`LIGA_LISTAS_PUBLICAS = false`).
