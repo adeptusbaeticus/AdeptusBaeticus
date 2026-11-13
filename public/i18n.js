@@ -122,7 +122,7 @@
     "No se pudo borrar.": "Could not delete.", "Se ha borrado 1 partida.": "1 game deleted.",
     // Mis inscripciones
     "Próximas": "Upcoming", "Pasadas": "Past", "Inscrito": "Signed up", "Lista de espera": "Waiting list",
-    "Evento cancelado": "Event cancelled", "Mis partidas": "My games", "Cerrada": "Closed", "En curso": "In progress", "hecho por": "made by", "Liga · aplazadas": "League · postponed", "Ronda de aplazadas de la Gran Liga": "Grand League postponed-games round",
+    "Evento cancelado": "Event cancelled", "Mis partidas": "My games", "Cerrada": "Closed", "En curso": "In progress", "Hecho por": "Made by", "Liga · aplazadas": "League · postponed", "Ronda de aplazadas de la Gran Liga": "Grand League postponed-games round",
     "Ronda de la Gran Liga (pulsa para verla)": "Grand League round (click to open it)",
     "Aún no te has apuntado a ninguna quedada.": "You haven't signed up for any meetup yet.",
     "Ver el calendario": "See the calendar",
