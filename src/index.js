@@ -1477,6 +1477,21 @@ export default {
         return Response.json(await nrSync(env, tipo, id), { headers: noStore });
       }
 
+      // Gran Liga: marcar o desmarcar como aplazada una partida que aún no tiene resultado.
+      const lpm = path.match(/^\/api\/admin\/liga\/partida\/(\d+)$/);
+      if (lpm && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        if (typeof b.aplazada !== "boolean") return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
+        const id = Number(lpm[1]);
+        const p = await env.DB.prepare("SELECT pv_a, pv_b FROM liga_partidas WHERE id=?1").bind(id).first();
+        if (!p) return Response.json({ error: "La partida no existe" }, { status: 404, headers: noStore });
+        if (p.pv_a != null || p.pv_b != null) return Response.json({ error: "La partida ya tiene resultado" }, { status: 409, headers: noStore });
+        await env.DB.prepare("UPDATE liga_partidas SET aplazada=?2 WHERE id=?1 AND pv_a IS NULL AND pv_b IS NULL").bind(id, b.aplazada ? 1 : 0).run();
+        return Response.json({ ok: true, aplazada: b.aplazada }, { headers: noStore });
+      }
+
       if (path === "/api/admin/discord") {
         const cfg = { public_key: !!env.DISCORD_PUBLIC_KEY, bot_token: !!env.DISCORD_BOT_TOKEN };
         if (request.method === "GET") return Response.json(cfg, { headers: noStore });

@@ -185,6 +185,7 @@ const masDias = (dia, n) => { const d = new Date(dia + "T12:00:00Z"); d.setUTCDa
 const largo = (dia) => new Date(dia + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
 const corto = (dia) => new Date(dia + "T12:00").toLocaleDateString("es-ES", { day: "numeric", month: "long" });
 let D = null;
+let esAdmin = false; // solo cambia lo que se ve; el servidor comprueba el permiso
 
 // Fechas de cada ronda: empieza el domingo a las 22:00 y cierra dos domingos después a las 14:00.
 function fechasRonda(n) {
@@ -298,6 +299,27 @@ function filaPartida(p, ronda) {
     };
     acc.appendChild(b);
   }
+  // Admin: aplazar (o quitar el aplazamiento de) una partida sin resultado.
+  if (esAdmin && !hay) {
+    const total = D.fase.rondas + 1;
+    const ba = el("button", "chip", p.aplazada ? "Quitar aplazamiento" : "Aplazar");
+    ba.type = "button";
+    ba.onclick = async () => {
+      const nuevo = !p.aplazada;
+      if (!confirm(nuevo ? "¿Aplazar esta partida a la ronda " + total + "?" : "¿Quitar el aplazamiento de esta partida?")) return;
+      ba.disabled = true;
+      try {
+        const r = await fetch("/api/admin/liga/partida/" + p.id, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ aplazada: nuevo }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { alert(d.error || "No se pudo guardar."); ba.disabled = false; return; }
+        p.aplazada = nuevo ? 1 : 0;
+        const abiertas = [...document.querySelectorAll("details.ronda[open]")].map((x) => x.id);
+        pintaRondas();
+        abiertas.forEach((id) => { const x = $(id); if (x) x.open = true; });
+      } catch (e) { alert("No se pudo guardar."); ba.disabled = false; }
+    };
+    acc.appendChild(ba);
+  }
   if (p.nr_partida && D.fase.nr_torneo) {
     const a = el("a", "chip", "New Recruit");
     a.href = "https://www.newrecruit.eu/app/tournydetails/match?id_match=" + encodeURIComponent(p.nr_partida) + "&id=" + encodeURIComponent(D.fase.nr_torneo);
@@ -385,7 +407,8 @@ function carga(fase) {
   }).catch(() => { $("msg").textContent = "No se pudo cargar la liga."; });
 }
 $("fase").onchange = () => carga($("fase").value);
-carga();
+// ¿Es admin? Se pide antes de pintar para mostrar los botones de aplazar.
+fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => { esAdmin = !!(me && me.role === "admin"); carga(); });
 </script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>

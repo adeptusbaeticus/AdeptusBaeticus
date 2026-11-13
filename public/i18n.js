@@ -16,6 +16,9 @@
     "Por jugar": "Not started", "Pendiente": "Pending", "Sin resultado": "No result", "Ver emparejamientos": "See pairings",
     "La fase ha terminado.": "The phase has finished.", "Todavía no hay ninguna fase de la liga.": "There is no league phase yet.",
     "No se pudo cargar la liga.": "Could not load the league.", "Fase": "Phase",
+    "Aplazar": "Postpone", "Quitar aplazamiento": "Cancel postponement",
+    "¿Quitar el aplazamiento de esta partida?": "Cancel the postponement of this game?",
+    "La partida ya tiene resultado": "The game already has a result", "La partida no existe": "The game does not exist",
     "Todavía no ha usado ninguna lista.": "Has not used any list yet.",
     "Solo aparecen las listas que ya ha usado en alguna partida.": "Only lists already used in a game are shown.",
     "No se pudieron cargar las listas.": "Could not load the lists.", "usada en 1 partida": "used in 1 game", "Instagram": "Instagram", "Enlaces": "Links", "Calendario": "Calendar", "Galería": "Gallery", "Admin": "Admin", "Salir": "Log out",
@@ -230,6 +233,7 @@
     [/^Ronda (\d+) \(aplazadas\)$/, "Round $1 (postponed)"],
     [/^Ronda (\d+)$/, "Round $1"],
     [/^Aplazada a la ronda (\d+)$/, "Postponed to round $1"],
+    [/^¿Aplazar esta partida a la ronda (\d+)\?$/, "Postpone this game to round $1?"],
     [/^Del (.+) al (.+)$/, (m, a, b) => "From " + fechas(a) + " to " + fechas(b)],
     [/^(\d+) de (\d+) jugadas$/, "$1 of $2 played"],
     [/^Cierre: (.+) a las 14:00(?: \((?:quedan (\d+) días|(mañana)|(hoy))\))?$/, (m, f, n, man, hoy) => "Closes: " + fechas(f) + " at 14:00" + (n ? " (" + n + " days left)" : man ? " (tomorrow)" : hoy ? " (today)" : "")],
@@ -355,6 +359,8 @@
   // Los avisos de confirmación del navegador también se traducen.
   const conf = window.confirm.bind(window);
   window.confirm = (msg) => conf(tr(String(msg)));
+  const avisa = window.alert.bind(window);
+  window.alert = (msg) => avisa(tr(String(msg)));
 
   // --- Selector de idioma (banderas) ---
   const NS = "http://www.w3.org/2000/svg";
