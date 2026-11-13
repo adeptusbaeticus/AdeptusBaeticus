@@ -922,6 +922,27 @@ export default {
       );
     }
 
+    // Listas distintas que ha usado un jugador en la fase (públicas), sin repetir las iguales.
+    if (path === "/api/liga/listas" && request.method === "GET") {
+      const id = Number(url.searchParams.get("jugador"));
+      if (!id) return new Response("Datos no válidos", { status: 400 });
+      const { results } = await env.DB.prepare(
+        `SELECT lista_a AS lista, destac_a AS destac, jugada FROM liga_partidas WHERE jugador_a=?1 AND lista_a IS NOT NULL
+         UNION ALL
+         SELECT lista_b, destac_b, jugada FROM liga_partidas WHERE jugador_b=?1 AND lista_b IS NOT NULL
+         ORDER BY jugada`
+      ).bind(id).all();
+      const vistas = new Map();
+      for (const r of results) {
+        // Se comparan sin la línea del nombre del jugador (cambia entre informes) ni espacios finales.
+        const clave = r.lista.split(/\r?\n/).filter((l) => !l.startsWith("+ PLAYER NAME")).map((l) => l.trimEnd()).join("\n");
+        const v = vistas.get(clave);
+        if (v) v.partidas++;
+        else vistas.set(clave, { destac: r.destac, primera: r.jugada, partidas: 1, lista: r.lista });
+      }
+      return Response.json([...vistas.values()], { headers: { "cache-control": "public, max-age=600" } });
+    }
+
     // Lista de ejército usada por un jugador en una partida de la liga (pública).
     if (path === "/api/liga/lista" && request.method === "GET") {
       const id = Number(url.searchParams.get("partida")), lado = url.searchParams.get("lado");
