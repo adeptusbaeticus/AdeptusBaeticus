@@ -1156,8 +1156,7 @@ async function ligaProcesa(env, nrTorneo, reports) {
   const fase = await env.DB.prepare("SELECT id FROM liga_fases WHERE nr_torneo=?1").bind(nrTorneo).first();
   if (!fase) return { asignados: 0, sin_asignar: reports.length };
   const js = (await env.DB.prepare("SELECT id, nr_participante FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
-  // Las partidas con resultado puesto a mano por el admin no se tocan.
-  const ps = (await env.DB.prepare("SELECT id, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1 AND manual IS NULL").bind(fase.id).all()).results;
+  const ps = (await env.DB.prepare("SELECT id, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1").bind(fase.id).all()).results;
   const porPart = new Map(js.map((j) => [j.nr_participante, j.id]));
   const clavePar = (a, b) => (a < b ? a + "-" + b : b + "-" + a);
   const porPar = new Map(ps.map((p) => [clavePar(p.jugador_a, p.jugador_b), p]));
@@ -1187,7 +1186,7 @@ async function ligaProcesa(env, nrTorneo, reports) {
   upd.push(env.DB.prepare(
     `UPDATE liga_partidas SET pv_a=NULL, pv_b=NULL, jugada=NULL, nr_informe=NULL, faccion_a=NULL, faccion_b=NULL,
        destac_a=NULL, destac_b=NULL, lista_a=NULL, lista_b=NULL
-     WHERE fase_id=?1 AND manual IS NULL AND nr_informe IS NOT NULL AND nr_informe NOT IN (SELECT value FROM json_each(?2))`
+     WHERE fase_id=?1 AND nr_informe IS NOT NULL AND nr_informe NOT IN (SELECT value FROM json_each(?2))`
   ).bind(fase.id, JSON.stringify(informes)));
   for (let i = 0; i < upd.length; i += 50) await env.DB.batch(upd.slice(i, i + 50));
   return { asignados: informes.length, sin_asignar: sinAsignar };
@@ -1390,7 +1389,7 @@ export default {
       ctx.waitUntil(ligaAuto(env, fase).catch(() => {}));
       const jugadores = (await env.DB.prepare("SELECT id, discord, nombre FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
       const partidas = (await env.DB.prepare(
-        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada, manual, nota,
+        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada,
            faccion_a, faccion_b, destac_a, destac_b, ${LIGA_LISTAS_PUBLICAS ? "(lista_a IS NOT NULL OR lista_b IS NOT NULL)" : "0"} AS listas
          FROM liga_partidas WHERE fase_id=?1 ORDER BY ronda, mesa`
       ).bind(fase.id).all()).results;
@@ -2070,14 +2069,13 @@ export default {
       if (fase) {
         const js = (await env.DB.prepare("SELECT id, discord, discord_id FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
         const t = new Map(js.map((j) => [j.id, { j, pj: 0, v: 0, d: 0, e: 0, pv: 0, contra: 0, fac: new Map() }]));
-        const ps = (await env.DB.prepare("SELECT jugador_a, jugador_b, pv_a, pv_b, faccion_a, faccion_b, manual FROM liga_partidas WHERE fase_id=?1 AND pv_a IS NOT NULL AND pv_b IS NOT NULL").bind(fase.id).all()).results;
+        const ps = (await env.DB.prepare("SELECT jugador_a, jugador_b, pv_a, pv_b, faccion_a, faccion_b FROM liga_partidas WHERE fase_id=?1 AND pv_a IS NOT NULL AND pv_b IS NOT NULL").bind(fase.id).all()).results;
         for (const p of ps) {
           for (const [id, mio, suyo, fac] of [[p.jugador_a, p.pv_a, p.pv_b, p.faccion_a], [p.jugador_b, p.pv_b, p.pv_a, p.faccion_b]]) {
             const x = t.get(id);
             if (!x) continue;
             x.pj++; x.pv += mio; x.contra += suyo;
-            if (p.manual === "0-0") x.d++; // doble derrota
-            else if (mio > suyo) x.v++; else if (mio < suyo) x.d++; else x.e++;
+            if (mio > suyo) x.v++; else if (mio < suyo) x.d++; else x.e++;
             if (fac) x.fac.set(fac, (x.fac.get(fac) || 0) + 1);
           }
         }
@@ -2187,34 +2185,6 @@ export default {
           admin: { id: s.id, name: s.name, avatar: s.avatar, role: s.role, exp: s.exp },
         });
         return Response.json({ ok: true, name: u.name }, { headers: { ...noStore, "set-cookie": cookieSesion(cookie, exp - Math.floor(Date.now() / 1000)) } });
-      }
-
-      // Gran Liga: resultado o sanción a mano (reglamento: victoria 50–25 o doble derrota 0–0) o quitarlo.
-      const rsm = path.match(/^\/api\/admin\/liga\/partida\/(\d+)\/resultado$/);
-      if (rsm && request.method === "POST") {
-        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
-        let b = {};
-        try { b = await request.json(); } catch (e) {}
-        const p = await env.DB.prepare("SELECT id FROM liga_partidas WHERE id=?1").bind(rsm[1]).first();
-        if (!p) return Response.json({ error: "La partida no existe" }, { status: 404, headers: noStore });
-        const tipo = String(b.tipo || "");
-        const nota = String(b.nota || "").trim().slice(0, 200) || null;
-        if (tipo === "quitar") {
-          // Vuelve a depender de New Recruit (la próxima sincronización trae su resultado, si lo hay).
-          await env.DB.prepare("UPDATE liga_partidas SET manual=NULL, nota=NULL, pv_a=NULL, pv_b=NULL, jugada=NULL, nr_informe=NULL WHERE id=?1").bind(p.id).run();
-          return Response.json({ ok: true }, { headers: noStore });
-        }
-        let a, c;
-        if (tipo === "50-25a") [a, c] = [50, 25];
-        else if (tipo === "50-25b") [a, c] = [25, 50];
-        else if (tipo === "0-0") [a, c] = [0, 0];
-        else if (tipo === "resultado") {
-          a = Number(b.pv_a); c = Number(b.pv_b);
-          if (![a, c].every((x) => Number.isInteger(x) && x >= 0 && x <= 200)) return Response.json({ error: "Puntos no válidos (de 0 a 200)" }, { status: 400, headers: noStore });
-        } else return Response.json({ error: "Tipo de resultado no válido" }, { status: 400, headers: noStore });
-        await env.DB.prepare("UPDATE liga_partidas SET manual=?2, nota=?3, pv_a=?4, pv_b=?5, jugada=?6 WHERE id=?1")
-          .bind(p.id, tipo, nota, a, c, nowLocal().slice(0, 10)).run();
-        return Response.json({ ok: true }, { headers: noStore });
       }
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
