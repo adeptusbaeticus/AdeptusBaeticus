@@ -543,6 +543,69 @@ const urlExpira = (u) => {
 
 // ===== Posts de Inicio: /añadir-post, /editar-post y /borrar-post en #publicaciones-post-web =====
 const CANAL_POSTS = "publicaciones-post-web";
+
+// --- FAQ: copia del canal #preguntas-frecuentes de Discord ---
+// Se guarda en nr_cache (clave 'discord:faq'); las visitas leen la copia. Se actualiza sola como mucho
+// cada FAQ_HORAS (una petición a Discord tras una visita) y a mano desde Admin.
+const CANAL_FAQ = "preguntas-frecuentes";
+const FAQ_CLAVE = "discord:faq";
+const FAQ_HORAS = 6;
+async function faqSync(env) {
+  const ahora = new Date().toISOString().replace("T", " ").slice(0, 19);
+  // Reserva: no más de una consulta por minuto aunque lleguen varias a la vez.
+  const res = await env.DB.prepare(
+    `INSERT INTO nr_cache (clave, intento) VALUES (?1, ?2)
+     ON CONFLICT(clave) DO UPDATE SET intento=?2 WHERE intento IS NULL OR intento < datetime(?2, '-1 minute')`
+  ).bind(FAQ_CLAVE, ahora).run();
+  if (!res.meta.changes) return { ok: false, error: "Espera un minuto entre actualizaciones" };
+  try {
+    if (!env.DISCORD_BOT_TOKEN) throw new Error("Falta el secreto DISCORD_BOT_TOKEN");
+    const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
+    if (!rc.ok) throw new Error("Discord respondió " + rc.status + " al pedir los canales");
+    const chs = await rc.json();
+    const c = chs.find((x) => x.name === CANAL_FAQ && (x.type === 0 || x.type === 5));
+    if (!c) throw new Error("No encuentro el canal #" + CANAL_FAQ);
+    let todos = [], antes = "";
+    for (let i = 0; i < 3; i++) {
+      const r = await bot(env, `/channels/${c.id}/messages?limit=100${antes ? "&before=" + antes : ""}`);
+      if (!r.ok) throw new Error("Discord respondió " + r.status + " al leer #" + CANAL_FAQ + (r.status === 403 ? " (el bot necesita ver el canal y leer su historial)" : ""));
+      const ms = await r.json();
+      todos.push(...ms);
+      if (ms.length < 100) break;
+      antes = ms[ms.length - 1].id;
+    }
+    todos.reverse(); // del más antiguo al más reciente
+    const mensajes = todos
+      .filter((m) => (m.type === 0 || m.type === 19) && (m.content || (m.embeds || []).length))
+      .map((m) => ({
+        id: m.id,
+        texto: m.content || "",
+        embeds: (m.embeds || []).filter((e) => e.title || e.description || (e.fields || []).length)
+          .map((e) => ({ titulo: e.title || "", texto: e.description || "", campos: (e.fields || []).map((f) => ({ nombre: f.name, valor: f.value })) })),
+      }));
+    // Nombres para las menciones (#canal, @rol y @usuario).
+    const todoTexto = JSON.stringify(mensajes);
+    const canales = {};
+    for (const x of chs) if (todoTexto.includes("<#" + x.id + ">")) canales[x.id] = x.name;
+    const roles = {};
+    if (/<@&\d+>/.test(todoTexto)) {
+      const rr = await bot(env, `/guilds/${env.GUILD_ID}/roles`);
+      if (rr.ok) for (const x of await rr.json()) if (todoTexto.includes("<@&" + x.id + ">")) roles[x.id] = x.name;
+    }
+    const usuarios = {};
+    const ids = [...new Set([...todoTexto.matchAll(/<@!?(\d+)>/g)].map((x) => x[1]))].slice(0, 50);
+    for (const id of ids) {
+      const u = await env.DB.prepare("SELECT name FROM users WHERE discord_id=?1").bind(id).first();
+      if (u) usuarios[id] = u.name;
+    }
+    const datos = JSON.stringify({ guild: env.GUILD_ID, canal_id: c.id, mensajes, canales, roles, usuarios });
+    await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=?3, error=NULL WHERE clave=?1").bind(FAQ_CLAVE, datos, ahora).run();
+    return { ok: true, mensajes: mensajes.length };
+  } catch (e) {
+    await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(FAQ_CLAVE, String(e.message || e).slice(0, 300)).run();
+    return { ok: false, error: String(e.message || e) };
+  }
+}
 const CMDS_POST = ["añadir-post", "editar-post", "borrar-post", "post-nuevo", "post-editar"];
 const TIPOS_IMG = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
 
@@ -980,6 +1043,24 @@ export default {
           jugadores, partidas, actualizado: sync ? sync.actualizado : null, ahora: nowLocal() },
         { headers: { "cache-control": "public, max-age=120" } }
       );
+    }
+
+    // FAQ (copia del canal de Discord). Si la copia tiene más de FAQ_HORAS, se renueva tras responder.
+    if (path === "/api/faq" && request.method === "GET") {
+      let row = await env.DB.prepare("SELECT datos, actualizado, intento FROM nr_cache WHERE clave=?1").bind(FAQ_CLAVE).first();
+      if (!row || !row.datos) {
+        // Primera vez: se carga ya (como mucho una consulta por minuto).
+        if (!row || !row.intento || Date.now() - Date.parse(row.intento.replace(" ", "T") + "Z") > 60000) await faqSync(env);
+        row = await env.DB.prepare("SELECT datos, actualizado, intento FROM nr_cache WHERE clave=?1").bind(FAQ_CLAVE).first();
+      } else {
+        const viejo = Date.now() - Date.parse(row.actualizado.replace(" ", "T") + "Z") > FAQ_HORAS * 3600000;
+        const reciente = row.intento && Date.now() - Date.parse(row.intento.replace(" ", "T") + "Z") < 3600000;
+        if (viejo && !reciente) ctx.waitUntil(faqSync(env).catch(() => {}));
+      }
+      if (!row || !row.datos) return Response.json({ mensajes: null }, { headers: noStore });
+      return new Response('{"actualizado":' + JSON.stringify(row.actualizado) + ',"faq":' + row.datos + "}", {
+        headers: { "content-type": "application/json", "cache-control": "public, max-age=300" },
+      });
     }
 
     // Fechas de las fases de la liga para marcar sus rondas en el calendario (sin consultar New Recruit).
@@ -1572,7 +1653,7 @@ export default {
       if (path === "/api/admin/nr") {
         if (request.method === "GET") {
           const { results } = await env.DB.prepare(
-            "SELECT clave, actualizado, intento, error, length(datos) AS bytes FROM nr_cache ORDER BY clave"
+            "SELECT clave, actualizado, intento, error, length(datos) AS bytes FROM nr_cache WHERE clave NOT LIKE 'discord:%' ORDER BY clave"
           ).all();
           return Response.json({ secretos: !!(env.NR_LOGIN && env.NR_PASSWORD), espera_min: NR_ESPERA_MIN, copias: results }, { headers: noStore });
         }
@@ -1648,6 +1729,17 @@ export default {
         stmts.push(env.DB.prepare("UPDATE liga_jugadores SET discord_id=?2, sugerido_id=NULL WHERE id=?1").bind(id, did));
         await env.DB.batch(stmts);
         return Response.json({ ok: true }, { headers: noStore });
+      }
+
+      // FAQ: estado de la copia y actualización manual desde Discord.
+      if (path === "/api/admin/faq") {
+        if (request.method === "POST") {
+          if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+          const r = await faqSync(env);
+          return Response.json(r, { status: r.ok ? 200 : 400, headers: noStore });
+        }
+        const row = await env.DB.prepare("SELECT actualizado, error, length(datos) AS n FROM nr_cache WHERE clave=?1").bind(FAQ_CLAVE).first();
+        return Response.json(row || {}, { headers: noStore });
       }
 
       if (path === "/api/admin/discord") {

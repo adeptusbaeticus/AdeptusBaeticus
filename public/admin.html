@@ -55,13 +55,15 @@ table.lj th,table.lj td{padding:8px;border-bottom:1px solid #2C3036;text-align:l
 table.lj th{color:#D9B25A;font-weight:600}
 table.lj select{min-width:220px}
 .sug{color:#F0CE82}
+@media (max-width:600px){.menu{gap:10px}.menu a{font-size:14px}}
+@media (max-width:400px){.menu{gap:8px}.menu a{font-size:13.5px}}
 </style>
 </head>
 <body>
 <div class="c">
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
-    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a></nav>
+    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/faq.html">FAQ</a></nav>
     <span id="auth"></span>
   </div>
   <h1>Administración de eventos</h1>
@@ -93,6 +95,16 @@ table.lj select{min-width:220px}
         <button class="chip" type="button" id="dreg">Registrar comandos en Discord</button>
       </div>
       <p class="m" id="dmsg" style="margin:8px 0 0;min-height:20px"></p>
+    </div>
+    <div class="card" style="margin-top:24px">
+      <div class="row" style="margin:0">
+        <div>
+          <strong>Preguntas frecuentes (FAQ)</strong>
+          <div class="m" id="faqstat">Comprobando...</div>
+        </div>
+        <button class="chip" type="button" id="faqsync">Actualizar FAQ desde Discord</button>
+      </div>
+      <p class="m" id="faqmsg" style="margin:8px 0 0;min-height:20px"></p>
     </div>
     <div class="card" style="margin-top:24px">
       <strong>Gran Liga · New Recruit</strong>
@@ -276,6 +288,24 @@ async function discordStatus() {
     $("dreg").disabled = !d.bot_token;
   } catch (e) { $("dstat").textContent = "No se pudo comprobar."; }
 }
+// FAQ: copia del canal #preguntas-frecuentes (se renueva sola cada 6 h; aquí, al momento).
+async function faqStatus() {
+  try {
+    const d = await (await fetch("/api/admin/faq")).json();
+    $("faqstat").textContent = d.actualizado ? "Copia del " + d.actualizado + " UTC" + (d.error ? " · último error: " + d.error : "") : d.error ? "Error: " + d.error : "Todavía no se ha copiado.";
+  } catch (e) { $("faqstat").textContent = "No se pudo comprobar."; }
+}
+$("faqsync").onclick = async () => {
+  $("faqsync").disabled = true;
+  $("faqmsg").textContent = "";
+  try {
+    const r = await fetch("/api/admin/faq", { method: "POST" });
+    const d = await r.json();
+    $("faqmsg").textContent = d.ok ? "FAQ actualizada: " + d.mensajes + (d.mensajes === 1 ? " mensaje." : " mensajes.") : d.error || "No se pudo actualizar.";
+  } catch (e) { $("faqmsg").textContent = "No se pudo actualizar."; }
+  $("faqsync").disabled = false;
+  faqStatus();
+};
 // New Recruit: estado de la copia local y sincronización manual (máximo una consulta cada 15 min).
 async function nrStatus() {
   try {
@@ -363,7 +393,7 @@ $("dreg").onclick = async () => {
 };
 
 fetch("/api/me").then((r) => r.json()).then((me) => {
-  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); discordStatus(); nrStatus(); ligaJugadores(); }
+  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); discordStatus(); faqStatus(); nrStatus(); ligaJugadores(); }
   else $("gate").textContent = me && !me.invitado ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
 }).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
 </script>
