@@ -50,6 +50,9 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .lm:hover,.lm:focus{background:rgba(110,86,184,.4);outline:none}
 .ley i.lg{background:linear-gradient(90deg,#6E56B8 50%,#463A7A 50%)}
 /* Filtro por quedadas o torneos: listado de los próximos 3 meses en lugar del calendario. */
+.top{padding-bottom:12px}
+.filtros{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:24px}
+#navmes[hidden]{display:flex!important;visibility:hidden} /* en el listado se oculta sin mover la cabecera */
 .lh{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
 .li{display:flex;gap:16px;align-items:center;width:100%;text-align:left;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #F0CE82;border-radius:10px;padding:12px 16px;margin-bottom:8px;color:#ECE7DC;font:inherit;cursor:pointer}
 .li.tor{border-left-color:#F08A82}
@@ -119,10 +122,16 @@ select.chip{appearance:auto;padding:8px 12px}
   </div>
   <div class="top">
     <h1>Calendario</h1>
+    <div class="row" id="navmes">
+      <button class="nv" id="prev" aria-label="Mes anterior">‹</button>
+      <span class="mes" id="mes"></span>
+      <button class="nv" id="next" aria-label="Mes siguiente">›</button>
+    </div>
+  </div>
+  <div class="filtros">
     <div class="row" id="chips">
       <button class="chip on" data-f="todos">Todos</button>
-      <button class="chip" data-f="quedada">Quedadas</button>
-      <button class="chip" data-f="torneo">Torneos</button>
+      <button class="chip" data-f="eventos">Quedadas y torneos</button>
       <button class="chip" data-f="partida" id="chp" hidden>Partidas</button>
       <select id="fm" class="chip" aria-label="Modalidad" hidden>
         <option value="">Todas las modalidades</option>
@@ -132,16 +141,13 @@ select.chip{appearance:auto;padding:8px 12px}
         <option value="necromunda">Necromunda</option>
         <option value="bloodbowl">Blood Bowl</option>
       </select>
+    </div>
+    <div class="row acc">
       <button class="btn" id="bp" type="button" hidden style="margin:0">Buscar partida</button>
       <a class="btn" id="bpl" href="/auth/login" hidden style="margin:0;text-decoration:none">Entra con Discord para buscar partida</a>
       <button class="nv del" id="bdel" type="button" hidden aria-label="Borrar mis partidas" title="Borrar mis partidas">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
       </button>
-    </div>
-    <div class="row" id="navmes">
-      <button class="nv" id="prev" aria-label="Mes anterior">‹</button>
-      <span class="mes" id="mes"></span>
-      <button class="nv" id="next" aria-label="Mes siguiente">›</button>
     </div>
   </div>
   <div class="lay">
@@ -222,14 +228,14 @@ function renderLista() {
   const hasta = h.toISOString().slice(0, 16);
   const tit = document.createElement("h2");
   tit.className = "lh";
-  tit.textContent = filtro === "torneo" ? "Torneos de los próximos 3 meses" : "Quedadas de los próximos 3 meses";
+  tit.textContent = "Quedadas y torneos de los próximos 3 meses";
   box.appendChild(tit);
-  const es = ev.filter((e) => e.type === filtro && e.starts_at >= now.slice(0, 10) && e.starts_at <= hasta)
+  const es = ev.filter((e) => e.starts_at >= now.slice(0, 10) && e.starts_at <= hasta)
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   if (!es.length) {
     const p = document.createElement("p");
     p.className = "m";
-    p.textContent = filtro === "torneo" ? "No hay torneos en los próximos 3 meses." : "No hay quedadas en los próximos 3 meses.";
+    p.textContent = "No hay quedadas ni torneos en los próximos 3 meses.";
     box.appendChild(p);
     return;
   }
@@ -271,7 +277,7 @@ function renderLista() {
 }
 
 function render() {
-  const enLista = filtro === "quedada" || filtro === "torneo";
+  const enLista = filtro === "eventos";
   $("cal").hidden = $("navmes").hidden = $("ley").hidden = enLista;
   $("lista").hidden = !enLista;
   if (enLista) { renderLista(); return; }
@@ -307,7 +313,7 @@ function render() {
     } else {
       cell.appendChild(document.createTextNode(d));
     }
-    ev.filter((e) => (filtro === "todos" || e.type === filtro) && e.starts_at.startsWith(key))
+    ev.filter((e) => filtro === "todos" && e.starts_at.startsWith(key))
       .forEach((e) => {
         const b = document.createElement("button");
         const llena = e.type === "quedada" && e.capacity && (e.inscritos || 0) >= e.capacity;
@@ -995,10 +1001,7 @@ Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine().then(() =>
   if (mine) $("bp").hidden = $("bdel").hidden = $("chp").hidden = false;
   else $("bpl").hidden = false; // sin sesión: invitación a entrar para buscar partida
   ev = d;
-  const now = new Date().toISOString().slice(0, 16);
-  const next = ev.find((e) => e.starts_at >= now);
-  if (next) { y = +next.starts_at.slice(0, 4); m = +next.starts_at.slice(5, 7) - 1; }
-  render();
+  render(); // siempre se abre en el mes actual
   abrirDesdeEnlace();
 }).catch(() => render());
 
