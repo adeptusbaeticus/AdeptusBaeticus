@@ -545,36 +545,53 @@ const urlExpira = (u) => {
 const CANAL_POSTS = "publicaciones-post-web";
 
 // --- FAQ: copia del canal #preguntas-frecuentes de Discord ---
-// Se guarda en nr_cache (clave 'discord:faq'); las visitas leen la copia. Se actualiza sola como mucho
-// cada FAQ_HORAS (una petición a Discord tras una visita) y a mano desde Admin.
+// Se guarda en nr_cache (clave 'discord:faq'). Discord no avisa a la web de las ediciones, así que al visitar
+// la FAQ, si la copia tiene más de FAQ_MINUTOS, se vuelve a leer el canal (normalmente una sola petición:
+// el id del canal y los nombres de las menciones se reutilizan de la copia anterior). También a mano desde Admin.
 const CANAL_FAQ = "preguntas-frecuentes";
 const FAQ_CLAVE = "discord:faq";
-const FAQ_HORAS = 6;
+const FAQ_MINUTOS = 2;
 async function faqSync(env) {
   const ahora = new Date().toISOString().replace("T", " ").slice(0, 19);
-  // Reserva: no más de una consulta por minuto aunque lleguen varias a la vez.
+  // Reserva: no más de una consulta cada 30 s aunque lleguen varias a la vez.
   const res = await env.DB.prepare(
     `INSERT INTO nr_cache (clave, intento) VALUES (?1, ?2)
-     ON CONFLICT(clave) DO UPDATE SET intento=?2 WHERE intento IS NULL OR intento < datetime(?2, '-1 minute')`
+     ON CONFLICT(clave) DO UPDATE SET intento=?2 WHERE intento IS NULL OR intento < datetime(?2, '-30 seconds')`
   ).bind(FAQ_CLAVE, ahora).run();
-  if (!res.meta.changes) return { ok: false, error: "Espera un minuto entre actualizaciones" };
+  if (!res.meta.changes) return { ok: false, error: "Espera un momento entre actualizaciones" };
   try {
     if (!env.DISCORD_BOT_TOKEN) throw new Error("Falta el secreto DISCORD_BOT_TOKEN");
-    const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
-    if (!rc.ok) throw new Error("Discord respondió " + rc.status + " al pedir los canales");
-    const chs = await rc.json();
-    const c = chs.find((x) => x.name === CANAL_FAQ && (x.type === 0 || x.type === 5));
-    if (!c) throw new Error("No encuentro el canal #" + CANAL_FAQ);
-    let todos = [], antes = "";
-    for (let i = 0; i < 3; i++) {
-      const r = await bot(env, `/channels/${c.id}/messages?limit=100${antes ? "&before=" + antes : ""}`);
-      if (!r.ok) throw new Error("Discord respondió " + r.status + " al leer #" + CANAL_FAQ + (r.status === 403 ? " (el bot necesita ver el canal y leer su historial)" : ""));
-      const ms = await r.json();
-      todos.push(...ms);
-      if (ms.length < 100) break;
-      antes = ms[ms.length - 1].id;
+    let prev = {};
+    try { const r0 = await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(FAQ_CLAVE).first(); prev = JSON.parse((r0 && r0.datos) || "{}"); } catch (e) {}
+    let chs = null; // lista de canales del servidor (solo se pide si hace falta)
+    const pideCanales = async () => {
+      if (chs) return chs;
+      const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
+      if (!rc.ok) throw new Error("Discord respondió " + rc.status + " al pedir los canales");
+      return (chs = await rc.json());
+    };
+    const lee = async (canalId) => {
+      let todos = [], antes = "";
+      for (let i = 0; i < 3; i++) {
+        const r = await bot(env, `/channels/${canalId}/messages?limit=100${antes ? "&before=" + antes : ""}`);
+        if (!r.ok) return { status: r.status };
+        const ms = await r.json();
+        todos.push(...ms);
+        if (ms.length < 100) break;
+        antes = ms[ms.length - 1].id;
+      }
+      return { todos };
+    };
+    let canalId = prev.canal_id, leido = canalId ? await lee(canalId) : { status: 404 };
+    if (!leido.todos) {
+      // Sin id guardado, o el canal cambió: se busca por nombre.
+      const c = (await pideCanales()).find((x) => x.name === CANAL_FAQ && (x.type === 0 || x.type === 5));
+      if (!c) throw new Error("No encuentro el canal #" + CANAL_FAQ);
+      canalId = c.id;
+      leido = await lee(canalId);
+      if (!leido.todos) throw new Error("Discord respondió " + leido.status + " al leer #" + CANAL_FAQ + (leido.status === 403 ? " (el bot necesita ver el canal y leer su historial)" : ""));
     }
-    todos.reverse(); // del más antiguo al más reciente
+    const todos = leido.todos.reverse(); // del más antiguo al más reciente
     const mensajes = todos
       .filter((m) => (m.type === 0 || m.type === 19) && (m.content || (m.embeds || []).length))
       .map((m) => ({
@@ -583,22 +600,24 @@ async function faqSync(env) {
         embeds: (m.embeds || []).filter((e) => e.title || e.description || (e.fields || []).length)
           .map((e) => ({ titulo: e.title || "", texto: e.description || "", campos: (e.fields || []).map((f) => ({ nombre: f.name, valor: f.value })) })),
       }));
-    // Nombres para las menciones (#canal, @rol y @usuario).
+    // Nombres para las menciones (#canal, @rol y @usuario); se reutilizan los ya conocidos.
     const todoTexto = JSON.stringify(mensajes);
-    const canales = {};
-    for (const x of chs) if (todoTexto.includes("<#" + x.id + ">")) canales[x.id] = x.name;
-    const roles = {};
-    if (/<@&\d+>/.test(todoTexto)) {
+    const idsDe = (re) => [...new Set([...todoTexto.matchAll(re)].map((x) => x[1]))];
+    const canales = {}, roles = {}, usuarios = {};
+    const idsCanal = idsDe(/<#(\d+)>/g);
+    if (idsCanal.some((id) => !(prev.canales || {})[id])) for (const x of await pideCanales()) if (idsCanal.includes(x.id)) canales[x.id] = x.name;
+    for (const id of idsCanal) if (!canales[id] && (prev.canales || {})[id]) canales[id] = prev.canales[id];
+    const idsRol = idsDe(/<@&(\d+)>/g);
+    if (idsRol.some((id) => !(prev.roles || {})[id])) {
       const rr = await bot(env, `/guilds/${env.GUILD_ID}/roles`);
-      if (rr.ok) for (const x of await rr.json()) if (todoTexto.includes("<@&" + x.id + ">")) roles[x.id] = x.name;
+      if (rr.ok) for (const x of await rr.json()) if (idsRol.includes(x.id)) roles[x.id] = x.name;
     }
-    const usuarios = {};
-    const ids = [...new Set([...todoTexto.matchAll(/<@!?(\d+)>/g)].map((x) => x[1]))].slice(0, 50);
-    for (const id of ids) {
+    for (const id of idsRol) if (!roles[id] && (prev.roles || {})[id]) roles[id] = prev.roles[id];
+    for (const id of idsDe(/<@!?(\d+)>/g).slice(0, 50)) {
       const u = await env.DB.prepare("SELECT name FROM users WHERE discord_id=?1").bind(id).first();
       if (u) usuarios[id] = u.name;
     }
-    const datos = JSON.stringify({ guild: env.GUILD_ID, canal_id: c.id, mensajes, canales, roles, usuarios });
+    const datos = JSON.stringify({ guild: env.GUILD_ID, canal_id: canalId, mensajes, canales, roles, usuarios });
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=?3, error=NULL WHERE clave=?1").bind(FAQ_CLAVE, datos, ahora).run();
     return { ok: true, mensajes: mensajes.length };
   } catch (e) {
@@ -1045,21 +1064,21 @@ export default {
       );
     }
 
-    // FAQ (copia del canal de Discord). Si la copia tiene más de FAQ_HORAS, se renueva tras responder.
+    // FAQ (copia del canal de Discord). Si la copia tiene más de FAQ_MINUTOS, se vuelve a leer el canal
+    // antes de responder (con un tope de 3 s: si Discord tarda, se sirve la copia que hay).
     if (path === "/api/faq" && request.method === "GET") {
-      let row = await env.DB.prepare("SELECT datos, actualizado, intento FROM nr_cache WHERE clave=?1").bind(FAQ_CLAVE).first();
-      if (!row || !row.datos) {
-        // Primera vez: se carga ya (como mucho una consulta por minuto).
-        if (!row || !row.intento || Date.now() - Date.parse(row.intento.replace(" ", "T") + "Z") > 60000) await faqSync(env);
-        row = await env.DB.prepare("SELECT datos, actualizado, intento FROM nr_cache WHERE clave=?1").bind(FAQ_CLAVE).first();
-      } else {
-        const viejo = Date.now() - Date.parse(row.actualizado.replace(" ", "T") + "Z") > FAQ_HORAS * 3600000;
-        const reciente = row.intento && Date.now() - Date.parse(row.intento.replace(" ", "T") + "Z") < 3600000;
-        if (viejo && !reciente) ctx.waitUntil(faqSync(env).catch(() => {}));
+      const lee = () => env.DB.prepare("SELECT datos, actualizado, intento FROM nr_cache WHERE clave=?1").bind(FAQ_CLAVE).first();
+      let row = await lee();
+      const hace = (t) => (t ? Date.now() - Date.parse(t.replace(" ", "T") + "Z") : Infinity);
+      if (hace(row && row.actualizado) > FAQ_MINUTOS * 60000 && hace(row && row.intento) > FAQ_MINUTOS * 60000) {
+        const sync = faqSync(env).catch(() => {});
+        ctx.waitUntil(sync);
+        await Promise.race([sync, new Promise((r) => setTimeout(r, 3000))]);
+        row = await lee();
       }
       if (!row || !row.datos) return Response.json({ mensajes: null }, { headers: noStore });
       return new Response('{"actualizado":' + JSON.stringify(row.actualizado) + ',"faq":' + row.datos + "}", {
-        headers: { "content-type": "application/json", "cache-control": "public, max-age=300" },
+        headers: { "content-type": "application/json", "cache-control": "public, max-age=30" },
       });
     }
 

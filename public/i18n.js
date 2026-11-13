@@ -45,7 +45,7 @@
     "Todavía no hay preguntas frecuentes.": "There are no FAQs yet.", "No se pudo cargar la FAQ.": "Could not load the FAQ.",
     "Preguntas frecuentes (FAQ)": "FAQ", "Actualizar FAQ desde Discord": "Update FAQ from Discord",
     "Todavía no se ha copiado.": "Not copied yet.", "No se pudo actualizar.": "Could not update.",
-    "Espera un minuto entre actualizaciones": "Wait a minute between updates", "No encuentro el canal #preguntas-frecuentes": "Channel #preguntas-frecuentes not found",
+    "Espera un momento entre actualizaciones": "Wait a moment between updates", "No encuentro el canal #preguntas-frecuentes": "Channel #preguntas-frecuentes not found",
     "Falta el secreto DISCORD_BOT_TOKEN": "The DISCORD_BOT_TOKEN secret is missing",
     "Mis inscripciones · Adeptus Baeticus": "My sign-ups · Adeptus Baeticus",
     "Admin · Adeptus Baeticus": "Admin · Adeptus Baeticus",
