@@ -1793,9 +1793,10 @@ export default {
     }
 
     // Socios para elegir compañero o rival (solo nombre; requiere sesión).
-    // Miembros: listado público (nombre, foto, rol y facciones); las cuentas solo las ven los socios con sesión.
+    // Miembros: solo para socios con sesión (sin sesión no se entrega ningún dato).
     if (path === "/api/miembros" && request.method === "GET") {
       const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Regístrate con Discord para ver los miembros" }, { status: 401, headers: noStore });
       const { results } = await env.DB.prepare(
         "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username FROM users ORDER BY name COLLATE NOCASE"
       ).all();
