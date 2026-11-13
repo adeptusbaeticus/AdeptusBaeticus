@@ -1395,6 +1395,8 @@ export default {
         scope: "identify guilds.members.read",
         redirect_uri: url.origin + "/auth/callback",
         state,
+        // Si el socio ya autorizó la web antes, Discord no vuelve a mostrar la pantalla de «Autorizar».
+        prompt: "none",
       });
       return new Response(null, {
         status: 302,
