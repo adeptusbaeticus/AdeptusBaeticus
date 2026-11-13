@@ -6,6 +6,17 @@
     norole: "No tienes ninguno de los roles del club en Discord.",
     error: "No se pudo iniciar sesión. Inténtalo de nuevo.",
   };
+  const css = document.createElement("style");
+  css.textContent = ".um{position:relative;display:inline-block;vertical-align:middle}" +
+    ".um-btn{display:inline-flex;align-items:center;gap:8px;background:none;border:1px solid transparent;border-radius:999px;padding:4px 10px 4px 4px;min-height:44px;color:#ECE7DC;font:500 15px Inter,system-ui,sans-serif;cursor:pointer}" +
+    ".um-btn:hover,.um-btn[aria-expanded=true]{border-color:#6B6558;background:#1F2328}" +
+    ".um-btn img{width:32px;height:32px;border-radius:50%}" +
+    ".um-fl{color:#D9B25A;font-size:12px}" +
+    ".um-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:200px;background:#1F2328;border:1px solid #6B6558;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);padding:6px;z-index:60;display:flex;flex-direction:column}" +
+    ".um-menu[hidden]{display:none}" +
+    ".um-menu a{display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:6px;color:#ECE7DC;text-decoration:none;font-weight:500}" +
+    ".um-menu a:hover,.um-menu a:focus{background:#2A2F36;color:#F0CE82;outline:none}";
+  document.head.appendChild(css);
   const q = new URLSearchParams(location.search).get("login");
   // La sesión se guarda durante la visita para pintar la cabecera al instante al cambiar de página
   // (sin parpadeo); después se confirma con el servidor y, si ha cambiado, se vuelve a pintar.
@@ -69,28 +80,62 @@
   box.textContent = "";
   if (window.abI18n) box.appendChild(window.abI18n.selector());
   if (me) {
+    // Menú de usuario desplegable: avatar y nombre; dentro, Mis inscripciones, Admin y Salir.
+    const wrap = document.createElement("span");
+    wrap.className = "um";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "um-btn";
+    btn.setAttribute("aria-haspopup", "true");
+    btn.setAttribute("aria-expanded", "false");
     if (me.avatar) {
       const im = document.createElement("img");
       im.src = "https://cdn.discordapp.com/avatars/" + me.id + "/" + me.avatar + ".png?size=64";
       im.alt = "";
-      im.style.cssText = "width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:8px";
-      box.appendChild(im);
+      btn.appendChild(im);
     }
     const nm = document.createElement("span");
     nm.textContent = me.name;
     nm.setAttribute("translate", "no");
-    box.appendChild(nm);
-    const link = (href, txt) => {
+    btn.append(nm);
+    const flecha = document.createElement("span");
+    flecha.className = "um-fl";
+    flecha.setAttribute("aria-hidden", "true");
+    flecha.textContent = "▾";
+    btn.appendChild(flecha);
+    const menu = document.createElement("div");
+    menu.className = "um-menu";
+    menu.hidden = true;
+    const item = (href, txt) => {
       const a = document.createElement("a");
       a.href = href;
       a.textContent = txt;
-      box.append(" · ", a);
+      menu.appendChild(a);
+      return a;
     };
-    link("/mis-inscripciones.html", "Mis inscripciones");
-    if (me.role === "admin") link("/admin.html", "Admin");
-    link("/auth/logout", "Salir");
+    item("/mis-inscripciones.html", "Mis inscripciones");
+    if (me.role === "admin") item("/admin.html", "Admin");
     // Al salir se olvida la sesión guardada.
-    box.lastChild.addEventListener("click", () => { try { sessionStorage.removeItem(KEY); } catch (e) {} });
+    item("/auth/logout", "Salir").addEventListener("click", () => { try { sessionStorage.removeItem(KEY); } catch (e) {} });
+    const abre = (si) => {
+      menu.hidden = !si;
+      btn.setAttribute("aria-expanded", String(si));
+      if (si) menu.querySelector("a").focus();
+    };
+    btn.onclick = () => abre(menu.hidden);
+    wrap.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !menu.hidden) { abre(false); btn.focus(); }
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !menu.hidden) {
+        const as = [...menu.querySelectorAll("a")];
+        const k = as.indexOf(document.activeElement);
+        as[(k + (e.key === "ArrowDown" ? 1 : as.length - 1)) % as.length].focus();
+        e.preventDefault();
+      }
+    });
+    document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) abre(false); });
+    wrap.addEventListener("focusout", (e) => { if (!wrap.contains(e.relatedTarget)) abre(false); });
+    wrap.append(btn, menu);
+    box.appendChild(wrap);
   } else {
     const a = document.createElement("a");
     a.href = "/auth/login";
