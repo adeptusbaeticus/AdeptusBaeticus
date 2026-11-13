@@ -595,6 +595,11 @@ async function faqSync(env) {
       if (!leido.todos) throw new Error("Discord respondió " + leido.status + " al leer #" + CANAL_FAQ + (leido.status === 403 ? " (el bot necesita ver el canal y leer su historial)" : ""));
     }
     const todos = leido.todos.reverse(); // del más antiguo al más reciente
+    // Sin el permiso «Message Content Intent», Discord entrega los mensajes de otros con el texto vacío.
+    const deOtros = todos.filter((m) => m.type === 0 || m.type === 19);
+    if (deOtros.length && deOtros.every((m) => !m.content && !(m.embeds || []).length && !(m.attachments || []).length))
+      throw new Error("Discord entrega los " + deOtros.length + " mensajes del canal sin texto: activa «Message Content Intent» del bot en el portal de desarrolladores de Discord");
+    if (!deOtros.length) throw new Error("El canal #" + CANAL_FAQ + " no tiene mensajes que el bot pueda leer");
     const mensajes = todos
       .filter((m) => (m.type === 0 || m.type === 19) && (m.content || (m.embeds || []).length))
       .map((m) => ({
