@@ -661,7 +661,7 @@ async function ligaRecordatorios(env, ahora = nowLocal()) {
             ? "⚔️ **Gran Liga · " + nombreRonda + "**\nJuegas contra **" + rival + "**" + (aplazadas ? "" : " (mesa " + p.mesa + ")") + ".\n" +
               "Plazo: hasta el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Resultado en New Recruit: <" + enlace + ">\n" : "") + "Calendario y clasificación: <" + WEB + "/gran-liga.html>"
             : "⏰ **Gran Liga · " + nombreRonda + "**\nAún no está subido el resultado de tu partida contra **" + rival + "**.\n" +
-              "El plazo termina el " + fechaLarga(fin) + " a las 14:00: si no se sube, cuenta como doble derrota (0–0).\n" + (enlace ? "Súbelo en New Recruit: <" + enlace + ">" : "");
+              "El plazo termina el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Súbelo en New Recruit: <" + enlace + ">" : "");
           if (await mensajePrivado(env, yoId, texto)) ok++; else sinAviso.push(yo + " (no acepta mensajes privados)");
         }
       }

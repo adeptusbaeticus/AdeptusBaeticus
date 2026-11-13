@@ -37,7 +37,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   peticiones**: las visitas nunca consultan New Recruit; actualización automática como mucho cada 6 h
   durante la fase y una tras cada cierre; manual con 15 min de espera mínima; sin reintentos en bucle.
 - **Los resultados solo vienen de New Recruit** (única fuente de verdad): la web no puede escribir allí, así
-  que no se editan ni se ponen resultados o sanciones desde la web (se probó y se quitó, migración 0017).
+  que no se editan ni se ponen resultados desde la web (se probó y se quitó, migración 0017).
+  Las sanciones no se reflejan en la web (ni en la clasificación ni en los avisos del bot).
 - Las listas se guardan pero de momento no se publican (`LIGA_LISTAS_PUBLICAS = false`).
 - Excepción autorizada por el propietario: el **ranking ELO** de la liga de New Recruit (no está en la API
   oficial) se lee con la llamada interna `ladder_get_paginated` de su web, solo junto a la sincronización de
