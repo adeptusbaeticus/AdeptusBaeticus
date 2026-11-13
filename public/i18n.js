@@ -49,7 +49,8 @@
     "Entra con Discord para ver las cuentas de los socios y editar tu ficha.": "Log in with Discord to see members' accounts and edit your profile.",
     "Buscar por nombre...": "Search by name...", "Buscar por nombre": "Search by name", "Filtrar por facción": "Filter by faction",
     "Todas las facciones": "All factions", "No hay miembros que coincidan.": "No members match.", "No se pudieron cargar los miembros.": "Could not load the members.",
-    "Tú": "You", "Sin facciones": "No factions", "Facciones": "Factions", "Cuentas": "Accounts",
+    "Tú": "You", "Ranking ELO de la Gran Liga": "Grand League ELO ranking", "Ver el ranking completo en New Recruit": "See the full ranking on New Recruit",
+    "Todavía no aparece en el ranking.": "Not in the ranking yet.", "V-D-E": "W-L-D", "V-D": "W-L", "Ranking ELO": "ELO ranking", "Sin facciones": "No factions", "Facciones": "Factions", "Cuentas": "Accounts",
     "Todavía no ha indicado sus facciones.": "No factions added yet.", "Entra con Discord para ver sus cuentas": "Log in with Discord to see their accounts",
     "Editar mi ficha": "Edit my profile", "Editar ficha": "Edit profile", "Cancelar": "Cancel", "No se pudo guardar.": "Could not save.",
     "Facciones que juegas": "Factions you play", "Caos": "Chaos",
@@ -296,6 +297,7 @@
     [/^Resultados de New Recruit · actualizado (.+)$/, (m, f) => "New Recruit results · updated " + fechas(f)],
     [/^Actualizado el (.+)$/, (m, f) => "Updated " + fechas(f)],
     [/^Editar la ficha de (.+)$/, "Edit $1's profile"],
+    [/^de (\d+)$/, "of $1"],
     [/^Copia del (.+?) UTC( · último error: .+?)? · Inglés: (\d+) textos traducidos(?: \(error: (.+)\))?$/, (m, f, e, n, x) => "Copy from " + f + " UTC" + (e ? " · last error: " + e.slice(17) : "") + " · English: " + n + " texts translated" + (x ? " (error: " + x + ")" : "")],
     [/^Copia del (.+?) UTC( · último error: .+?)? · Inglés: Workers AI no está activado$/, (m, f, e) => "Copy from " + f + " UTC" + (e ? " · last error: " + e.slice(17) : "") + " · English: Workers AI is not enabled"],
     [/^Copia del (.+) UTC$/, "Copy from $1 UTC"],
@@ -331,7 +333,7 @@
     ["Organiza: ", "Organiser: "], ["hueco libre", "free spot"], [" (tú)", " (you)"], ["tú contra", "you against"],
     [" contra ", " against "], ["Jugar con ", "Play with "], [" · faltan ", " · needed: "],
     ["En el equipo de ", "On the team of "], ["Contra ", "Against "], [" (con ", " (with "],
-    ["Resultados: ", "Results: "], ["Torneo: ", "Tournament: "], ["actualizado ", "updated "], ["sin datos", "no data"],
+    ["Resultados: ", "Results: "], ["Torneo: ", "Tournament: "], ["Ranking ELO: ", "ELO ranking: "], ["actualizado ", "updated "], ["sin datos", "no data"],
     [" · de ", " · from "], [" a las ", " at "], [" y ", " and "], [" / ", " / "],
   ];
 

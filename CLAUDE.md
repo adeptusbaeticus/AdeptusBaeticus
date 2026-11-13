@@ -37,3 +37,6 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   peticiones**: las visitas nunca consultan New Recruit; actualización automática como mucho cada 6 h
   durante la fase y una tras cada cierre; manual con 15 min de espera mínima; sin reintentos en bucle.
 - Las listas se guardan pero de momento no se publican (`LIGA_LISTAS_PUBLICAS = false`).
+- Excepción autorizada por el propietario: el **ranking ELO** de la liga de New Recruit (no está en la API
+  oficial) se lee con la llamada interna `ladder_get_paginated` de su web, solo junto a la sincronización de
+  resultados (mismas esperas) y nunca en una visita. Se muestra en la ficha de Miembros.

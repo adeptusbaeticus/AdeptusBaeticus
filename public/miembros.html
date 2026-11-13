@@ -41,6 +41,12 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fc span{background:#2A2F36;border-radius:999px;padding:2px 10px;font-size:12px;color:#DCD6C8}
 .fc .mas{background:none;color:#A8A293}
 .sin{font-size:13px;color:#7D776B}
+.elo{display:inline-flex;align-items:center;gap:6px;background:#15171A;border:1px solid #2C3036;border-radius:999px;padding:2px 10px;font:600 12px Inter,sans-serif;color:#ECE7DC}
+.elo b{color:#F0CE82}
+.rk{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch}
+.rk div{background:#15171A;border:1px solid #2C3036;border-radius:10px;padding:8px 14px;min-width:84px;text-align:center}
+.rk b{display:block;font:700 22px Inter,sans-serif;color:#F0CE82}
+.rk span{font-size:12px;color:#A8A293}
 dialog{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:16px;padding:0;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
 dialog::backdrop{background:rgba(0,0,0,.7)}
 .fi{padding:24px}
@@ -149,7 +155,9 @@ function pintaGrid() {
     const rol = el("span");
     rol.appendChild(el("span", "rol", ROL[m.role] || m.role));
     if (m.id === D.yo) rol.appendChild(el("span", "rol tu", "Tú"));
-    b.append(avatar(m), nm, rol, m.facciones.length ? chips(m.facciones, 3) : el("span", "sin", "Sin facciones"));
+    b.append(avatar(m), nm, rol);
+    if (m.elo) { const e = el("span", "elo"); e.append(el("b", "", "#" + m.elo.pos), "ELO " + m.elo.elo); b.appendChild(e); }
+    b.appendChild(m.facciones.length ? chips(m.facciones, 3) : el("span", "sin", "Sin facciones"));
     b.onclick = () => ficha(m);
     g.appendChild(b);
   });
@@ -184,6 +192,20 @@ function ficha(m) {
   tx.append(h, el("span", "rol", ROL[m.role] || m.role));
   cab.append(avatar(m, true), tx);
   fi.append(cab, el("h3", "", "Facciones"), m.facciones.length ? chips(m.facciones) : el("p", "sin", "Todavía no ha indicado sus facciones."));
+  // Ranking ELO de la Gran Liga (New Recruit).
+  fi.appendChild(el("h3", "", "Ranking ELO de la Gran Liga"));
+  if (m.elo) {
+    const rk = el("div", "rk");
+    const dato = (v, et) => { const d = el("div"); d.append(el("b", "", v), el("span", "", et)); rk.appendChild(d); };
+    dato("#" + m.elo.pos, "de " + m.elo.total);
+    dato(String(m.elo.elo), "ELO");
+    dato(m.elo.v + "-" + m.elo.d + (m.elo.e ? "-" + m.elo.e : ""), m.elo.e ? "V-D-E" : "V-D");
+    fi.appendChild(rk);
+    const a = el("a", "m", "Ver el ranking completo en New Recruit");
+    a.href = "https://www.newrecruit.eu/app/leaguedetails?id=" + encodeURIComponent(D.liga_nr); a.target = "_blank"; a.rel = "noopener";
+    a.style.cssText = "display:inline-block;margin-top:8px";
+    fi.appendChild(a);
+  } else fi.appendChild(el("p", "sin", "Todavía no aparece en el ranking."));
   fi.appendChild(el("h3", "", "Cuentas"));
   if (D.sesion) fi.appendChild(cuentas(m));
   else { const a = el("a", "", "Entra con Discord para ver sus cuentas"); a.href = "/auth/login"; fi.appendChild(a); }

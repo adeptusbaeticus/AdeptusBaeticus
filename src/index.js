@@ -846,6 +846,52 @@ async function renovarUrls(env, urls) {
 const NR_API = "https://www.newrecruit.eu/api/";
 const NR_ESPERA_MIN = 15; // minutos mínimos entre dos consultas del mismo tipo
 
+// Ranking ELO de la liga del club en New Recruit. Su API oficial no tiene ligas: se usa la llamada interna
+// de su web (ladder_get_paginated), con permiso del propietario, solo cuando se actualizan los resultados de la
+// liga (como mucho cada 6 h, tras cada cierre, o a mano desde Admin) y nunca en una visita.
+const NR_ELO = { sistema: 827374861, liga: "6a8d9de5988fd3f424053719" };
+const ELO_CLAVE = "elo:" + NR_ELO.liga;
+async function nrRpc(metodo, params) {
+  const key = [...crypto.getRandomValues(new Uint8Array(12))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const r = await fetch("https://www.newrecruit.eu/api/rpc?m=" + encodeURIComponent(metodo), {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json", "nrtab-key": key, "Idempotency-Key": key },
+    body: JSON.stringify({ method: metodo, params }),
+  });
+  if (!r.ok) throw new Error("New Recruit respondió " + r.status);
+  let d = await r.json();
+  if (d && d.obfuscated && d.data) d = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(d.data), (c) => c.charCodeAt(0))));
+  if (d && d.error) throw new Error("New Recruit: " + d.error);
+  return d;
+}
+async function eloSync(env) {
+  const res = await env.DB.prepare(
+    `INSERT INTO nr_cache (clave, intento) VALUES (?1, datetime('now'))
+     ON CONFLICT(clave) DO UPDATE SET intento=excluded.intento
+     WHERE nr_cache.intento IS NULL OR nr_cache.intento < datetime('now', ?2)`
+  ).bind(ELO_CLAVE, "-" + NR_ESPERA_MIN + " minutes").run();
+  if (!res.meta.changes) return { ok: false, error: "Se consultó hace poco" };
+  try {
+    const todos = [];
+    for (let pag = 0; pag < 5; pag++) {
+      const d = await nrRpc("ladder_get_paginated", [NR_ELO.sistema, NR_ELO.liga, 100, null, pag * 100, null]);
+      const es = (d && d.entries) || [];
+      todos.push(...es);
+      if (es.length < 100 || todos.length >= (d.total || 0)) break;
+    }
+    const lista = todos.map((e) => {
+      const x = ((e.elo || {})[NR_ELO.sistema] || {})[NR_ELO.liga] || {};
+      return { login: String(e.login || ""), elo: Math.round(Number(x.elo) || 0), v: x.wins || 0, d: x.losses || 0, e: x.draws || 0 };
+    }).filter((x) => x.login && x.elo).sort((a, b) => b.elo - a.elo);
+    lista.forEach((x, i) => { x.pos = i + 1; });
+    await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(ELO_CLAVE, JSON.stringify(lista)).run();
+    return { ok: true, jugadores: lista.length };
+  } catch (e) {
+    await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(ELO_CLAVE, String(e.message || e).slice(0, 300)).run();
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+
 // Sincroniza un dato de New Recruit ('tournament' o 'reports') de un torneo. Una sola petición,
 // sin reintentos; si otra sincronización reciente o en curso ya lo hizo, no consulta.
 async function nrSync(env, tipo, idTorneo) {
@@ -880,7 +926,9 @@ async function nrSync(env, tipo, idTorneo) {
       ? JSON.stringify(json, (k, v) => (k === "exported_list" || k === "report_list" || k === "scoring" ? undefined : v))
       : texto;
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(clave, guardar).run();
-    return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json), liga };
+    // Con los resultados nuevos, también el ranking ELO de la liga.
+    const elo = tipo === "reports" ? await eloSync(env).catch((e) => ({ ok: false, error: String(e.message || e) })) : null;
+    return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json), liga, elo };
   } catch (e) {
     await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(clave, String(e.message || e).slice(0, 500)).run();
     return { ok: false, estado, error: String(e.message || e).slice(0, 300) };
@@ -1751,15 +1799,22 @@ export default {
       const { results } = await env.DB.prepare(
         "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username FROM users ORDER BY name COLLATE NOCASE"
       ).all();
+      // ELO de la liga: por usuario de New Recruit (el de la ficha o el del jugador de la liga vinculado).
+      let elo = [];
+      try { elo = JSON.parse(((await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(ELO_CLAVE).first()) || {}).datos || "[]"); } catch (e) {}
+      const porLogin = new Map(elo.map((x) => [x.login.trim().toLowerCase(), x]));
+      const nrLiga = new Map((await env.DB.prepare("SELECT discord_id, nr_nombre FROM liga_jugadores WHERE discord_id IS NOT NULL AND nr_nombre IS NOT NULL").all()).results.map((j) => [j.discord_id, j.nr_nombre]));
+      const eloDe = (u) => porLogin.get(String(u.nr_username || "").trim().toLowerCase()) || porLogin.get(String(nrLiga.get(u.discord_id) || "").trim().toLowerCase()) || null;
       const miembros = results.map((u) => {
         let fac = [];
         try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
-        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac };
+        const x = eloDe(u);
+        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null };
         if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username });
         m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
         return m;
       });
-      return Response.json({ sesion: !!s, yo: s ? s.id : null, facciones: FACCIONES, miembros }, { headers: { ...noStore, vary: "cookie" } });
+      return Response.json({ sesion: !!s, yo: s ? s.id : null, facciones: FACCIONES, liga_nr: NR_ELO.liga, miembros }, { headers: { ...noStore, vary: "cookie" } });
     }
     // Editar una ficha: cada socio la suya; el admin, todas.
     const mbm = path.match(/^\/api\/miembros\/(\d+)$/);

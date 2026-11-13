@@ -314,7 +314,7 @@ async function nrStatus() {
     const txt = [];
     if (!d.secretos) txt.push("Faltan los secretos NR_LOGIN y NR_PASSWORD.");
     d.copias.forEach((c) => {
-      const tipo = c.clave.startsWith("reports") ? "Resultados" : "Torneo";
+      const tipo = c.clave.startsWith("reports") ? "Resultados" : c.clave.startsWith("elo") ? "Ranking ELO" : "Torneo";
       txt.push(tipo + ": " + (c.actualizado ? "actualizado " + c.actualizado + " UTC" : "sin datos") + (c.error ? " · error: " + c.error : ""));
     });
     $("nrstat").textContent = txt.length ? txt.join(" · ") : "Todavía no se ha sincronizado nada.";
