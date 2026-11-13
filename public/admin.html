@@ -49,6 +49,11 @@ th{color:#D9B25A;font-weight:600}
 ::view-transition-old(cabecera),::view-transition-new(cabecera){animation:none}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
 @media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+table.lj{border-collapse:collapse;width:100%;font-size:14px}
+table.lj th,table.lj td{padding:8px;border-bottom:1px solid #2C3036;text-align:left;white-space:nowrap}
+table.lj th{color:#D9B25A;font-weight:600}
+table.lj select{min-width:220px}
+.sug{color:#F0CE82}
 </style>
 </head>
 <body>
@@ -99,6 +104,12 @@ th{color:#D9B25A;font-weight:600}
         <button class="chip" type="button" id="nrr">Sincronizar resultados</button>
       </div>
       <p class="m" id="nrmsg" style="margin:8px 0 0;min-height:20px"></p>
+    </div>
+    <div class="card" style="margin-top:24px">
+      <strong>Jugadores de la Gran Liga</strong>
+      <p class="m" style="margin:4px 0 12px">Se vinculan solos al entrar con Discord si coinciden su apodo y su usuario de New Recruit. Aquí puedes confirmar las sugerencias o vincular a mano.</p>
+      <div style="overflow-x:auto"><table class="lj" id="lj"><thead><tr><th>Jugador</th><th>New Recruit</th><th>Cuenta vinculada</th><th></th></tr></thead><tbody></tbody></table></div>
+      <p class="m" id="ljmsg" style="margin:8px 0 0;min-height:20px"></p>
     </div>
     <h2>Eventos</h2>
     <div id="list"></div>
@@ -293,6 +304,52 @@ async function nrSync(tipo, btn) {
 $("nrt").onclick = () => nrSync("tournament", $("nrt"));
 $("nrr").onclick = () => nrSync("reports", $("nrr"));
 
+// Gran Liga: vínculos entre jugadores y cuentas de Discord de la web.
+async function ligaJugadores() {
+  const tb = $("lj").querySelector("tbody");
+  let d;
+  try { d = await (await fetch("/api/admin/liga/jugadores")).json(); } catch (e) { $("ljmsg").textContent = "No se pudo cargar."; return; }
+  tb.textContent = "";
+  if (!d.fase) { $("ljmsg").textContent = "Todavía no hay ninguna fase de la liga."; return; }
+  const guardar = async (j, did) => {
+    $("ljmsg").textContent = "";
+    const r = await fetch("/api/admin/liga/jugador/" + j.id, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discord_id: did }) });
+    const x = await r.json().catch(() => ({}));
+    $("ljmsg").textContent = r.ok ? "Guardado." : x.error || "No se pudo guardar.";
+    ligaJugadores();
+  };
+  d.jugadores.forEach((j) => {
+    const tr = document.createElement("tr");
+    const c1 = document.createElement("td");
+    c1.textContent = j.discord + (j.nombre ? " (" + j.nombre + ")" : "");
+    c1.setAttribute("translate", "no");
+    const c2 = document.createElement("td");
+    c2.textContent = j.nr_nombre || "—";
+    c2.setAttribute("translate", "no");
+    const c3 = document.createElement("td");
+    const sel = document.createElement("select");
+    const op = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); return o; };
+    op("", "— Sin vincular —");
+    d.usuarios.forEach((u) => op(u.discord_id, u.name + (u.nr_username ? " · NR: " + u.nr_username : "")).setAttribute("translate", "no"));
+    sel.value = j.discord_id || "";
+    sel.setAttribute("aria-label", "Cuenta vinculada");
+    sel.onchange = () => guardar(j, sel.value || null);
+    c3.appendChild(sel);
+    const c4 = document.createElement("td");
+    if (!j.discord_id && j.sugerido_id) {
+      const sp = document.createElement("span");
+      sp.className = "sug";
+      sp.textContent = "Sugerencia: " + j.sugerido + " ";
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip"; b.textContent = "Confirmar";
+      b.onclick = () => guardar(j, j.sugerido_id);
+      c4.append(sp, b);
+    }
+    tr.append(c1, c2, c3, c4);
+    tb.appendChild(tr);
+  });
+}
+
 $("dreg").onclick = async () => {
   $("dreg").disabled = true;
   $("dmsg").textContent = "";
@@ -305,7 +362,7 @@ $("dreg").onclick = async () => {
 };
 
 fetch("/api/me").then((r) => r.json()).then((me) => {
-  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); discordStatus(); nrStatus(); }
+  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); discordStatus(); nrStatus(); ligaJugadores(); }
   else $("gate").textContent = me ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
 }).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
 </script>

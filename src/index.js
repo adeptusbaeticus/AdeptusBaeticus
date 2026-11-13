@@ -801,6 +801,40 @@ async function ligaAuto(env, fase) {
   await nrSync(env, "reports", fase.nr_torneo);
 }
 
+// Vincula a un usuario de la web con su jugador de la liga en cada fase. Automático solo si
+// coinciden el apodo de Discord (p. ej. «Frambu (Nacho)» → «Frambu») y el usuario de New Recruit;
+// si solo coincide uno, queda como sugerencia para que un admin la confirme.
+async function ligaVincula(env, discordId) {
+  const u = await env.DB.prepare("SELECT name, nr_username FROM users WHERE discord_id=?1").bind(discordId).first();
+  if (!u) return;
+  const norm = (x) => String(x || "").trim().toLowerCase();
+  const nick = norm(u.name), base = norm(String(u.name || "").split(" (")[0]), nr = norm(u.nr_username);
+  const { results } = await env.DB.prepare(
+    "SELECT id, fase_id, discord, nombre, nr_nombre, discord_id, sugerido_id FROM liga_jugadores"
+  ).all();
+  const fases = [...new Set(results.map((j) => j.fase_id))];
+  const upd = [];
+  for (const f of fases) {
+    const js = results.filter((j) => j.fase_id === f);
+    if (js.some((j) => j.discord_id === discordId)) continue; // ya vinculado en esta fase
+    const libres = js.filter((j) => !j.discord_id);
+    const porNick = libres.filter((j) => {
+      const d = norm(j.discord);
+      return d && (d === base || d === nick || (j.nombre && norm(j.discord + " (" + j.nombre + ")") === nick));
+    });
+    const porNr = nr ? libres.filter((j) => norm(j.nr_nombre) === nr) : [];
+    if (porNick.length === 1 && porNr.length === 1 && porNick[0].id === porNr[0].id) {
+      upd.push(env.DB.prepare("UPDATE liga_jugadores SET discord_id=?2, sugerido_id=NULL WHERE id=?1 AND discord_id IS NULL").bind(porNick[0].id, discordId));
+    } else {
+      const cand = [...new Map([...porNick, ...porNr].map((j) => [j.id, j])).values()];
+      if (cand.length === 1 && !cand[0].sugerido_id) {
+        upd.push(env.DB.prepare("UPDATE liga_jugadores SET sugerido_id=?2 WHERE id=?1 AND discord_id IS NULL").bind(cand[0].id, discordId));
+      }
+    }
+  }
+  if (upd.length) await env.DB.batch(upd);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -921,6 +955,14 @@ export default {
           jugadores, partidas, actualizado: sync ? sync.actualizado : null, ahora: nowLocal() },
         { headers: { "cache-control": "public, max-age=120" } }
       );
+    }
+
+    // Jugador de la liga vinculado al usuario con sesión (para resaltarle y mostrar su partida).
+    if (path === "/api/liga/yo" && request.method === "GET") {
+      const s = await readSession(env, request);
+      const fase = Number(url.searchParams.get("fase"));
+      const j = s && fase ? await env.DB.prepare("SELECT id FROM liga_jugadores WHERE fase_id=?1 AND discord_id=?2").bind(fase, s.id).first() : null;
+      return Response.json({ jugador: j ? j.id : null }, { headers: { ...noStore, vary: "cookie" } });
     }
 
     // Listas distintas que ha usado un jugador en la fase (públicas), sin repetir las iguales.
@@ -1087,6 +1129,7 @@ export default {
       await env.DB.prepare(
         "INSERT INTO users (discord_id,name,avatar,role) VALUES (?1,?2,?3,?4) ON CONFLICT(discord_id) DO UPDATE SET name=excluded.name, avatar=excluded.avatar, role=excluded.role"
       ).bind(u.id, name, u.avatar, role).run();
+      try { await ligaVincula(env, u.id); } catch (e) {}
       const cookie = await makeSession(env, { id: u.id, name, avatar: u.avatar, role });
       const h = new Headers({ location: url.origin + "/" });
       h.append("set-cookie", `${COOKIE}=${cookie}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${MAX_AGE}`);
@@ -1123,6 +1166,7 @@ export default {
         return Response.json({ error: "Usuario no válido" }, { status: 400 });
       }
       await env.DB.prepare("UPDATE users SET nr_username=?1 WHERE discord_id=?2").bind(nr, s.id).run();
+      try { await ligaVincula(env, s.id); } catch (e) {}
       return Response.json({ ok: true, nr_username: nr });
     }
 
@@ -1475,6 +1519,40 @@ export default {
         const tipo = b.tipo === "tournament" ? "tournament" : b.tipo === "reports" ? "reports" : null;
         if (!/^[a-f0-9]{24}$/.test(id) || !tipo) return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
         return Response.json(await nrSync(env, tipo, id), { headers: noStore });
+      }
+
+      // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
+      if (path === "/api/admin/liga/jugadores" && request.method === "GET") {
+        const fase = await env.DB.prepare("SELECT id, nombre FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+        if (!fase) return Response.json({ fase: null, jugadores: [], usuarios: [] }, { headers: noStore });
+        const jugadores = (await env.DB.prepare(
+          `SELECT j.id, j.discord, j.nombre, j.nr_nombre, j.discord_id, j.sugerido_id,
+             (SELECT name FROM users u WHERE u.discord_id=j.discord_id) AS vinculado,
+             (SELECT name FROM users u WHERE u.discord_id=j.sugerido_id) AS sugerido
+           FROM liga_jugadores j WHERE j.fase_id=?1 ORDER BY j.discord COLLATE NOCASE`
+        ).bind(fase.id).all()).results;
+        const usuarios = (await env.DB.prepare("SELECT discord_id, name, nr_username FROM users ORDER BY name COLLATE NOCASE").all()).results;
+        return Response.json({ fase, jugadores, usuarios }, { headers: noStore });
+      }
+      const ljm = path.match(/^\/api\/admin\/liga\/jugador\/(\d+)$/);
+      if (ljm && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        const id = Number(ljm[1]);
+        const j = await env.DB.prepare("SELECT fase_id FROM liga_jugadores WHERE id=?1").bind(id).first();
+        if (!j) return Response.json({ error: "El jugador no existe" }, { status: 404, headers: noStore });
+        const did = b.discord_id == null || b.discord_id === "" ? null : String(b.discord_id);
+        if (did) {
+          const u = await env.DB.prepare("SELECT 1 FROM users WHERE discord_id=?1").bind(did).first();
+          if (!u) return Response.json({ error: "Ese usuario no existe" }, { status: 400, headers: noStore });
+        }
+        // Un usuario solo puede estar vinculado a un jugador por fase: se quita de donde estuviera.
+        const stmts = [];
+        if (did) stmts.push(env.DB.prepare("UPDATE liga_jugadores SET discord_id=NULL WHERE fase_id=?1 AND discord_id=?2 AND id<>?3").bind(j.fase_id, did, id));
+        stmts.push(env.DB.prepare("UPDATE liga_jugadores SET discord_id=?2, sugerido_id=NULL WHERE id=?1").bind(id, did));
+        await env.DB.batch(stmts);
+        return Response.json({ ok: true }, { headers: noStore });
       }
 
       // Gran Liga: marcar o desmarcar como aplazada una partida que aún no tiene resultado.

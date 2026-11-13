@@ -48,6 +48,11 @@ th,td{padding:8px 10px;border-bottom:1px solid #2C3036;text-align:center;white-s
 th{color:#D9B25A;font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
 td.izq,th.izq{text-align:left}
 tbody tr:nth-child(-n+3) td:first-child{color:#F0CE82;font-weight:700}
+tr.yo td{background:rgba(217,178,90,.12)}
+tr.yo td:first-child{box-shadow:inset 3px 0 0 #D9B25A}
+.pt.yo{background:rgba(217,178,90,.08);border-radius:8px}
+.tu{margin-top:16px;padding-top:16px;border-top:1px solid #2C3036}
+.tu strong{display:block;color:#F0CE82;margin-bottom:4px}
 .jug{font-weight:600}.jug small{color:#A8A293;font-weight:400}
 .pos{color:#9FD39B}.neg{color:#F0A39E}
 details.ronda{background:#1F2328;border:1px solid #2C3036;border-radius:12px;margin-bottom:10px}
@@ -185,6 +190,7 @@ const masDias = (dia, n) => { const d = new Date(dia + "T12:00:00Z"); d.setUTCDa
 const largo = (dia) => new Date(dia + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
 const corto = (dia) => new Date(dia + "T12:00").toLocaleDateString("es-ES", { day: "numeric", month: "long" });
 let D = null;
+let yo = null; // jugador de la liga vinculado a quien ha iniciado sesión
 let esAdmin = false; // solo cambia lo que se ve; el servidor comprueba el permiso
 
 // Fechas de cada ronda: empieza el domingo a las 22:00 y cierra dos domingos después a las 14:00.
@@ -246,6 +252,7 @@ function pintaClasificacion() {
   tb.textContent = "";
   clasificacion().forEach((x, i) => {
     const tr = document.createElement("tr");
+    if (x.j.id === yo) tr.className = "yo";
     const dif = x.pv - x.contra;
     const td = (txt, cls) => { const c = el("td", cls || "", txt); tr.appendChild(c); return c; };
     td(String(i + 1));
@@ -258,7 +265,7 @@ function pintaClasificacion() {
 }
 
 function filaPartida(p, ronda) {
-  const fila = el("div", "pt");
+  const fila = el("div", "pt" + (yo && (p.jugador_a === yo || p.jugador_b === yo) ? " yo" : ""));
   const ahora = D.ahora;
   const mesa = el("span", "mesa", "Mesa " + p.mesa);
   const ja = nombreJ(p.jugador_a), jb = nombreJ(p.jugador_b);
@@ -379,6 +386,22 @@ function pintaActual() {
     const dias = Math.round((new Date(fr.fin + "T12:00") - new Date(D.ahora.slice(0, 10) + "T12:00")) / 864e5);
     card.appendChild(el("p", "cierre", "Cierre: " + largo(fr.fin) + " a las 14:00" + (dias > 1 ? " (quedan " + dias + " días)" : dias === 1 ? " (mañana)" : " (hoy)")));
   }
+  // Tu partida de esta ronda (si tu cuenta está vinculada a un jugador de la liga).
+  const mia = yo && D.partidas.find((p) => (aplazadas ? p.aplazada : p.ronda === n) && (p.jugador_a === yo || p.jugador_b === yo));
+  if (mia) {
+    const rival = nombreJ(mia.jugador_a === yo ? mia.jugador_b : mia.jugador_a);
+    const tu = el("div", "tu");
+    tu.appendChild(el("strong", "", "Tu partida"));
+    const lin = el("p", "", "Mesa " + mia.mesa + " · contra ");
+    lin.appendChild(celdaJugador(rival));
+    tu.appendChild(lin);
+    if (mia.pv_a != null && mia.pv_b != null) {
+      const mios = mia.jugador_a === yo ? mia.pv_a : mia.pv_b, suyos = mia.jugador_a === yo ? mia.pv_b : mia.pv_a;
+      tu.appendChild(el("p", "m", (mios > suyos ? "Victoria " : mios < suyos ? "Derrota " : "Empate ") + mios + " – " + suyos));
+    } else if (mia.aplazada && !aplazadas) tu.appendChild(el("p", "m", "Aplazada a la ronda " + (D.fase.rondas + 1)));
+    else tu.appendChild(el("p", "m", "Recuerda subir el resultado a New Recruit antes del cierre."));
+    card.appendChild(tu);
+  }
   const ver = el("a", "chip", "Ver emparejamientos");
   ver.href = "#ronda-" + n;
   ver.style.marginTop = "12px";
@@ -399,11 +422,16 @@ function carga(fase) {
   fetch("/api/liga" + (fase ? "?fase=" + fase : "")).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
     if (!d.fase) { $("msg").textContent = "Todavía no hay ninguna fase de la liga."; return; }
     D = d;
+    yo = null;
     const sel = $("fase");
     sel.textContent = "";
     d.fases.forEach((f) => { const o = el("option", "", f.nombre); o.value = f.id; o.selected = f.id === d.fase.id; sel.appendChild(o); });
     sel.hidden = d.fases.length < 2;
     pinta();
+    // ¿Quién soy en la liga? (sin caché pública; solo si hay sesión)
+    fetch("/api/liga/yo?fase=" + d.fase.id).then((r) => r.json()).then((x) => {
+      if (x && x.jugador) { yo = x.jugador; const abiertas = [...document.querySelectorAll("details.ronda[open]")].map((e) => e.id); pinta(); abiertas.forEach((id) => { const e = $(id); if (e) e.open = true; }); }
+    }).catch(() => {});
   }).catch(() => { $("msg").textContent = "No se pudo cargar la liga."; });
 }
 $("fase").onchange = () => carga($("fase").value);
