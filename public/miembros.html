@@ -51,11 +51,11 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .sin{font-size:13px;color:#7D776B}
 /* Trofeos: una copa por trofeo, de oro, plata o bronce según el puesto. */
 .tro{display:flex;flex-wrap:wrap;gap:2px;justify-content:center}
-.copa{display:inline-block;width:22px;height:22px;flex:none}
+.copa{display:inline-block;width:28px;height:32px;flex:none}
 .copa.p1{color:#E8C25A}.copa.p2{color:#C9CED6}.copa.p3{color:#C98A4B}
 .trl{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .trl li{display:flex;gap:10px;align-items:center}
-.trl .copa{width:28px;height:28px}
+.trl .copa{width:40px;height:45px}
 .trl small{display:block;color:#A8A293;font-size:13px}
 .adm-t form{display:grid;gap:12px}
 .adm-t label{display:block;font-weight:600;font-size:14px;margin-bottom:4px}
@@ -165,26 +165,74 @@ function avatar(m, grande) {
   d.setAttribute("aria-hidden", "true");
   return d;
 }
-// Copa (SVG) de oro, plata o bronce.
 const PUESTO = { 1: "1.º puesto", 2: "2.º puesto", 3: "3.º puesto" };
 const MODALIDAD = { individual: "Individual", parejas: "Parejas", equipo: "Equipo" };
-function copa(puesto) {
+// Trofeo de Adeptus Baeticus, basado en el logo del club: aro de engranaje con púas, calavera encapuchada,
+// espada vertical (que hace de pie, clavada en la peana) y pinceles cruzados. Calaveras: 1 (individual),
+// 2 (parejas) o 5 (equipo). Color según el puesto.
+function copa(puesto, modalidad) {
   const ns = "http://www.w3.org/2000/svg";
   const sv = document.createElementNS(ns, "svg");
-  sv.setAttribute("viewBox", "0 0 24 24"); sv.setAttribute("class", "copa p" + puesto); sv.setAttribute("aria-hidden", "true");
-  for (const [d, relleno] of [["M7 3h10v5.5a5 5 0 0 1-10 0V3z", true], ["M7 5H4.5a2.8 2.8 0 0 0 3.2 4.6M17 5h2.5a2.8 2.8 0 0 1-3.2 4.6", false], ["M10.5 13.2h3l.5 3.3h-4l.5-3.3zM8 17.5h8v3H8z", true]]) {
-    const p = document.createElementNS(ns, "path");
-    p.setAttribute("d", d); p.setAttribute("stroke", "currentColor"); p.setAttribute("stroke-width", "1.6"); p.setAttribute("stroke-linejoin", "round");
-    p.setAttribute("fill", relleno ? "currentColor" : "none");
-    sv.appendChild(p);
+  sv.setAttribute("viewBox", "0 0 32 36");
+  sv.setAttribute("class", "copa p" + puesto); sv.setAttribute("aria-hidden", "true");
+  const F = "#1F2328"; // color del fondo, para separar las piezas
+  const add = (tag, at) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); sv.appendChild(e); return e; };
+  const C = "currentColor";
+  const cx = 16, cy = 14;
+  // Pinceles cruzados (detrás).
+  for (const [x1, y1, x2, y2] of [[5.5, 4.5, 26.5, 25.5], [26.5, 4.5, 5.5, 25.5]]) {
+    add("path", { d: `M${x1} ${y1}L${x2} ${y2}`, stroke: F, "stroke-width": "3.2", "stroke-linecap": "round" });
+    add("path", { d: `M${x1} ${y1}L${x2} ${y2}`, stroke: C, "stroke-width": "1.6", "stroke-linecap": "round" });
+    // Punta del pincel (pelo) en el extremo inferior.
+    const dx = x2 - x1, dy = y2 - y1, l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l;
+    add("path", { d: `M${x2 - ux * 3.2 - uy * 1.4} ${y2 - uy * 3.2 + ux * 1.4}L${x2 + ux * 1.6} ${y2 + uy * 1.6}L${x2 - ux * 3.2 + uy * 1.4} ${y2 - uy * 3.2 - ux * 1.4}Z`, fill: C, stroke: F, "stroke-width": "0.6" });
   }
+  // Espada: hoja hacia abajo (pie del trofeo) y empuñadura con pomo en punta arriba.
+  add("path", { d: "M14.7 20L17.3 20L16.9 30.5L16 32L15.1 30.5Z", fill: C, stroke: F, "stroke-width": "0.7" });
+  // Aro de engranaje con púas (como en el logo, abierto por abajo donde cruzan los pinceles).
+  const r = 8.6;
+  add("circle", { cx, cy, r, fill: "none", stroke: F, "stroke-width": "3.6" });
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (Math.PI * 2 * i) / 10;
+    if (i === 0 || Math.sin(a) > 0.5) continue; // sin púa arriba (va la espada) ni abajo (pinceles)
+    const p = (rr, da) => `${(cx + rr * Math.cos(a + da)).toFixed(2)} ${(cy + rr * Math.sin(a + da)).toFixed(2)}`;
+    add("path", { d: `M${p(r - 0.4, -0.27)}L${p(r + 4.6, 0)}L${p(r - 0.4, 0.27)}Z`, fill: C, stroke: F, "stroke-width": "0.6", "stroke-linejoin": "round" });
+  }
+  add("circle", { cx, cy, r, fill: "none", stroke: C, "stroke-width": "2.3" });
+  // Empuñadura de la espada por encima del aro: pomo en punta y anillas.
+  add("path", { d: "M16 0.3L17.2 4L14.8 4Z", fill: C, stroke: F, "stroke-width": "0.5" });
+  add("rect", { x: "14.9", y: "3.8", width: "2.2", height: "3.6", rx: "0.5", fill: C, stroke: F, "stroke-width": "0.6" });
+  add("path", { d: "M14.9 5.1H17.1M14.9 6.3H17.1", stroke: F, "stroke-width": "0.45" });
+  // Calavera encapuchada.
+  const encapuchada = (x, y, s) => {
+    const P = (px, py) => `${(x + px * s).toFixed(2)} ${(y + py * s).toFixed(2)}`;
+    // Capucha (con el borde inferior en pico, como el manto del logo).
+    add("path", { d: `M${P(-4.6, 5)}L${P(-4.6, 0.2)}C${P(-4.6, -4.2)} ${P(-2.4, -5.8)} ${P(0, -5.8)}C${P(2.4, -5.8)} ${P(4.6, -4.2)} ${P(4.6, 0.2)}L${P(4.6, 5)}L${P(2.2, 3.6)}L${P(0, 5.6)}L${P(-2.2, 3.6)}Z`, fill: C, stroke: F, "stroke-width": (0.8 * s).toFixed(2) });
+    // Hueco de la cara y calavera dentro.
+    add("ellipse", { cx: x, cy: y + 0.7 * s, rx: 2.9 * s, ry: 3.4 * s, fill: F });
+    add("circle", { cx: x, cy: y + 0.3 * s, r: 2.25 * s, fill: C });
+    add("rect", { x: x - 1.2 * s, y: y + 1.9 * s, width: 2.4 * s, height: 1.6 * s, rx: 0.3 * s, fill: C });
+    add("circle", { cx: x - 0.9 * s, cy: y + 0.4 * s, r: 0.62 * s, fill: F });
+    add("circle", { cx: x + 0.9 * s, cy: y + 0.4 * s, r: 0.62 * s, fill: F });
+    if (s > 0.6) add("path", { d: `M${P(0, 1.2)}l${-0.35 * s} ${0.6 * s}h${0.7 * s}z`, fill: F });
+  };
+  if (modalidad === "individual") encapuchada(cx, cy, 1.05);
+  else if (modalidad === "parejas") { encapuchada(cx - 3.4, cy + 0.6, 0.72); encapuchada(cx + 3.4, cy + 0.6, 0.72); }
+  else {
+    encapuchada(cx - 4.3, cy - 1.6, 0.5); encapuchada(cx, cy - 3.2, 0.5); encapuchada(cx + 4.3, cy - 1.6, 0.5);
+    encapuchada(cx - 2.2, cy + 2.9, 0.5); encapuchada(cx + 2.2, cy + 2.9, 0.5);
+  }
+  // Peana.
+  add("path", { d: "M11 31.5H21L22.5 33.6H9.5Z", fill: C, stroke: F, "stroke-width": "0.6" });
+  add("rect", { x: "8.5", y: "33.4", width: "15", height: "2.4", rx: "0.6", fill: C, stroke: F, "stroke-width": "0.6" });
   return sv;
 }
+
 const textoTrofeo = (t) => PUESTO[t.puesto] + " · " + MODALIDAD[t.modalidad] + (t.con.length ? " con " + t.con.join(", ") : "");
 function copas(tros) {
   const w = el("div", "tro");
   const orden = [...tros].sort((a, b) => a.puesto - b.puesto);
-  orden.forEach((t) => { const c = el("span"); c.appendChild(copa(t.puesto)); c.title = t.nombre + " · " + textoTrofeo(t); w.appendChild(c); });
+  orden.forEach((t) => { const c = el("span"); c.appendChild(copa(t.puesto, t.modalidad)); c.title = t.nombre + " · " + textoTrofeo(t); w.appendChild(c); });
   w.setAttribute("aria-label", tros.length + (tros.length === 1 ? " trofeo" : " trofeos"));
   w.setAttribute("role", "img");
   return w;
@@ -294,7 +342,7 @@ function ficha(m) {
     fi.appendChild(el("h3", "", "Trofeos"));
     const ul = el("ul", "trl");
     [...m.trofeos].sort((a, b) => a.puesto - b.puesto).forEach((t) => {
-      const li = el("li"); li.appendChild(copa(t.puesto));
+      const li = el("li"); li.appendChild(copa(t.puesto, t.modalidad));
       const tx = el("span"); const n = el("strong", "", t.nombre); n.setAttribute("translate", "no");
       tx.append(n, el("small", "", textoTrofeo(t))); li.appendChild(tx); ul.appendChild(li);
     });
@@ -381,8 +429,8 @@ function asignarTrofeos() {
     ops.forEach(([v, t, icono]) => { const l = el("label"); const i = el("input"); i.type = "radio"; i.name = nombreGrupo; i.value = v; i.checked = v === def; if (icono) l.append(i, icono, t); else l.append(i, t); w.appendChild(l); });
     return w;
   };
-  const wp = radios("t-puesto", [["1", "1.º (oro)", copa(1)], ["2", "2.º (plata)", copa(2)], ["3", "3.º (bronce)", copa(3)]], "1");
-  wp.querySelectorAll(".copa").forEach((c) => { c.style.width = c.style.height = "18px"; });
+  const wp = radios("t-puesto", [["1", "1.º (oro)", copa(1, "individual")], ["2", "2.º (plata)", copa(2, "individual")], ["3", "3.º (bronce)", copa(3, "individual")]], "1");
+  wp.querySelectorAll(".copa").forEach((c) => { c.style.width = "16px"; c.style.height = "18px"; });
   campo("Puesto", wp);
   const wm = radios("t-mod", [["individual", "Individual"], ["parejas", "Parejas"], ["equipo", "Equipo"]], "individual");
   campo("Tipo de trofeo", wm);
@@ -443,7 +491,7 @@ function asignarTrofeos() {
       const iz = el("span"); iz.style.cssText = "display:flex;gap:10px;align-items:center";
       const tx = el("span"); const n = el("strong", "", t.nombre); n.setAttribute("translate", "no");
       const sub = el("small", "", PUESTO[t.puesto] + " · " + MODALIDAD[t.modalidad] + " · "); const qn = el("span", "", t.miembros.join(", ")); qn.setAttribute("translate", "no"); sub.appendChild(qn);
-      tx.append(n, sub); iz.append(copa(t.puesto), tx);
+      tx.append(n, sub); iz.append(copa(t.puesto, t.modalidad), tx);
       const q = el("button", "", "Quitar"); q.type = "button";
       q.onclick = async () => {
         if (!confirm("¿Quitar el trofeo «" + t.nombre + "»?")) return;
