@@ -79,6 +79,14 @@ details.ronda.en-curso>summary strong{color:#F0CE82}
 .pt .fac{display:block;font-size:13px;color:#A8A293;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pt .gana{color:#F0CE82}
 .pt .res{font:700 18px Inter,sans-serif;min-width:84px;text-align:center}
+.pt .res small{display:block;font:600 11px Inter,sans-serif;color:#F0A39E;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.pt .res small.adm{color:#D9B25A}
+.manual{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:#15171A;border:1px solid #6B5A2E;border-radius:10px;padding:12px;margin-top:6px}
+.manual label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#A8A293}
+.manual select,.manual input{min-height:40px;box-sizing:border-box;padding:6px 10px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit}
+.manual input[type=number]{width:84px}
+.manual input[type=text]{min-width:200px}
+.manual .err{flex-basis:100%;color:#F0A39E;font-size:14px;min-height:0}
 .pt .est{font-size:13px;color:#A8A293;text-align:center}
 .pt .acc{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .chip.sube{background:#A3211B;border-color:#A3211B;color:#fff}
@@ -223,7 +231,8 @@ function clasificacion() {
       const x = t.get(id);
       if (!x) return;
       x.pj++; x.pv += mio; x.contra += suyo;
-      if (mio > suyo) x.v++; else if (mio < suyo) x.d++;
+      if (p.manual === "0-0") x.d++; // doble derrota: pierden los dos
+      else if (mio > suyo) x.v++; else if (mio < suyo) x.d++;
       if (fac && (p.jugada || "") >= x.ult) { x.fac = fac; x.ult = p.jugada || ""; }
     });
   });
@@ -294,7 +303,15 @@ function filaPartida(p, ronda) {
     return d;
   };
   let centro;
-  if (hay) centro = el("div", "res", p.pv_a + " – " + p.pv_b);
+  if (hay) {
+    centro = el("div", "res", p.pv_a + " – " + p.pv_b);
+    // Resultado puesto por el admin (sanción del reglamento o corrección).
+    if (p.manual) {
+      const et = { "0-0": "Doble derrota", "50-25a": "Victoria 50–25", "50-25b": "Victoria 50–25", resultado: "Resultado del admin" }[p.manual] || "Resultado del admin";
+      centro.appendChild(el("small", p.manual === "resultado" ? "adm" : "", et));
+      if (p.nota) { const n = el("small", "adm", p.nota); n.setAttribute("translate", "no"); n.style.textTransform = "none"; centro.appendChild(n); }
+    }
+  }
   else {
     const fr = fechasRonda(ronda);
     const txt = p.aplazada ? "Aplazada a la ronda " + (D.fase.rondas + 1)
@@ -359,8 +376,75 @@ function filaPartida(p, ronda) {
       acc.appendChild(a);
     }
   }
-  fila.append(mesa, lado(ja, p.faccion_a, false, hay && p.pv_a > p.pv_b), centro, lado(jb, p.faccion_b, true, hay && p.pv_b > p.pv_a), acc, caja);
+  // Admin: resultado o sanción a mano (no lo pisa New Recruit) o quitarlo.
+  let form = null;
+  if (esAdmin) {
+    const bm = el("button", "chip", p.manual ? "Cambiar resultado manual" : "Resultado a mano");
+    bm.type = "button";
+    bm.onclick = () => {
+      if (form) { form.remove(); form = null; return; }
+      form = formManual(p, ja, jb);
+      fila.appendChild(form);
+      form.querySelector("select").focus();
+    };
+    acc.appendChild(bm);
+  }
+  fila.append(mesa, lado(ja, p.faccion_a, false, hay && p.pv_a > p.pv_b && p.manual !== "0-0"), centro, lado(jb, p.faccion_b, true, hay && p.pv_b > p.pv_a && p.manual !== "0-0"), acc, caja);
   return fila;
+}
+
+// Formulario del admin para poner un resultado a mano.
+function formManual(p, ja, jb) {
+  const f = el("form", "manual");
+  const lt = el("label", "", "Tipo");
+  const sel = el("select");
+  const op = (v, t) => { const o = el("option", "", t); o.value = v; sel.appendChild(o); return o; };
+  op("resultado", "Corregir el resultado");
+  op("50-25a", "Victoria 50–25 para " + ja.discord);
+  op("50-25b", "Victoria 50–25 para " + jb.discord);
+  op("0-0", "Doble derrota 0–0");
+  if (p.manual) op("quitar", "Quitar el resultado manual (vuelve a New Recruit)");
+  sel.value = p.manual || "resultado";
+  lt.appendChild(sel);
+  const num = (et, v) => { const l = el("label", "", et); const i = el("input"); i.type = "number"; i.min = 0; i.max = 200; i.step = 1; i.value = v == null ? "" : v; l.appendChild(i); l.lastChild.setAttribute("aria-label", et); return [l, i]; };
+  const [la, ia] = num("PV " + ja.discord, p.pv_a);
+  const [lb, ib] = num("PV " + jb.discord, p.pv_b);
+  la.setAttribute("translate", "no"); lb.setAttribute("translate", "no");
+  const ln = el("label", "", "Motivo (opcional)");
+  const nota = el("input"); nota.type = "text"; nota.maxLength = 200; nota.value = p.nota || "";
+  ln.appendChild(nota);
+  const ok = el("button", "chip sube", "Guardar"); ok.type = "submit";
+  const no = el("button", "chip", "Cancelar"); no.type = "button";
+  const err = el("div", "err"); err.setAttribute("role", "alert");
+  const ver = () => { const r = sel.value === "resultado"; la.hidden = lb.hidden = !r; ln.hidden = sel.value === "quitar"; };
+  sel.onchange = ver; ver();
+  no.onclick = () => f.remove();
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    err.textContent = ""; ok.disabled = true;
+    const body = { tipo: sel.value, nota: nota.value };
+    if (sel.value === "resultado") { body.pv_a = Number(ia.value); body.pv_b = Number(ib.value); }
+    try {
+      const r = await fetch("/api/admin/liga/partida/" + p.id + "/resultado", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { err.textContent = d.error || "No se pudo guardar."; ok.disabled = false; return; }
+      await recarga();
+    } catch (x) { err.textContent = "No se pudo guardar."; ok.disabled = false; }
+  };
+  f.append(lt, la, lb, ln, ok, no, err);
+  return f;
+}
+
+// Vuelve a pedir la liga sin copias guardadas (tras un cambio del admin), manteniendo abiertas las rondas.
+async function recarga() {
+  const abiertas = [...document.querySelectorAll("details.ronda[open]")].map((x) => x.id);
+  const r = await fetch("/api/liga?fase=" + D.fase.id + "&t=" + Date.now(), { cache: "no-store" });
+  if (!r.ok) throw new Error();
+  const d = await r.json();
+  D = d;
+  pinta();
+  document.querySelectorAll("details.ronda[open]").forEach((x) => { if (!abiertas.includes(x.id)) x.open = false; });
+  abiertas.forEach((id) => { const x = $(id); if (x) x.open = true; });
 }
 
 function rondaActual() {

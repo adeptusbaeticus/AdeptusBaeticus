@@ -600,6 +600,163 @@ async function avisoEstado(env, servicio, nombre, error) {
   } catch (e) {} // un aviso que falla no debe romper nada
 }
 
+// --- Recordatorios de la Gran Liga por mensaje privado (temporizador de Cloudflare, cada hora) ---
+// Al empezar cada ronda (domingo 22:00) se avisa a cada jugador de su partida; el jueves anterior al cierre
+// (20:00) a quien aún no tiene resultado. Solo jugadores con su cuenta de Discord vinculada. Cada aviso se
+// envía una sola vez (marca en nr_cache) y al terminar se deja un resumen en #inner-circle-general.
+const WEB = "https://adeptusbaeticus.adeptusbaeticus.workers.dev";
+async function mensajePrivado(env, userId, texto) {
+  try {
+    const c = await bot(env, "/users/@me/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ recipient_id: userId }) });
+    if (!c.ok) return false;
+    const { id } = await c.json();
+    const m = await bot(env, `/channels/${id}/messages`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: texto, allowed_mentions: { parse: [] } }),
+    });
+    return m.ok;
+  } catch (e) { return false; }
+}
+async function avisoCanal(env, nombreCanal, texto) {
+  try {
+    const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
+    if (!rc.ok) return;
+    const c = (await rc.json()).find((x) => (x.type === 0 || x.type === 5) && normalCanal(x.name).includes(nombreCanal));
+    if (c) await bot(env, `/channels/${c.id}/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: texto.slice(0, 1900), allowed_mentions: { parse: [] } }) });
+  } catch (e) {}
+}
+const fechaLarga = (dia) => new Date(dia + "T12:00:00Z").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+async function ligaRecordatorios(env, ahora = nowLocal()) {
+  if (!env.DISCORD_BOT_TOKEN) return [];
+  const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+  if (!fase) return [];
+  const hechos = [];
+  const dia0 = fase.inicio.slice(0, 10), hora = fase.inicio.slice(11, 16) || "22:00";
+  for (let n = 1; n <= fase.rondas + 1; n++) {
+    const ini = masDias(dia0, 14 * (n - 1)), fin = masDias(ini, 14);
+    const abre = ini + "T" + hora, cierra = fin + "T14:00", jueves = masDias(fin, -3) + "T20:00";
+    const aplazadas = n > fase.rondas;
+    for (const [tipo, desde, hasta] of [["inicio", abre, masDias(ini, 1) + "T12:00"], ["jueves", jueves, cierra]]) {
+      if (ahora < desde || ahora >= hasta) continue;
+      // Marca atómica: cada aviso, una sola vez.
+      const clave = "recordatorio:" + fase.id + ":" + n + ":" + tipo;
+      const r = await env.DB.prepare("INSERT INTO nr_cache (clave, intento) VALUES (?1, datetime('now')) ON CONFLICT(clave) DO NOTHING").bind(clave).run();
+      if (!r.meta.changes) continue;
+      const ps = (await env.DB.prepare(
+        `SELECT p.id, p.mesa, p.nr_partida, p.pv_a, p.aplazada, a.discord AS a, a.discord_id AS a_id, b.discord AS b, b.discord_id AS b_id
+         FROM liga_partidas p JOIN liga_jugadores a ON a.id=p.jugador_a JOIN liga_jugadores b ON b.id=p.jugador_b
+         WHERE p.fase_id=?1 AND ${aplazadas ? "p.aplazada=1" : "p.ronda=?2 AND p.aplazada=0"} AND p.pv_a IS NULL ORDER BY p.mesa`
+      ).bind(...(aplazadas ? [fase.id] : [fase.id, n])).all()).results;
+      if (!ps.length) { hechos.push({ n, tipo, enviados: 0 }); continue; }
+      const nombreRonda = aplazadas ? "Ronda " + n + " (aplazadas)" : "Ronda " + n;
+      let ok = 0;
+      const sinAviso = [];
+      for (const p of ps) {
+        const enlace = p.nr_partida && fase.nr_torneo
+          ? "https://www.newrecruit.eu/app/tournydetails/match?id_match=" + p.nr_partida + "&id=" + fase.nr_torneo
+          : fase.nr_torneo ? "https://www.newrecruit.eu/app/tournydetails/details?id=" + fase.nr_torneo : null;
+        for (const [yo, yoId, rival] of [[p.a, p.a_id, p.b], [p.b, p.b_id, p.a]]) {
+          if (!yoId) { sinAviso.push(yo + " (sin cuenta vinculada)"); continue; }
+          const texto = tipo === "inicio"
+            ? "⚔️ **Gran Liga · " + nombreRonda + "**\nJuegas contra **" + rival + "**" + (aplazadas ? "" : " (mesa " + p.mesa + ")") + ".\n" +
+              "Plazo: hasta el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Resultado en New Recruit: <" + enlace + ">\n" : "") + "Calendario y clasificación: <" + WEB + "/gran-liga.html>"
+            : "⏰ **Gran Liga · " + nombreRonda + "**\nAún no está subido el resultado de tu partida contra **" + rival + "**.\n" +
+              "El plazo termina el " + fechaLarga(fin) + " a las 14:00: si no se sube, cuenta como doble derrota (0–0).\n" + (enlace ? "Súbelo en New Recruit: <" + enlace + ">" : "");
+          if (await mensajePrivado(env, yoId, texto)) ok++; else sinAviso.push(yo + " (no acepta mensajes privados)");
+        }
+      }
+      hechos.push({ n, tipo, enviados: ok, sin_aviso: sinAviso });
+      await avisoCanal(env, CANAL_AVISOS, (tipo === "inicio" ? "📨 Gran Liga · " + nombreRonda + ": avisados " : "📨 Gran Liga · " + nombreRonda + ", recordatorio de resultados: avisados ") +
+        ok + (ok === 1 ? " jugador" : " jugadores") + " por mensaje privado." + (sinAviso.length ? "\nSin aviso (hacedlo a mano): " + sinAviso.join(", ") : ""));
+    }
+  }
+  return hechos;
+}
+
+// --- Calendario para el móvil (iCalendar .ics): enlace del club y enlace personal firmado ---
+const MODALIDAD = { combat_patrol: "Combat Patrol", "40k_1000": "40k a 1K", "40k_2000": "40k a 2K", necromunda: "Necromunda", bloodbowl: "Blood Bowl" };
+const firmaCal = async (env, id) => (await hmac(env.SESSION_SECRET, "cal:" + id)).slice(0, 22);
+function ics(nombre, eventos) {
+  const esc = (t) => String(t || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  const local = (t) => t.replace(/[-:]/g, "").slice(0, 13) + "00"; // "2026-11-22T10:00" → 20261122T100000
+  const sello = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
+  const out = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Adeptus Baeticus//Web del club//ES", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "X-WR-CALNAME:" + esc(nombre), "X-WR-TIMEZONE:Europe/Madrid", "REFRESH-INTERVAL;VALUE=DURATION:PT6H", "X-PUBLISHED-TTL:PT6H",
+    "BEGIN:VTIMEZONE", "TZID:Europe/Madrid",
+    "BEGIN:STANDARD", "DTSTART:19701025T030000", "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU", "TZOFFSETFROM:+0200", "TZOFFSETTO:+0100", "TZNAME:CET", "END:STANDARD",
+    "BEGIN:DAYLIGHT", "DTSTART:19700329T020000", "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU", "TZOFFSETFROM:+0100", "TZOFFSETTO:+0200", "TZNAME:CEST", "END:DAYLIGHT",
+    "END:VTIMEZONE"];
+  for (const e of eventos) {
+    out.push("BEGIN:VEVENT", "UID:" + e.uid + "@adeptusbaeticus", "DTSTAMP:" + sello);
+    if (e.dia) out.push("DTSTART;VALUE=DATE:" + e.dia.replace(/-/g, ""), "DTEND;VALUE=DATE:" + e.hastaDia.replace(/-/g, ""));
+    else out.push("DTSTART;TZID=Europe/Madrid:" + local(e.inicio), "DTEND;TZID=Europe/Madrid:" + local(e.fin));
+    out.push("SUMMARY:" + esc(e.titulo));
+    if (e.lugar) out.push("LOCATION:" + esc(e.lugar));
+    if (e.desc) out.push("DESCRIPTION:" + esc(e.desc));
+    if (e.url) out.push("URL:" + e.url);
+    out.push("END:VEVENT");
+  }
+  out.push("END:VCALENDAR");
+  // Líneas de 75 octetos como pide el estándar (plegado con un espacio).
+  return out.map((l) => {
+    const b = new TextEncoder().encode(l);
+    if (b.length <= 75) return l;
+    const partes = []; let i = 0, act = "";
+    for (const ch of l) { const n = new TextEncoder().encode(ch).length; if (i + n > (partes.length ? 74 : 75)) { partes.push(act); act = ""; i = 0; } act += ch; i += n; }
+    partes.push(act);
+    return partes.join("\r\n ");
+  }).join("\r\n") + "\r\n";
+}
+const sumaHoras = (t, h) => { const d = new Date(t + ":00Z"); d.setUTCMinutes(d.getUTCMinutes() + h * 60); return d.toISOString().slice(0, 16); };
+async function calendarioEventos(env, uid) {
+  const ev = [];
+  const { results: es } = await env.DB.prepare("SELECT id, type, title, starts_at, location, description FROM events WHERE status='publicado' AND starts_at >= ?1 ORDER BY starts_at")
+    .bind(masDias(nowLocal().slice(0, 10), -60)).all();
+  let mias = new Map();
+  if (uid) mias = new Map((await env.DB.prepare("SELECT event_id, status FROM registrations WHERE discord_id=?1").bind(uid).all()).results.map((r) => [r.event_id, r.status]));
+  for (const e of es) {
+    const st = mias.get(e.id);
+    ev.push({ uid: "evento-" + e.id, inicio: e.starts_at, fin: sumaHoras(e.starts_at, e.type === "torneo" ? 8 : 4),
+      titulo: (e.type === "torneo" ? "🏆 " : "🎲 ") + e.title + (st === "inscrito" ? " (apuntado)" : st === "espera" ? " (lista de espera)" : ""),
+      lugar: e.location, desc: e.description, url: WEB + "/calendario.html?evento=" + e.id });
+  }
+  if (!uid) return ev;
+  // Tus partidas con hora fijada.
+  const { results: ps } = await env.DB.prepare(
+    `SELECT p.id, p.activity, p.starts_at, p.availability, p.mesa,
+       (SELECT GROUP_CONCAT(u.name, ', ') FROM partida_players q JOIN users u ON u.discord_id=q.discord_id WHERE q.partida_id=p.id AND q.discord_id<>?1) AS rivales
+     FROM partidas p JOIN partida_players me ON me.partida_id=p.id AND me.discord_id=?1
+     WHERE p.status<>'cancelada' AND p.starts_at IS NOT NULL`
+  ).bind(uid).all();
+  for (const p of ps) {
+    let fin = sumaHoras(p.starts_at, 3);
+    try { const av = JSON.parse(p.availability).find((x) => x.date === p.starts_at.slice(0, 10)); if (av && av.to > p.starts_at.slice(11, 16)) fin = p.starts_at.slice(0, 11) + av.to; } catch (e) {}
+    ev.push({ uid: "partida-" + p.id, inicio: p.starts_at, fin, titulo: "⚔️ " + (MODALIDAD[p.activity] || "Partida") + (p.rivales ? " · " + p.rivales : ""),
+      lugar: p.mesa ? "Mesa " + p.mesa : null, url: WEB + "/calendario.html?partida=" + p.id });
+  }
+  // Tu partida de cada ronda de la Gran Liga (todo el periodo de la ronda) y su cierre.
+  const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+  if (fase) {
+    const { results: ls } = await env.DB.prepare(
+      `SELECT p.id, p.ronda, p.mesa, p.aplazada, p.pv_a, p.pv_b, a.discord AS a, a.discord_id AS a_id, b.discord AS b
+       FROM liga_partidas p JOIN liga_jugadores a ON a.id=p.jugador_a JOIN liga_jugadores b ON b.id=p.jugador_b
+       WHERE p.fase_id=?1 AND (a.discord_id=?2 OR b.discord_id=?2)`
+    ).bind(fase.id, uid).all();
+    const dia0 = fase.inicio.slice(0, 10);
+    for (const p of ls) {
+      const n = p.aplazada ? fase.rondas + 1 : p.ronda;
+      const ini = masDias(dia0, 14 * (n - 1)), fin = masDias(ini, 14);
+      const rival = p.a_id === uid ? p.b : p.a;
+      const res = p.pv_a != null ? " (" + (p.a_id === uid ? p.pv_a + "–" + p.pv_b : p.pv_b + "–" + p.pv_a) + ")" : "";
+      ev.push({ uid: "liga-" + p.id, dia: masDias(ini, 1), hastaDia: fin, titulo: "🗡️ Gran Liga R" + n + " · contra " + rival + res,
+        desc: "Mesa " + p.mesa + ". Cierre: " + fin + " a las 14:00.", url: WEB + "/gran-liga.html?fase=" + fase.id + "#ronda-" + n });
+      if (p.pv_a == null) ev.push({ uid: "liga-cierre-" + p.id, inicio: fin + "T13:00", fin: fin + "T14:00", titulo: "⏰ Cierre Gran Liga R" + n + ": sube el resultado contra " + rival,
+        url: WEB + "/gran-liga.html?fase=" + fase.id + "#ronda-" + n });
+    }
+  }
+  return ev;
+}
+
 // --- FAQ: copia del canal #preguntas-frecuentes de Discord ---
 // Se guarda en nr_cache (clave 'discord:faq'). Discord no avisa a la web de las ediciones, así que al visitar
 // la FAQ, si la copia tiene más de FAQ_MINUTOS, se vuelve a leer el canal (normalmente una sola petición:
@@ -999,7 +1156,8 @@ async function ligaProcesa(env, nrTorneo, reports) {
   const fase = await env.DB.prepare("SELECT id FROM liga_fases WHERE nr_torneo=?1").bind(nrTorneo).first();
   if (!fase) return { asignados: 0, sin_asignar: reports.length };
   const js = (await env.DB.prepare("SELECT id, nr_participante FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
-  const ps = (await env.DB.prepare("SELECT id, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1").bind(fase.id).all()).results;
+  // Las partidas con resultado puesto a mano por el admin no se tocan.
+  const ps = (await env.DB.prepare("SELECT id, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1 AND manual IS NULL").bind(fase.id).all()).results;
   const porPart = new Map(js.map((j) => [j.nr_participante, j.id]));
   const clavePar = (a, b) => (a < b ? a + "-" + b : b + "-" + a);
   const porPar = new Map(ps.map((p) => [clavePar(p.jugador_a, p.jugador_b), p]));
@@ -1029,7 +1187,7 @@ async function ligaProcesa(env, nrTorneo, reports) {
   upd.push(env.DB.prepare(
     `UPDATE liga_partidas SET pv_a=NULL, pv_b=NULL, jugada=NULL, nr_informe=NULL, faccion_a=NULL, faccion_b=NULL,
        destac_a=NULL, destac_b=NULL, lista_a=NULL, lista_b=NULL
-     WHERE fase_id=?1 AND nr_informe IS NOT NULL AND nr_informe NOT IN (SELECT value FROM json_each(?2))`
+     WHERE fase_id=?1 AND manual IS NULL AND nr_informe IS NOT NULL AND nr_informe NOT IN (SELECT value FROM json_each(?2))`
   ).bind(fase.id, JSON.stringify(informes)));
   for (let i = 0; i < upd.length; i += 50) await env.DB.batch(upd.slice(i, i + 50));
   return { asignados: informes.length, sin_asignar: sinAsignar };
@@ -1103,6 +1261,10 @@ async function ligaVincula(env, discordId) {
 }
 
 export default {
+  // Temporizador de Cloudflare (cada hora): recordatorios de la Gran Liga.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(ligaRecordatorios(env).catch(() => {}));
+  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -1228,7 +1390,7 @@ export default {
       ctx.waitUntil(ligaAuto(env, fase).catch(() => {}));
       const jugadores = (await env.DB.prepare("SELECT id, discord, nombre FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
       const partidas = (await env.DB.prepare(
-        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada,
+        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada, manual, nota,
            faccion_a, faccion_b, destac_a, destac_b, ${LIGA_LISTAS_PUBLICAS ? "(lista_a IS NOT NULL OR lista_b IS NOT NULL)" : "0"} AS listas
          FROM liga_partidas WHERE fase_id=?1 ORDER BY ronda, mesa`
       ).bind(fase.id).all()).results;
@@ -1240,6 +1402,29 @@ export default {
           jugadores, partidas, actualizado: sync ? sync.actualizado : null, ahora: nowLocal() },
         { headers: { "cache-control": "public, max-age=120" } }
       );
+    }
+
+    // Calendarios para el móvil: el del club (público) y el personal (enlace firmado, sin sesión para que
+    // lo pueda leer Google Calendar o el iPhone).
+    if (path === "/cal/club.ics" && request.method === "GET") {
+      return new Response(ics("Adeptus Baeticus", await calendarioEventos(env, null)), {
+        headers: { "content-type": "text/calendar; charset=utf-8", "cache-control": "public, max-age=1800" },
+      });
+    }
+    const calm = path.match(/^\/cal\/u\/(\d+)\.([A-Za-z0-9_-]{22})\.ics$/);
+    if (calm && request.method === "GET") {
+      if (calm[2] !== (await firmaCal(env, calm[1]))) return new Response("No encontrado", { status: 404 });
+      const u = await env.DB.prepare("SELECT discord_id FROM users WHERE discord_id=?1").bind(calm[1]).first();
+      if (!u) return new Response("No encontrado", { status: 404 });
+      return new Response(ics("Adeptus Baeticus · Mi calendario", await calendarioEventos(env, u.discord_id)), {
+        headers: { "content-type": "text/calendar; charset=utf-8", "cache-control": "private, max-age=900" },
+      });
+    }
+    if (path === "/api/calendario/enlace" && request.method === "GET") {
+      const s = await readSession(env, request);
+      const club = url.origin + "/cal/club.ics";
+      if (!s) return Response.json({ club, personal: null }, { headers: noStore });
+      return Response.json({ club, personal: url.origin + "/cal/u/" + s.id + "." + (await firmaCal(env, s.id)) + ".ics" }, { headers: noStore });
     }
 
     // FAQ (copia del canal de Discord). Si la copia tiene más de FAQ_MINUTOS, se vuelve a leer el canal
@@ -1885,13 +2070,14 @@ export default {
       if (fase) {
         const js = (await env.DB.prepare("SELECT id, discord, discord_id FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
         const t = new Map(js.map((j) => [j.id, { j, pj: 0, v: 0, d: 0, e: 0, pv: 0, contra: 0, fac: new Map() }]));
-        const ps = (await env.DB.prepare("SELECT jugador_a, jugador_b, pv_a, pv_b, faccion_a, faccion_b FROM liga_partidas WHERE fase_id=?1 AND pv_a IS NOT NULL AND pv_b IS NOT NULL").bind(fase.id).all()).results;
+        const ps = (await env.DB.prepare("SELECT jugador_a, jugador_b, pv_a, pv_b, faccion_a, faccion_b, manual FROM liga_partidas WHERE fase_id=?1 AND pv_a IS NOT NULL AND pv_b IS NOT NULL").bind(fase.id).all()).results;
         for (const p of ps) {
           for (const [id, mio, suyo, fac] of [[p.jugador_a, p.pv_a, p.pv_b, p.faccion_a], [p.jugador_b, p.pv_b, p.pv_a, p.faccion_b]]) {
             const x = t.get(id);
             if (!x) continue;
             x.pj++; x.pv += mio; x.contra += suyo;
-            if (mio > suyo) x.v++; else if (mio < suyo) x.d++; else x.e++;
+            if (p.manual === "0-0") x.d++; // doble derrota
+            else if (mio > suyo) x.v++; else if (mio < suyo) x.d++; else x.e++;
             if (fac) x.fac.set(fac, (x.fac.get(fac) || 0) + 1);
           }
         }
@@ -2001,6 +2187,34 @@ export default {
           admin: { id: s.id, name: s.name, avatar: s.avatar, role: s.role, exp: s.exp },
         });
         return Response.json({ ok: true, name: u.name }, { headers: { ...noStore, "set-cookie": cookieSesion(cookie, exp - Math.floor(Date.now() / 1000)) } });
+      }
+
+      // Gran Liga: resultado o sanción a mano (reglamento: victoria 50–25 o doble derrota 0–0) o quitarlo.
+      const rsm = path.match(/^\/api\/admin\/liga\/partida\/(\d+)\/resultado$/);
+      if (rsm && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        const p = await env.DB.prepare("SELECT id FROM liga_partidas WHERE id=?1").bind(rsm[1]).first();
+        if (!p) return Response.json({ error: "La partida no existe" }, { status: 404, headers: noStore });
+        const tipo = String(b.tipo || "");
+        const nota = String(b.nota || "").trim().slice(0, 200) || null;
+        if (tipo === "quitar") {
+          // Vuelve a depender de New Recruit (la próxima sincronización trae su resultado, si lo hay).
+          await env.DB.prepare("UPDATE liga_partidas SET manual=NULL, nota=NULL, pv_a=NULL, pv_b=NULL, jugada=NULL, nr_informe=NULL WHERE id=?1").bind(p.id).run();
+          return Response.json({ ok: true }, { headers: noStore });
+        }
+        let a, c;
+        if (tipo === "50-25a") [a, c] = [50, 25];
+        else if (tipo === "50-25b") [a, c] = [25, 50];
+        else if (tipo === "0-0") [a, c] = [0, 0];
+        else if (tipo === "resultado") {
+          a = Number(b.pv_a); c = Number(b.pv_b);
+          if (![a, c].every((x) => Number.isInteger(x) && x >= 0 && x <= 200)) return Response.json({ error: "Puntos no válidos (de 0 a 200)" }, { status: 400, headers: noStore });
+        } else return Response.json({ error: "Tipo de resultado no válido" }, { status: 400, headers: noStore });
+        await env.DB.prepare("UPDATE liga_partidas SET manual=?2, nota=?3, pv_a=?4, pv_b=?5, jugada=?6 WHERE id=?1")
+          .bind(p.id, tipo, nota, a, c, nowLocal().slice(0, 10)).run();
+        return Response.json({ ok: true }, { headers: noStore });
       }
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
@@ -2194,3 +2408,6 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
+// Solo para las pruebas automáticas (no es una ruta de la web).
+export const _test = { ligaRecordatorios, calendarioEventos, ics };

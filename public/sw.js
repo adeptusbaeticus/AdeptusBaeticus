@@ -1,6 +1,6 @@
 // Service worker de la web del club: permite instalarla como app y verla sin conexión.
 // Siempre se pide primero a la red (para no mostrar versiones viejas tras un despliegue);
-// la copia guardada solo se usa si no hay conexión. /api, /auth y /discord nunca se guardan.
+// la copia guardada solo se usa si no hay conexión. /api, /auth, /discord y /cal nunca se guardan.
 const CACHE = "ab-v1";
 const BASE = ["/", "/index.html", "/calendario.html", "/galeria.html", "/gran-liga.html", "/miembros.html", "/faq.html",
   "/i18n.js", "/auth.js", "/Final_General.png", "/icon-192.png"];
@@ -23,7 +23,7 @@ self.addEventListener("fetch", (e) => {
   const r = e.request;
   const u = new URL(r.url);
   if (r.method !== "GET" || u.origin !== location.origin) return;
-  if (/^\/(api|auth|discord)\//.test(u.pathname)) return;
+  if (/^\/(api|auth|discord|cal)\//.test(u.pathname)) return;
   e.respondWith((async () => {
     try {
       const res = await fetch(r);
