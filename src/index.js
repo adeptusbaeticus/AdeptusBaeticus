@@ -1,4 +1,4 @@
-const FEED = "https://adeptus-baeticus.blogspot.com/feeds/posts/default?alt=json&max-results=8";
+const FEED = "https://adeptus-baeticus.blogspot.com/feeds/posts/default?alt=json&max-results=6";
 const COOKIE = "ab_session";
 const MAX_AGE = 3 * 24 * 3600;
 const enc = new TextEncoder();
@@ -1371,7 +1371,8 @@ export default {
 
     if (path === "/api/blog") {
       const cache = caches.default;
-      const key = new Request(url.origin + "/api/blog");
+      // v2: incluye el contenido completo (HTML de Blogger, que el navegador filtra antes de mostrar).
+      const key = new Request(url.origin + "/api/blog?v=2");
       const hit = await cache.match(key);
       if (hit) return hit;
       try {
@@ -1389,6 +1390,7 @@ export default {
             tag: ((e.category || [])[0] || {}).term || "",
             excerpt: text.slice(0, 160),
             image: img,
+            html: html.slice(0, 200000),
           };
         });
         const res = new Response(JSON.stringify(posts), {

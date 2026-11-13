@@ -58,6 +58,32 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .btn{display:inline-block;background:#A3211B;color:#fff;border:0;border-radius:8px;padding:12px 20px;font:600 15px Inter,sans-serif;text-decoration:none;min-height:44px;box-sizing:border-box;margin:8px 8px 0 0}
 .btn.alt{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
 .btn:hover{color:#fff;filter:brightness(1.1)}.btn.alt:hover{color:#ECE7DC}
+#quedada > .m{margin:0 0 48px}
+/* Carrusel del blog */
+.blog{margin-bottom:56px}
+.car-vp{overflow:hidden;border-radius:12px}
+.car-track{display:flex;transition:transform .8s ease}
+.slide{flex:0 0 100%;box-sizing:border-box;display:flex;gap:24px;flex-wrap:wrap;margin:0}
+.sl-img{flex:1 1 300px;max-height:460px;border-radius:8px;overflow:hidden;background:#2A2F36;display:block}
+.sl-img img{width:100%;height:100%;object-fit:cover;display:block}
+.sl-body{flex:1.3 1 360px;min-width:0;display:flex;flex-direction:column}
+.sl-body h3{font:700 24px/1.25 Cinzel,Georgia,serif;margin:8px 0 12px}
+.sl-body h3 a{color:#ECE7DC;text-decoration:none}.sl-body h3 a:hover{color:#F0CE82}
+.bc{max-height:380px;overflow-y:auto;padding-right:8px;color:#CFC9BA;font-size:15px;overflow-wrap:anywhere}
+.bc p,.bc div{margin:0 0 10px}
+.bc img{max-width:100%;height:auto;border-radius:6px;display:block;margin:8px 0}
+.bc h4,.bc h5,.bc h6{font:600 17px Inter,sans-serif;color:#ECE7DC;margin:12px 0 6px}
+.bc ul,.bc ol{margin:0 0 10px;padding-left:22px}
+.bc blockquote{margin:0 0 10px;padding-left:12px;border-left:3px solid #6B6558}
+.sl-link{margin-top:12px;font-weight:600}
+.car-ctl{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px}
+.cb{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:8px;min-width:44px;min-height:44px;font:600 18px Inter,sans-serif;cursor:pointer}
+#pausa{font-size:13px}
+.dots{display:flex;gap:4px}
+.dots button{width:28px;height:44px;background:none;border:0;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+.dots button::after{content:"";width:10px;height:10px;border-radius:50%;background:#6B6558}
+.dots button[aria-current=true]::after{background:#D9B25A;width:12px;height:12px}
+@media (prefers-reduced-motion:reduce){.car-track{transition:none}}
 /* Noticia destacada: imagen a la izquierda y texto a la derecha (apilado en móvil). */
 .destacada{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:48px;border-color:#D9B25A}
 .destacada .ph{flex:1 1 320px;height:auto;min-height:220px;max-height:420px;margin:0}
@@ -90,8 +116,18 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
     <h2>Noticias del club</h2>
     <div id="noticia"></div>
   </section>
-  <h2>Últimas entradas del blog</h2>
-  <div class="grid" id="posts"><span class="m">Cargando entradas...</span></div>
+  <section class="blog">
+    <h2>Últimas entradas del blog</h2>
+    <div class="car" id="car" aria-roledescription="carrusel" aria-label="Últimas entradas del blog">
+      <div class="car-vp"><div class="car-track" id="posts"><span class="m">Cargando entradas...</span></div></div>
+      <div class="car-ctl" id="ctl" hidden>
+        <button type="button" class="cb" id="prev" aria-label="Entrada anterior">‹</button>
+        <div class="dots" id="dots"></div>
+        <button type="button" class="cb" id="pausa" aria-label="Pausar">❚❚</button>
+        <button type="button" class="cb" id="next" aria-label="Entrada siguiente">›</button>
+      </div>
+    </div>
+  </section>
   <footer class="ft">
     <span>Adeptus Baeticus</span>
     <nav class="ftl" aria-label="Enlaces">
@@ -101,7 +137,6 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
   </footer>
 </div>
 <script>
-const grid = document.getElementById("posts");
 const fmt = (d) => new Date(d.replace(" ", "T") + "Z").toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
 
 // --- Formato de Discord a elementos de la página (sin innerHTML) ---
@@ -282,45 +317,140 @@ fetch("/api/posts")
   })
   .catch(() => {});
 
-// Últimas entradas del blog (Blogspot).
+// --- HTML de Blogger: se reconstruye solo con etiquetas permitidas (sin innerHTML ni scripts) ---
+const IMG_OK = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|blogspot\.com|blogger\.com|ggpht\.com)\//i;
+const BLOQUES = { p: "p", h1: "h4", h2: "h4", h3: "h5", h4: "h6", h5: "h6", h6: "h6", ul: "ul", ol: "ol", li: "li",
+  blockquote: "blockquote", pre: "pre", hr: "hr", figure: "div", figcaption: "small", table: "div", tr: "div" };
+const INLINE = { b: "strong", strong: "strong", i: "em", em: "em", u: "u", s: "s", strike: "s", del: "s", code: "code", sub: "sub", sup: "sup", small: "small" };
+const FUERA = ["script", "style", "noscript", "form", "input", "button", "select", "textarea", "object", "embed", "svg", "template", "head", "link", "meta", "title"];
+
+function copiaSegura(origen, destino) {
+  for (const n of origen.childNodes) {
+    if (n.nodeType === 3) { destino.appendChild(document.createTextNode(n.nodeValue)); continue; }
+    if (n.nodeType !== 1) continue;
+    const t = n.tagName.toLowerCase();
+    if (FUERA.includes(t)) continue;
+    if (t === "br") { destino.appendChild(document.createElement("br")); continue; }
+    if (t === "img") {
+      const src = n.getAttribute("src") || "";
+      if (IMG_OK.test(src)) { const im = document.createElement("img"); im.src = src; im.alt = n.getAttribute("alt") || ""; im.loading = "lazy"; destino.appendChild(im); }
+      continue;
+    }
+    if (t === "iframe") {
+      const m = (n.getAttribute("src") || "").match(/youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,})/);
+      if (m) { const p = document.createElement("p"); p.appendChild(enlace("https://www.youtube.com/watch?v=" + m[1], "▶ Ver vídeo")); destino.appendChild(p); }
+      continue;
+    }
+    if (t === "a") {
+      const href = n.getAttribute("href") || "";
+      if (/^https?:\/\//i.test(href)) { const a = enlace(href, ""); copiaSegura(n, a); destino.appendChild(a); }
+      else copiaSegura(n, destino);
+      continue;
+    }
+    const tag = BLOQUES[t] || INLINE[t];
+    if (tag) { const e = document.createElement(tag); if (tag !== "hr") copiaSegura(n, e); destino.appendChild(e); continue; }
+    if (["div", "section", "article", "center", "td", "th"].includes(t)) {
+      const e = document.createElement("div"); copiaSegura(n, e);
+      if (e.childNodes.length) destino.appendChild(e);
+      continue;
+    }
+    copiaSegura(n, destino); // span, font…: se quita la etiqueta y se conserva el contenido
+  }
+}
+function htmlSeguro(html, destino) {
+  // DOMParser crea un documento inerte: no ejecuta scripts ni carga nada.
+  copiaSegura(new DOMParser().parseFromString(String(html || ""), "text/html").body, destino);
+}
+
+// --- Carrusel: de la más nueva a la más antigua; gira despacio y vuelve a la primera ---
+function carrusel(posts) {
+  const track = $("posts"), dots = $("dots");
+  track.textContent = "";
+  const n = posts.length;
+  const slides = posts.map((p, i) => {
+    const art = nuevo("article", "card slide");
+    art.setAttribute("role", "group");
+    art.setAttribute("aria-roledescription", "diapositiva");
+    art.setAttribute("aria-label", "Entrada " + (i + 1) + " de " + n);
+    const url = p.url && p.url.startsWith("http") ? p.url : null;
+    if (p.image && IMG_OK.test(p.image)) {
+      const a = nuevo("a", "sl-img");
+      if (url) { a.href = url; a.target = "_blank"; a.rel = "noopener"; }
+      const im = nuevo("img"); im.src = p.image; im.alt = ""; im.loading = i ? "lazy" : "eager";
+      a.appendChild(im); art.appendChild(a);
+    }
+    const body = nuevo("div", "sl-body");
+    const meta = nuevo("div", "m");
+    if (p.tag) { const t = nuevo("span", "tag", p.tag); t.setAttribute("translate", "no"); meta.append(t, " "); }
+    meta.append(new Date(p.date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }));
+    const h = nuevo("h3");
+    const ha = nuevo("a", "", p.title);
+    if (url) { ha.href = url; ha.target = "_blank"; ha.rel = "noopener"; }
+    h.appendChild(ha); h.setAttribute("translate", "no");
+    const bc = nuevo("div", "bc");
+    bc.setAttribute("translate", "no");
+    bc.tabIndex = 0;
+    if (p.html) htmlSeguro(p.html, bc); else bc.textContent = p.excerpt || "";
+    // La portada ya se ve al lado: si el texto empieza con la misma imagen, no se repite.
+    const dup = [...bc.querySelectorAll("img")].find((im) => im.getAttribute("src") === p.image);
+    if (dup && p.image) {
+      let e = dup;
+      while (e.parentNode !== bc && e.parentNode.childNodes.length === 1) e = e.parentNode;
+      e.remove();
+    }
+    body.append(meta, h, bc);
+    if (url) { const v = enlace(url, "Ver en el blog"); v.className = "sl-link"; v.rel = "noopener"; body.appendChild(v); }
+    art.appendChild(body);
+    track.appendChild(art);
+    const d = nuevo("button");
+    d.type = "button";
+    d.setAttribute("aria-label", "Ir a la entrada " + (i + 1));
+    d.onclick = () => { ir(i); usuario(); };
+    dots.appendChild(d);
+    return art;
+  });
+  if (n < 2) return;
+  $("ctl").hidden = false;
+  let i = 0, pausaUsuario = false, encima = false, timer = null;
+  const quieto = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function ir(k) {
+    i = (k + n) % n;
+    track.style.transform = "translateX(" + (-100 * i) + "%)";
+    slides.forEach((s, j) => { s.inert = j !== i; s.setAttribute("aria-hidden", String(j !== i)); });
+    [...dots.children].forEach((d, j) => d.setAttribute("aria-current", String(j === i)));
+  }
+  function programa() {
+    clearTimeout(timer);
+    if (!quieto && !pausaUsuario && !encima) timer = setTimeout(() => { ir(i + 1); programa(); }, 9000);
+  }
+  // Al usar los controles, el carrusel anuncia el cambio a los lectores de pantalla.
+  function usuario() { track.setAttribute("aria-live", "polite"); programa(); }
+  $("prev").onclick = () => { ir(i - 1); usuario(); };
+  $("next").onclick = () => { ir(i + 1); usuario(); };
+  const pb = $("pausa");
+  const pintaPausa = () => { pb.textContent = pausaUsuario || quieto ? "▶" : "❚❚"; pb.setAttribute("aria-label", pausaUsuario || quieto ? "Reanudar" : "Pausar"); };
+  pb.onclick = () => { pausaUsuario = !pausaUsuario; pintaPausa(); programa(); };
+  // Se detiene mientras se lee: ratón encima, foco dentro, toque o desplazamiento del texto.
+  const car = $("car");
+  car.addEventListener("mouseenter", () => { encima = true; programa(); });
+  car.addEventListener("mouseleave", () => { encima = false; programa(); });
+  car.addEventListener("focusin", () => { encima = true; programa(); });
+  car.addEventListener("focusout", (e) => { if (!car.contains(e.relatedTarget)) { encima = false; programa(); } });
+  car.addEventListener("touchstart", () => { pausaUsuario = true; pintaPausa(); programa(); }, { passive: true });
+  if (quieto) pausaUsuario = true;
+  pintaPausa();
+  ir(0);
+  track.setAttribute("aria-live", "off");
+  programa();
+}
+
 fetch("/api/blog")
   .then((r) => r.json())
   .then((posts) => {
-    grid.textContent = "";
-    if (!posts.length) { grid.textContent = "No se han podido cargar las entradas."; return; }
-    posts.slice(0, 8).forEach((p) => {
-      const art = document.createElement("article");
-      art.className = "card post";
-      const ph = document.createElement("div");
-      ph.className = "ph";
-      if (p.image && p.image.startsWith("http")) {
-        const im = document.createElement("img");
-        im.src = p.image; im.alt = ""; im.loading = "lazy";
-        ph.appendChild(im);
-      }
-      art.appendChild(ph);
-      if (p.tag) {
-        const t = document.createElement("span");
-        t.className = "tag"; t.textContent = p.tag;
-        art.appendChild(t); art.appendChild(document.createTextNode(" "));
-      }
-      const d = document.createElement("span");
-      d.className = "m"; d.textContent = new Date(p.date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
-      art.appendChild(d);
-      const h = document.createElement("h3");
-      const a = document.createElement("a");
-      a.textContent = p.title;
-      a.setAttribute("translate", "no");
-      if (p.url && p.url.startsWith("http")) a.href = p.url;
-      h.appendChild(a); art.appendChild(h);
-      const ex = document.createElement("p");
-      ex.textContent = p.excerpt;
-      ex.setAttribute("translate", "no");
-      art.appendChild(ex);
-      grid.appendChild(art);
-    });
+    if (!posts.length) { $("posts").textContent = "No se han podido cargar las entradas."; return; }
+    carrusel(posts.slice(0, 6));
   })
-  .catch(() => { grid.textContent = "No se han podido cargar las entradas."; });
+  .catch(() => { $("posts").textContent = "No se han podido cargar las entradas."; });
 </script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>

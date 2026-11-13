@@ -24,7 +24,9 @@
     "ene": "Jan", "abr": "Apr", "ago": "Aug", "sept": "Sep", "dic": "Dec",
     "Últimas entradas del blog": "Latest blog posts", "Cargando entradas...": "Loading posts...",
     "No se han podido cargar las entradas.": "Could not load the posts.",
-    "Leer más": "Read more", "Leer menos": "Read less", "Spoiler: pulsa para verlo": "Spoiler: click to reveal",
+    "Leer más": "Read more", "Leer menos": "Read less",
+    "Ver en el blog": "See on the blog", "▶ Ver vídeo": "▶ Watch video", "Entrada anterior": "Previous post",
+    "Entrada siguiente": "Next post", "Pausar": "Pause", "Reanudar": "Play", "carrusel": "carousel", "diapositiva": "slide", "Spoiler: pulsa para verlo": "Spoiler: click to reveal",
     "Cargando...": "Loading...", "Comprobando...": "Checking...",
     // Inicio de sesión
     "Tu cuenta de Discord no está en el servidor del club.": "Your Discord account is not in the club server.",
@@ -183,6 +185,8 @@
     [/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}) · (Quedada|Torneo) · (publicado|borrador|cancelado)$/, (m, f, t, e) => f + " · " + EXACT[t] + " · " + EXACT[e]],
     [/^Plazas: (\d+) de (\d+)$/, "Spots: $1 of $2"],
     [/^Plazas: (\d+)$/, "Spots: $1"],
+    [/^Entrada (\d+) de (\d+)$/, "Post $1 of $2"],
+    [/^Ir a la entrada (\d+)$/, "Go to post $1"],
     [/^Plazas libres: (\d+) de (\d+)$/, "Free spots: $1 of $2"],
     [/^Sin plazas libres \((\d+) de (\d+) ocupadas\)$/, "No free spots ($1 of $2 taken)"],
     [/^Plazas libres: sin límite · (\d+) inscritos?$/, (m, n) => "Free spots: unlimited · " + n + " signed up"],
@@ -261,7 +265,7 @@
 
   // --- Aplicación sobre la página (y sobre lo que se pinte después) ---
   const ORIG = new WeakMap(); // nodo de texto → texto original en español
-  const ATTRS = ["placeholder", "aria-label", "title", "alt"];
+  const ATTRS = ["placeholder", "aria-label", "title", "alt", "aria-roledescription"];
   // <html translate="no"> solo evita el traductor automático del navegador (choca con este); no protege nada aquí.
   const protegido = (el) => !!(el && el.closest && el.closest('[translate="no"]:not(html), script, style, svg'));
 
