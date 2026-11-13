@@ -1,0 +1,21 @@
+{
+  "name": "Adeptus Baeticus",
+  "short_name": "Adeptus",
+  "description": "Club de Warhammer 40.000 en Málaga: quedadas, calendario, galería, Gran Liga y miembros.",
+  "lang": "es",
+  "start_url": "/?app=1",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#15171A",
+  "theme_color": "#15171A",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Calendario", "url": "/calendario.html", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Gran Liga", "url": "/gran-liga.html", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mi ficha", "url": "/miembros.html#yo", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

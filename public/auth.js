@@ -1,3 +1,57 @@
+// --- App instalable: service worker y enlace «Instalar app» en el pie ---
+(() => {
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => { navigator.serviceWorker.register("/sw.js").catch(() => {}); });
+  }
+  const instalada = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (instalada) return;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let aviso = null; // evento de instalación del navegador (Chrome, Edge, Android)
+  const enlace = () => {
+    let a = document.getElementById("instalar-app");
+    if (a) return a;
+    const nav = document.querySelector(".ftl");
+    if (!nav) return null;
+    a = document.createElement("a");
+    a.id = "instalar-app";
+    a.href = "#";
+    a.textContent = "Instalar app";
+    a.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (aviso) { aviso.prompt(); try { await aviso.userChoice; } catch (x) {} aviso = null; a.remove(); return; }
+      if (ios) instruccionesIos();
+    });
+    nav.prepend(a);
+    return a;
+  };
+  function instruccionesIos() {
+    const ov = document.createElement("div");
+    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-labelledby", "ia-t");
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;padding:16px;z-index:60";
+    const c = document.createElement("div");
+    c.style.cssText = "background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:20px;max-width:420px;width:100%;box-sizing:border-box;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif";
+    const h = document.createElement("h3");
+    h.id = "ia-t"; h.textContent = "Instalar la app";
+    h.style.cssText = "margin:0 0 10px;font:700 20px Cinzel,Georgia,serif;color:#F0CE82";
+    const ol = document.createElement("ol");
+    ol.style.cssText = "margin:0 0 16px;padding-left:20px";
+    ["Pulsa el botón Compartir de Safari (el cuadrado con la flecha hacia arriba).", "Elige «Añadir a pantalla de inicio».", "Pulsa «Añadir»: el icono del club aparecerá con el resto de tus apps."]
+      .forEach((t) => { const li = document.createElement("li"); li.textContent = t; li.style.margin = "4px 0"; ol.appendChild(li); });
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = "Entendido";
+    b.style.cssText = "background:#A3211B;color:#fff;border:0;border-radius:8px;padding:10px 18px;min-height:44px;font:600 15px Inter,sans-serif;cursor:pointer";
+    const fuera = () => ov.remove();
+    b.onclick = fuera;
+    ov.addEventListener("click", (e) => { if (e.target === ov) fuera(); });
+    c.append(h, ol, b); ov.appendChild(c); document.body.appendChild(ov); b.focus();
+  }
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); aviso = e; enlace(); });
+  window.addEventListener("appinstalled", () => { const a = document.getElementById("instalar-app"); if (a) a.remove(); });
+  if (ios) {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", enlace); else enlace();
+  }
+})();
+
 (() => {
   const box = document.getElementById("auth");
   if (!box) return;
