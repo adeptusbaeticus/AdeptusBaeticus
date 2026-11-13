@@ -254,7 +254,7 @@ function copas(tros) {
       c.style.opacity = String(1 - i * 0.22);
       pila.appendChild(c);
     }
-    if (n > 1) pila.appendChild(el("span", "num", "×" + n));
+    if (n > 4) pila.appendChild(el("span", "num", "×" + n)); // el número solo si hay más de los que caben en la cascada (4)
     pila.title = lista.map((x) => x.nombre).join(" · ") + " — " + PUESTO[t.puesto] + " · " + MODALIDAD[t.modalidad];
     w.appendChild(pila);
   }
