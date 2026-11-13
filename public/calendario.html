@@ -56,6 +56,7 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .lh{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
 .li{display:flex;gap:16px;align-items:center;width:100%;text-align:left;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #F0CE82;border-radius:10px;padding:12px 16px;margin-bottom:8px;color:#ECE7DC;font:inherit;cursor:pointer}
 .li.tor{border-left-color:#F08A82}
+.li.x{border-left-color:#8A6416}.li.tor.x{border-left-color:#7A1712}
 .li:hover,.li:focus{border-color:#D9B25A;outline:none}
 .li.sel{background:#262A30;border-color:#D9B25A}
 .li .fe{min-width:64px;text-align:center;line-height:1.1}
@@ -154,8 +155,8 @@ select.chip{appearance:auto;padding:8px 12px}
     <div class="a"><div class="cal" id="cal"><div class="g" id="g"></div></div>
       <div id="lista" hidden></div>
       <div class="ley" id="ley" aria-label="Leyenda">
-        <span><i class="q"></i>Quedada</span><span><i class="t2"></i>Torneo</span><span><i class="pt"></i>Partida</span>
-        <span><i class="lg"></i>Ronda de la Gran Liga (pulsa para verla)</span>
+        <span><i class="q"></i>Quedada</span><span><i class="t2"></i>Torneo</span><span class="solo-cal"><i class="pt"></i>Partida</span>
+        <span class="solo-cal"><i class="lg"></i>Ronda de la Gran Liga (pulsa para verla)</span>
         <span>Color claro: abierto · oscuro: completo o cerrado</span>
       </div>
     </div>
@@ -242,7 +243,8 @@ function renderLista() {
   es.forEach((e) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "li" + (e.type === "torneo" ? " tor" : "");
+    const llena = e.capacity && (e.inscritos || 0) >= e.capacity;
+    b.className = "li" + (e.type === "torneo" ? " tor" : "") + (llena ? " x" : "");
     const d = new Date(e.starts_at);
     const fe = document.createElement("span");
     fe.className = "fe";
@@ -278,7 +280,9 @@ function renderLista() {
 
 function render() {
   const enLista = filtro === "eventos";
-  $("cal").hidden = $("navmes").hidden = $("ley").hidden = enLista;
+  $("cal").hidden = $("navmes").hidden = enLista;
+  // En el listado la leyenda se queda solo con quedadas y torneos.
+  document.querySelectorAll("#ley .solo-cal").forEach((x) => { x.hidden = enLista; });
   $("lista").hidden = !enLista;
   if (enLista) { renderLista(); return; }
   $("mes").textContent = MESES[m] + " " + y;
