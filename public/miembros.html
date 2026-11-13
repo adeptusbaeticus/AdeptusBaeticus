@@ -26,7 +26,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fil{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 20px}
 .fil input,.fil select{min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit}
 .fil input{flex:1 1 240px}
-.fil select{flex:0 1 260px}
+.fil select{flex:0 1 220px}
 .aviso{background:#1F2328;border:1px solid #2C3036;border-radius:10px;padding:10px 14px;margin:0 0 20px;font-size:14px;color:#CFC9BA}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
 .mb{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:#1F2328;border:1px solid #2C3036;border-radius:14px;padding:20px 14px 16px;color:inherit;font:inherit;cursor:pointer;width:100%}
@@ -81,7 +81,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
 ::view-transition-old(cabecera),::view-transition-new(cabecera){animation:none}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
 @media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
-@media (max-width:600px){h1{font-size:32px}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.mb{padding:16px 10px 12px}.av{width:60px;height:60px}.fi{padding:18px}.cu .et{width:90px}}
+@media (max-width:600px){.fil select{flex:1 1 40%;min-width:0}h1{font-size:32px}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.mb{padding:16px 10px 12px}.av{width:60px;height:60px}.fi{padding:18px}.cu .et{width:90px}}
 @media (max-width:600px){.menu{display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:2px 18px}.menu a{font-size:14px;padding:6px 0}}
 @media (max-width:600px){.c{padding-left:16px;padding-right:16px}}
 </style>
@@ -98,6 +98,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
   <p class="aviso" id="aviso" hidden>Entra con Discord para ver las cuentas de los socios y editar tu ficha.</p>
   <div class="fil">
     <input type="search" id="busca" placeholder="Buscar por nombre..." aria-label="Buscar por nombre">
+    <select id="frol" aria-label="Filtrar por rol"><option value="">Todos los roles</option></select>
     <select id="ffac" aria-label="Filtrar por facción"><option value="">Todas las facciones</option></select>
   </div>
   <div class="grid" id="grid"><p class="m">Cargando...</p></div>
@@ -145,8 +146,8 @@ function chips(fac, max) {
 function pintaGrid() {
   const g = $("grid");
   g.textContent = "";
-  const q = $("busca").value.trim().toLowerCase(), f = $("ffac").value;
-  const ms = D.miembros.filter((m) => (!q || m.name.toLowerCase().includes(q)) && (!f || m.facciones.includes(f)));
+  const q = $("busca").value.trim().toLowerCase(), f = $("ffac").value, rl = $("frol").value;
+  const ms = D.miembros.filter((m) => (!q || m.name.toLowerCase().includes(q)) && (!f || m.facciones.includes(f)) && (!rl || m.role === rl));
   $("nada").hidden = ms.length > 0;
   ms.forEach((m) => {
     const b = el("button", "mb" + (m.id === D.yo ? " yo" : ""));
@@ -281,10 +282,17 @@ async function carga() {
   const usadas = new Set(D.miembros.flatMap((m) => m.facciones));
   D.facciones.filter((f) => usadas.has(f)).forEach((f) => { const o = el("option", "", f); o.value = f; o.setAttribute("translate", "no"); sel.appendChild(o); });
   sel.value = usadas.has(v) ? v : "";
+  // Roles presentes, en orden de jerarquía.
+  const sr = $("frol"), vr = sr.value;
+  while (sr.options.length > 1) sr.remove(1);
+  const roles = new Set(D.miembros.map((m) => m.role));
+  Object.keys(ROL).filter((r) => roles.has(r)).forEach((r) => { const o = el("option", "", ROL[r]); o.value = r; sr.appendChild(o); });
+  sr.value = roles.has(vr) ? vr : "";
   pintaGrid();
 }
 $("busca").addEventListener("input", pintaGrid);
 $("ffac").onchange = pintaGrid;
+$("frol").onchange = pintaGrid;
 $("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").close(); });
 carga().then(() => {
   // miembros.html#yo abre directamente tu ficha.

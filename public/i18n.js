@@ -48,7 +48,7 @@
     "Los socios del club, las facciones que juegan y dónde encontrarlos. Pulsa en una ficha para verla entera.": "The club's members, the factions they play and where to find them. Click a card to see the full profile.",
     "Entra con Discord para ver las cuentas de los socios y editar tu ficha.": "Log in with Discord to see members' accounts and edit your profile.",
     "Buscar por nombre...": "Search by name...", "Buscar por nombre": "Search by name", "Filtrar por facción": "Filter by faction",
-    "Todas las facciones": "All factions", "No hay miembros que coincidan.": "No members match.", "No se pudieron cargar los miembros.": "Could not load the members.",
+    "Todas las facciones": "All factions", "Todos los roles": "All roles", "Filtrar por rol": "Filter by role", "No hay miembros que coincidan.": "No members match.", "No se pudieron cargar los miembros.": "Could not load the members.",
     "Tú": "You", "Ranking ELO de la Gran Liga": "Grand League ELO ranking", "Ver el ranking completo en New Recruit": "See the full ranking on New Recruit",
     "Todavía no aparece en el ranking.": "Not in the ranking yet.", "V-D-E": "W-L-D", "V-D": "W-L", "Ranking ELO": "ELO ranking", "Sin facciones": "No factions", "Facciones": "Factions", "Cuentas": "Accounts",
     "Todavía no ha indicado sus facciones.": "No factions added yet.", "Entra con Discord para ver sus cuentas": "Log in with Discord to see their accounts",
