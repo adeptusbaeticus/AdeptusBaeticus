@@ -122,7 +122,7 @@
     "No se pudo borrar.": "Could not delete.", "Se ha borrado 1 partida.": "1 game deleted.",
     // Mis inscripciones
     "Próximas": "Upcoming", "Pasadas": "Past", "Inscrito": "Signed up", "Lista de espera": "Waiting list",
-    "Evento cancelado": "Event cancelled", "Mis partidas": "My games", "Cerrada": "Closed",
+    "Evento cancelado": "Event cancelled", "Mis partidas": "My games", "Cerrada": "Closed", "En curso": "In progress",
     "Aún no te has apuntado a ninguna quedada.": "You haven't signed up for any meetup yet.",
     "Ver el calendario": "See the calendar",
     "Entra con Discord para ver tus inscripciones": "Log in with Discord to see your sign-ups",
