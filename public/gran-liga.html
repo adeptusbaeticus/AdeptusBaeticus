@@ -64,7 +64,6 @@ details.ronda>summary strong{flex:1}
 .pt .gana{color:#F0CE82}
 .pt .res{font:700 18px Inter,sans-serif;min-width:84px;text-align:center}
 .pt .est{font-size:13px;color:#A8A293;text-align:center}
-.st{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;background:#A3211B;color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px}
 .pt .acc{display:flex;gap:6px;justify-content:flex-end}
 .chip{background:#15171A;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:6px 12px;min-height:36px;font:500 13px Inter,sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
 .listas{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -278,7 +277,6 @@ function filaPartida(p, ronda) {
   const fila = el("div", "pt");
   const ahora = D.ahora;
   const mesa = el("span", "mesa", "Mesa " + p.mesa);
-  if (p.stream) mesa.appendChild(el("span", "st", "STREAM"));
   const ja = nombreJ(p.jugador_a), jb = nombreJ(p.jugador_b);
   const hay = p.pv_a != null && p.pv_b != null;
   const lado = (j, fac, der, gana) => {
