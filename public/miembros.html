@@ -169,7 +169,7 @@ function avatar(m, grande) {
   return d;
 }
 const PUESTO = { 1: "1.º puesto", 2: "2.º puesto", 3: "3.º puesto" };
-const MODALIDAD = { individual: "Individual", parejas: "Parejas", equipo: "Equipo" };
+const MODALIDAD = { individual: "Individual", parejas: "Parejas", equipo: "Equipo", pintura: "Pintura" };
 // Trofeo de Adeptus Baeticus, basado en el logo del club: aro de engranaje con púas, calavera encapuchada,
 // espada vertical (que hace de pie, clavada en la peana) y pinceles cruzados. Calaveras: 1 (individual),
 // 2 (parejas) o 5 (equipo). Color según el puesto.
@@ -182,8 +182,8 @@ function copa(puesto, modalidad) {
   const add = (tag, at) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); sv.appendChild(e); return e; };
   const C = "currentColor";
   const cx = 16, cy = 14;
-  // Pinceles cruzados (detrás).
-  for (const [x1, y1, x2, y2] of [[5.5, 4.5, 26.5, 25.5], [26.5, 4.5, 5.5, 25.5]]) {
+  // Pinceles cruzados (detrás), como en el logo; el trofeo de pintura no los lleva (ya tiene sus pinceles).
+  for (const [x1, y1, x2, y2] of modalidad === "pintura" ? [] : [[5.5, 4.5, 26.5, 25.5], [26.5, 4.5, 5.5, 25.5]]) {
     add("path", { d: `M${x1} ${y1}L${x2} ${y2}`, stroke: F, "stroke-width": "3.2", "stroke-linecap": "round" });
     add("path", { d: `M${x1} ${y1}L${x2} ${y2}`, stroke: C, "stroke-width": "1.6", "stroke-linecap": "round" });
     // Punta del pincel (pelo) en el extremo inferior.
@@ -219,7 +219,21 @@ function copa(puesto, modalidad) {
     add("circle", { cx: x + 0.9 * s, cy: y + 0.4 * s, r: 0.62 * s, fill: F });
     if (s > 0.6) add("path", { d: `M${P(0, 1.2)}l${-0.35 * s} ${0.6 * s}h${0.7 * s}z`, fill: F });
   };
-  if (modalidad === "individual") encapuchada(cx, cy, 1.05);
+  // Pincel: mango, virola y pelo (con la punta de pintura), girado un ángulo (grados) desde la vertical.
+  const pincel = (x, y, ang, l, w) => {
+    const g = add("g", { transform: `rotate(${ang} ${x} ${y})` });
+    const sub = (tag, at) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); g.appendChild(e); return e; };
+    sub("path", { d: `M${x - w * 0.42} ${y - l * 0.36}L${x + w * 0.42} ${y - l * 0.36}L${x + w * 0.26} ${y + l * 0.05}L${x - w * 0.26} ${y + l * 0.05}Z`, fill: C, stroke: F, "stroke-width": "0.6" }); // mango
+    sub("rect", { x: x - w * 0.55, y: y - l * 0.52, width: w * 1.1, height: l * 0.17, rx: 0.3, fill: C, stroke: F, "stroke-width": "0.6" });                                // virola
+    sub("path", { d: `M${x - w * 0.55} ${y - l * 0.52}C${x - w * 0.75} ${y - l * 0.72} ${x - w * 0.2} ${y - l * 0.9} ${x} ${y - l}C${x + w * 0.2} ${y - l * 0.9} ${x + w * 0.75} ${y - l * 0.72} ${x + w * 0.55} ${y - l * 0.52}Z`, fill: C, stroke: F, "stroke-width": "0.6" }); // pelo
+    sub("path", { d: `M${x - w * 0.2} ${y - l * 0.6}Q${x} ${y - l * 0.86} ${x + w * 0.16} ${y - l * 0.62}`, fill: "none", stroke: F, "stroke-width": "0.45", opacity: ".8" }); // trazo del pelo
+  };
+  if (modalidad === "pintura") {
+    // Fondo del medallón para que los pinceles se lean sobre el aro, y abanico de tres pinceles.
+    add("circle", { cx, cy, r: r - 1.2, fill: F });
+    pincel(cx - 0.4, cy + 6.2, -38, 11.5, 2.4); pincel(cx + 0.4, cy + 6.2, 38, 11.5, 2.4); pincel(cx, cy + 6.4, 0, 12.6, 2.6);
+  }
+  else if (modalidad === "individual") encapuchada(cx, cy, 1.05);
   else if (modalidad === "parejas") { encapuchada(cx - 3.4, cy + 0.6, 0.72); encapuchada(cx + 3.4, cy + 0.6, 0.72); }
   else {
     encapuchada(cx - 4.3, cy - 1.6, 0.5); encapuchada(cx, cy - 3.2, 0.5); encapuchada(cx + 4.3, cy - 1.6, 0.5);
@@ -235,7 +249,7 @@ function copa(puesto, modalidad) {
 const mesAnio = (f) => (f ? new Date(f + "-15T12:00:00Z").toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }) : "");
 const textoTrofeo = (t) => PUESTO[t.puesto] + " · " + MODALIDAD[t.modalidad] + (t.con.length ? " con " + t.con.join(", ") : "");
 // Trofeos idénticos (mismo puesto y tipo) apilados en cascada hacia atrás, con «×N» si hay varios.
-const ORDEN_MOD = { individual: 0, parejas: 1, equipo: 2 };
+const ORDEN_MOD = { individual: 0, parejas: 1, equipo: 2, pintura: 3 };
 function copas(tros) {
   const w = el("div", "tro");
   const grupos = new Map();
@@ -466,7 +480,7 @@ function asignarTrofeos(editando = null) {
   const wp = radios("t-puesto", [["1", "1.º (oro)", copa(1, "individual")], ["2", "2.º (plata)", copa(2, "individual")], ["3", "3.º (bronce)", copa(3, "individual")]], editando ? String(editando.puesto) : "1");
   wp.querySelectorAll(".copa").forEach((c) => { c.style.width = "16px"; c.style.height = "18px"; });
   campo("Puesto", wp);
-  const wm = radios("t-mod", [["individual", "Individual"], ["parejas", "Parejas"], ["equipo", "Equipo"]], editando ? editando.modalidad : "individual");
+  const wm = radios("t-mod", [["individual", "Individual"], ["parejas", "Parejas"], ["equipo", "Equipo"], ["pintura", "Pintura"]], editando ? editando.modalidad : "individual");
   campo("Tipo de trofeo", wm);
   const num = el("input"); num.type = "number"; num.id = "t-num"; num.min = 2; num.max = 20; num.value = editando && editando.modalidad === "equipo" ? editando.ids.length : 3;
   const wn = campo("Número de miembros del equipo", num);
@@ -477,7 +491,7 @@ function asignarTrofeos(editando = null) {
   const pintaSelects = () => {
     const mod = f.querySelector("input[name=t-mod]:checked").value;
     wn.hidden = mod !== "equipo";
-    const n = mod === "individual" ? 1 : mod === "parejas" ? 2 : Math.max(2, Math.min(20, Number(num.value) || 2));
+    const n = mod === "individual" || mod === "pintura" ? 1 : mod === "parejas" ? 2 : Math.max(2, Math.min(20, Number(num.value) || 2));
     const antes = gan.childNodes.length ? [...gan.querySelectorAll("select")].map((x) => x.value) : editando ? editando.ids : [];
     gan.textContent = "";
     for (let i = 0; i < n; i++) {

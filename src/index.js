@@ -2343,12 +2343,12 @@ export default {
         const err = (t) => Response.json({ error: t }, { status: 400, headers: noStore });
         if (nombre.length < 2) return err("Escribe el nombre del trofeo");
         if (![1, 2, 3].includes(puesto)) return err("Elige el puesto (1.º, 2.º o 3.º)");
-        if (!["individual", "parejas", "equipo"].includes(modalidad)) return err("Elige si es individual, de parejas o de equipo");
+        if (!["individual", "parejas", "equipo", "pintura"].includes(modalidad)) return err("Elige el tipo de trofeo");
         const fm = /^(\d{4})-(\d{2})$/.exec(fecha);
         if (!fm || +fm[1] < 2000 || +fm[1] > 2100 || +fm[2] < 1 || +fm[2] > 12) return err("Elige el mes y el año del trofeo");
-        const cuantos = modalidad === "individual" ? 1 : modalidad === "parejas" ? 2 : null;
+        const cuantos = modalidad === "individual" || modalidad === "pintura" ? 1 : modalidad === "parejas" ? 2 : null;
         if (cuantos ? ids.length !== cuantos : ids.length < 2 || ids.length > 20) {
-          return err(modalidad === "individual" ? "Elige un miembro" : modalidad === "parejas" ? "Elige los dos miembros de la pareja" : "Elige entre 2 y 20 miembros del equipo, sin repetir");
+          return err(modalidad === "individual" || modalidad === "pintura" ? "Elige un miembro" : modalidad === "parejas" ? "Elige los dos miembros de la pareja" : "Elige entre 2 y 20 miembros del equipo, sin repetir");
         }
         if (Array.isArray(b.miembros) && b.miembros.length !== ids.length) return err("No repitas miembros");
         const existen = (await env.DB.prepare("SELECT COUNT(*) n FROM users WHERE discord_id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(ids)).first()).n;
