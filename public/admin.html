@@ -39,6 +39,13 @@ th{color:#D9B25A;font-weight:600}
 .ftl{display:flex;gap:20px;flex-wrap:wrap}
 .ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
 .ftl a:hover{color:#F0CE82;text-decoration:underline}
+/* Transición entre páginas: la cabecera y el pie se quedan quietos; cambia el contenido. */
+@view-transition{navigation:auto}
+.nav{view-transition-name:cabecera}
+.ft{view-transition-name:pie}
+::view-transition-old(cabecera),::view-transition-new(cabecera){animation:none}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
 </style>
 </head>
 <body>

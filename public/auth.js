@@ -1,4 +1,4 @@
-(async () => {
+(() => {
   const box = document.getElementById("auth");
   if (!box) return;
   const msgs = {
@@ -7,10 +7,11 @@
     error: "No se pudo iniciar sesión. Inténtalo de nuevo.",
   };
   const q = new URLSearchParams(location.search).get("login");
-  let me = null;
-  try { me = await (await fetch("/api/me")).json(); } catch (e) {}
-  box.textContent = "";
-  if (window.abI18n) box.appendChild(window.abI18n.selector());
+  // La sesión se guarda durante la visita para pintar la cabecera al instante al cambiar de página
+  // (sin parpadeo); después se confirma con el servidor y, si ha cambiado, se vuelve a pintar.
+  const KEY = "ab_me";
+  const leeCache = () => { try { const v = sessionStorage.getItem(KEY); return v === null ? undefined : JSON.parse(v); } catch (e) { return undefined; } };
+  const guarda = (v) => { try { sessionStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
 
   function askNr() {
     const ov = document.createElement("div");
@@ -64,6 +65,9 @@
     };
   }
 
+  function pinta(me) {
+  box.textContent = "";
+  if (window.abI18n) box.appendChild(window.abI18n.selector());
   if (me) {
     if (me.avatar) {
       const im = document.createElement("img");
@@ -85,7 +89,8 @@
     link("/mis-inscripciones.html", "Mis inscripciones");
     if (me.role === "admin") link("/admin.html", "Admin");
     link("/auth/logout", "Salir");
-    if (!me.nr_username) askNr();
+    // Al salir se olvida la sesión guardada.
+    box.lastChild.addEventListener("click", () => { try { sessionStorage.removeItem(KEY); } catch (e) {} });
   } else {
     const a = document.createElement("a");
     a.href = "/auth/login";
@@ -100,4 +105,13 @@
       box.appendChild(s);
     }
   }
+  }
+
+  const cache = leeCache();
+  if (cache !== undefined && !q) pinta(cache);
+  fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => {
+    if (cache === undefined || q || JSON.stringify(me) !== JSON.stringify(cache)) pinta(me);
+    guarda(me);
+    if (me && !me.nr_username) askNr();
+  });
 })();
