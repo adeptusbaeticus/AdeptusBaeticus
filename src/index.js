@@ -2217,16 +2217,30 @@ export default {
           });
         });
       }
+      // Trofeos (palmarés): por socio, con su puesto, modalidad y compañeros.
+      const tr = (await env.DB.prepare(
+        `SELECT t.id, t.nombre, t.puesto, t.modalidad, t.created_at, m.discord_id
+         FROM trofeos t JOIN trofeo_miembros m ON m.trofeo_id=t.id ORDER BY t.puesto, t.id DESC`
+      ).all()).results;
+      const nombreDe = new Map(results.map((u) => [u.discord_id, u.name]));
+      const ganadores = new Map();
+      for (const x of tr) { if (!ganadores.has(x.id)) ganadores.set(x.id, []); ganadores.get(x.id).push(x.discord_id); }
+      const trofeosDe = (id) => tr.filter((x) => x.discord_id === id).map((x) => ({
+        id: x.id, nombre: x.nombre, puesto: x.puesto, modalidad: x.modalidad,
+        con: ganadores.get(x.id).filter((o) => o !== id).map((o) => nombreDe.get(o)).filter(Boolean),
+      }));
       const miembros = results.map((u) => {
         let fac = [];
         try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
         const x = eloDe(u);
-        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null, liga: ligaDe.get(u.discord_id) || null };
+        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
         if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username });
         m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
         return m;
       });
-      return Response.json({ sesion: !!s, yo: s ? s.id : null, facciones: FACCIONES, liga_nr: NR_ELO.liga, miembros }, { headers: { ...noStore, vary: "cookie" } });
+      const lista = [...ganadores.keys()].map((id) => { const x = tr.find((t) => t.id === id); return { id, nombre: x.nombre, puesto: x.puesto, modalidad: x.modalidad, miembros: ganadores.get(id).map((o) => nombreDe.get(o)).filter(Boolean) }; });
+      return Response.json({ sesion: !!s, yo: s ? s.id : null, admin: !!s && s.role === "admin", facciones: FACCIONES, liga_nr: NR_ELO.liga,
+        trofeos: s && s.role === "admin" ? lista : undefined, miembros }, { headers: { ...noStore, vary: "cookie" } });
     }
     // Editar una ficha: cada socio la suya; el admin, todas.
     const mbm = path.match(/^\/api\/miembros\/(\d+)$/);
@@ -2314,6 +2328,40 @@ export default {
           admin: { id: s.id, name: s.name, avatar: s.avatar, role: s.role, exp: s.exp },
         });
         return Response.json({ ok: true, name: u.name }, { headers: { ...noStore, "set-cookie": cookieSesion(cookie, exp - Math.floor(Date.now() / 1000)) } });
+      }
+
+      // Trofeos (palmarés): asignar uno (nombre, puesto 1-3, modalidad y ganadores) o quitarlo.
+      if (path === "/api/admin/trofeos" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        const nombre = String(b.nombre || "").trim().slice(0, 120);
+        const puesto = Number(b.puesto), modalidad = String(b.modalidad || "");
+        const ids = Array.isArray(b.miembros) ? [...new Set(b.miembros.map(String))] : [];
+        const err = (t) => Response.json({ error: t }, { status: 400, headers: noStore });
+        if (nombre.length < 2) return err("Escribe el nombre del trofeo");
+        if (![1, 2, 3].includes(puesto)) return err("Elige el puesto (1.º, 2.º o 3.º)");
+        if (!["individual", "parejas", "equipo"].includes(modalidad)) return err("Elige si es individual, de parejas o de equipo");
+        const cuantos = modalidad === "individual" ? 1 : modalidad === "parejas" ? 2 : null;
+        if (cuantos ? ids.length !== cuantos : ids.length < 2 || ids.length > 20) {
+          return err(modalidad === "individual" ? "Elige un miembro" : modalidad === "parejas" ? "Elige los dos miembros de la pareja" : "Elige entre 2 y 20 miembros del equipo, sin repetir");
+        }
+        if (Array.isArray(b.miembros) && b.miembros.length !== ids.length) return err("No repitas miembros");
+        const existen = (await env.DB.prepare("SELECT COUNT(*) n FROM users WHERE discord_id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(ids)).first()).n;
+        if (existen !== ids.length) return err("Algún miembro no existe");
+        const r = await env.DB.prepare("INSERT INTO trofeos (nombre, puesto, modalidad) VALUES (?1, ?2, ?3)").bind(nombre, puesto, modalidad).run();
+        const tid = r.meta.last_row_id;
+        await env.DB.batch(ids.map((id) => env.DB.prepare("INSERT INTO trofeo_miembros (trofeo_id, discord_id) VALUES (?1, ?2)").bind(tid, id)));
+        return Response.json({ ok: true, id: tid }, { headers: noStore });
+      }
+      const trm = path.match(/^\/api\/admin\/trofeos\/(\d+)$/);
+      if (trm && request.method === "DELETE") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        await env.DB.batch([
+          env.DB.prepare("DELETE FROM trofeo_miembros WHERE trofeo_id=?1").bind(trm[1]),
+          env.DB.prepare("DELETE FROM trofeos WHERE id=?1").bind(trm[1]),
+        ]);
+        return Response.json({ ok: true }, { headers: noStore });
       }
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.

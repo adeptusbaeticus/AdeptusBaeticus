@@ -49,6 +49,23 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fc span{background:#2A2F36;border-radius:999px;padding:2px 10px;font-size:12px;color:#DCD6C8}
 .fc .mas{background:none;color:#A8A293}
 .sin{font-size:13px;color:#7D776B}
+/* Trofeos: una copa por trofeo, de oro, plata o bronce según el puesto. */
+.tro{display:flex;flex-wrap:wrap;gap:2px;justify-content:center}
+.copa{display:inline-block;width:22px;height:22px;flex:none}
+.copa.p1{color:#E8C25A}.copa.p2{color:#C9CED6}.copa.p3{color:#C98A4B}
+.trl{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.trl li{display:flex;gap:10px;align-items:center}
+.trl .copa{width:28px;height:28px}
+.trl small{display:block;color:#A8A293;font-size:13px}
+.adm-t form{display:grid;gap:12px}
+.adm-t label{display:block;font-weight:600;font-size:14px;margin-bottom:4px}
+.adm-t input[type=text],.adm-t input[type=number],.adm-t select{width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit}
+.adm-t .rads{display:flex;gap:8px;flex-wrap:wrap}
+.adm-t .rads label{display:flex;align-items:center;gap:6px;font-weight:500;background:#15171A;border:1px solid #6B6558;border-radius:999px;padding:6px 12px;margin:0;cursor:pointer;min-height:36px;box-sizing:border-box}
+.adm-t .rads input{accent-color:#D9B25A}
+.adm-t .gan{display:grid;gap:8px}
+.adm-t .exist li{justify-content:space-between}
+.adm-t .exist button{background:none;border:1px solid #6B6558;color:#F0A39E;border-radius:8px;min-height:36px;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px}
 .elo{display:inline-flex;align-items:center;gap:6px;background:#15171A;border:1px solid #2C3036;border-radius:999px;padding:2px 10px;font:600 12px Inter,sans-serif;color:#ECE7DC}
 .elo b{color:#F0CE82}
 .rk{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px}
@@ -112,6 +129,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
     <input type="search" id="busca" placeholder="Buscar por nombre..." aria-label="Buscar por nombre">
     <select id="frol" aria-label="Filtrar por rol"><option value="">Todos los roles</option></select>
     <select id="ffac" aria-label="Filtrar por facción"><option value="">Todas las facciones</option></select>
+    <button type="button" class="btn" id="btro" hidden>Asignar trofeos</button>
   </div>
   <div class="grid" id="grid"><p class="m">Cargando...</p></div>
   <p class="m" id="nada" hidden>No hay miembros que coincidan.</p>
@@ -147,6 +165,31 @@ function avatar(m, grande) {
   d.setAttribute("aria-hidden", "true");
   return d;
 }
+// Copa (SVG) de oro, plata o bronce.
+const PUESTO = { 1: "1.º puesto", 2: "2.º puesto", 3: "3.º puesto" };
+const MODALIDAD = { individual: "Individual", parejas: "Parejas", equipo: "Equipo" };
+function copa(puesto) {
+  const ns = "http://www.w3.org/2000/svg";
+  const sv = document.createElementNS(ns, "svg");
+  sv.setAttribute("viewBox", "0 0 24 24"); sv.setAttribute("class", "copa p" + puesto); sv.setAttribute("aria-hidden", "true");
+  for (const [d, relleno] of [["M7 3h10v5.5a5 5 0 0 1-10 0V3z", true], ["M7 5H4.5a2.8 2.8 0 0 0 3.2 4.6M17 5h2.5a2.8 2.8 0 0 1-3.2 4.6", false], ["M10.5 13.2h3l.5 3.3h-4l.5-3.3zM8 17.5h8v3H8z", true]]) {
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", d); p.setAttribute("stroke", "currentColor"); p.setAttribute("stroke-width", "1.6"); p.setAttribute("stroke-linejoin", "round");
+    p.setAttribute("fill", relleno ? "currentColor" : "none");
+    sv.appendChild(p);
+  }
+  return sv;
+}
+const textoTrofeo = (t) => PUESTO[t.puesto] + " · " + MODALIDAD[t.modalidad] + (t.con.length ? " con " + t.con.join(", ") : "");
+function copas(tros) {
+  const w = el("div", "tro");
+  const orden = [...tros].sort((a, b) => a.puesto - b.puesto);
+  orden.forEach((t) => { const c = el("span"); c.appendChild(copa(t.puesto)); c.title = t.nombre + " · " + textoTrofeo(t); w.appendChild(c); });
+  w.setAttribute("aria-label", tros.length + (tros.length === 1 ? " trofeo" : " trofeos"));
+  w.setAttribute("role", "img");
+  return w;
+}
+
 function chips(fac, max) {
   const w = el("div", "fc");
   w.setAttribute("translate", "no");
@@ -176,6 +219,7 @@ function pintaGrid() {
       b.appendChild(fila);
     }
     b.appendChild(m.facciones.length ? chips(m.facciones, 3) : el("span", "sin", "Sin facciones"));
+    if (m.trofeos.length) b.appendChild(copas(m.trofeos));
     b.onclick = () => ficha(m);
     g.appendChild(b);
   });
@@ -246,6 +290,16 @@ function ficha(m) {
     a.style.cssText = "display:inline-block;margin-top:8px";
     fi.appendChild(a);
   } else fi.appendChild(el("p", "sin", "Todavía no aparece en el ranking."));
+  if (m.trofeos.length) {
+    fi.appendChild(el("h3", "", "Trofeos"));
+    const ul = el("ul", "trl");
+    [...m.trofeos].sort((a, b) => a.puesto - b.puesto).forEach((t) => {
+      const li = el("li"); li.appendChild(copa(t.puesto));
+      const tx = el("span"); const n = el("strong", "", t.nombre); n.setAttribute("translate", "no");
+      tx.append(n, el("small", "", textoTrofeo(t))); li.appendChild(tx); ul.appendChild(li);
+    });
+    fi.appendChild(ul);
+  }
   fi.appendChild(el("h3", "", "Cuentas"));
   if (D.sesion) fi.appendChild(cuentas(m));
   else { const a = el("a", "", "Entra con Discord para ver sus cuentas"); a.href = "/auth/login"; fi.appendChild(a); }
@@ -311,12 +365,109 @@ function editar(m) {
   f.querySelector("input").focus();
 }
 
+// Admin: asignar trofeos (nombre, puesto, modalidad y ganadores) y quitar los existentes.
+function asignarTrofeos() {
+  const fi = $("fi");
+  fi.textContent = "";
+  fi.classList.add("adm-t");
+  const h = el("h2", "", "Asignar trofeos"); h.id = "fi-n"; h.style.cssText = "font:700 22px Cinzel,Georgia,serif;margin:0 0 12px";
+  fi.appendChild(h);
+  const f = el("form");
+  const campo = (et, nodo) => { const w = el("div"); const l = el("label", "", et); if (nodo.id) l.htmlFor = nodo.id; w.append(l, nodo); f.appendChild(w); return w; };
+  const nombre = el("input"); nombre.type = "text"; nombre.id = "t-nombre"; nombre.maxLength = 120; nombre.required = true; nombre.placeholder = "Por ejemplo: Torneo de Navidad 2026";
+  campo("Nombre del trofeo", nombre);
+  const radios = (nombreGrupo, ops, def) => {
+    const w = el("div", "rads"); w.setAttribute("role", "radiogroup");
+    ops.forEach(([v, t, icono]) => { const l = el("label"); const i = el("input"); i.type = "radio"; i.name = nombreGrupo; i.value = v; i.checked = v === def; if (icono) l.append(i, icono, t); else l.append(i, t); w.appendChild(l); });
+    return w;
+  };
+  const wp = radios("t-puesto", [["1", "1.º (oro)", copa(1)], ["2", "2.º (plata)", copa(2)], ["3", "3.º (bronce)", copa(3)]], "1");
+  wp.querySelectorAll(".copa").forEach((c) => { c.style.width = c.style.height = "18px"; });
+  campo("Puesto", wp);
+  const wm = radios("t-mod", [["individual", "Individual"], ["parejas", "Parejas"], ["equipo", "Equipo"]], "individual");
+  campo("Tipo de trofeo", wm);
+  const num = el("input"); num.type = "number"; num.id = "t-num"; num.min = 2; num.max = 20; num.value = 3;
+  const wn = campo("Número de miembros del equipo", num);
+  const gan = el("div", "gan");
+  const wg = campo("Ganadores", gan);
+  wg.querySelector("label").removeAttribute("for");
+  const opciones = [...D.miembros].sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const pintaSelects = () => {
+    const mod = f.querySelector("input[name=t-mod]:checked").value;
+    wn.hidden = mod !== "equipo";
+    const n = mod === "individual" ? 1 : mod === "parejas" ? 2 : Math.max(2, Math.min(20, Number(num.value) || 2));
+    const antes = [...gan.querySelectorAll("select")].map((x) => x.value);
+    gan.textContent = "";
+    for (let i = 0; i < n; i++) {
+      const sel = el("select"); sel.setAttribute("aria-label", "Miembro " + (i + 1));
+      const o0 = el("option", "", "— Elige un miembro —"); o0.value = ""; sel.appendChild(o0);
+      opciones.forEach((m) => { const o = el("option", "", m.name); o.value = m.id; o.setAttribute("translate", "no"); sel.appendChild(o); });
+      sel.value = antes[i] || "";
+      gan.appendChild(sel);
+    }
+  };
+  wm.addEventListener("change", pintaSelects);
+  num.addEventListener("input", pintaSelects);
+  pintaSelects();
+  const err = el("div", "err"); err.setAttribute("role", "alert");
+  const acc = el("div", "acc");
+  const ok = el("button", "btn", "Guardar trofeo"); ok.type = "submit";
+  const cerrar = el("button", "btn alt", "Cerrar"); cerrar.type = "button"; cerrar.onclick = () => $("dlg").close();
+  acc.append(cerrar, ok);
+  f.append(err, acc);
+  f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    err.textContent = "";
+    const ids = [...gan.querySelectorAll("select")].map((x) => x.value);
+    if (ids.some((x) => !x)) { err.textContent = "Elige todos los ganadores."; return; }
+    if (new Set(ids).size !== ids.length) { err.textContent = "No repitas miembros."; return; }
+    ok.disabled = true;
+    try {
+      const r = await fetch("/api/admin/trofeos", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ nombre: nombre.value, puesto: Number(f.querySelector("input[name=t-puesto]:checked").value), modalidad: f.querySelector("input[name=t-mod]:checked").value, miembros: ids }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { err.textContent = d.error || "No se pudo guardar."; ok.disabled = false; return; }
+      await carga();
+      asignarTrofeos();
+      $("t-ok").textContent = "Trofeo guardado.";
+    } catch (x) { err.textContent = "No se pudo guardar."; ok.disabled = false; }
+  };
+  fi.appendChild(f);
+  const okm = el("p", "m"); okm.id = "t-ok"; okm.setAttribute("role", "status"); fi.appendChild(okm);
+  // Trofeos ya asignados (para quitar uno si hubo un error).
+  if ((D.trofeos || []).length) {
+    fi.appendChild(el("h3", "", "Trofeos asignados"));
+    const ul = el("ul", "trl exist");
+    D.trofeos.forEach((t) => {
+      const li = el("li");
+      const iz = el("span"); iz.style.cssText = "display:flex;gap:10px;align-items:center";
+      const tx = el("span"); const n = el("strong", "", t.nombre); n.setAttribute("translate", "no");
+      const sub = el("small", "", PUESTO[t.puesto] + " · " + MODALIDAD[t.modalidad] + " · "); const qn = el("span", "", t.miembros.join(", ")); qn.setAttribute("translate", "no"); sub.appendChild(qn);
+      tx.append(n, sub); iz.append(copa(t.puesto), tx);
+      const q = el("button", "", "Quitar"); q.type = "button";
+      q.onclick = async () => {
+        if (!confirm("¿Quitar el trofeo «" + t.nombre + "»?")) return;
+        q.disabled = true;
+        const r = await fetch("/api/admin/trofeos/" + t.id, { method: "DELETE" });
+        if (r.ok) { await carga(); asignarTrofeos(); } else q.disabled = false;
+      };
+      li.append(iz, q); ul.appendChild(li);
+    });
+    fi.appendChild(ul);
+  }
+  if (!$("dlg").open) $("dlg").showModal();
+  nombre.focus();
+}
+$("btro").onclick = asignarTrofeos;
+$("dlg").addEventListener("close", () => $("fi").classList.remove("adm-t"));
+
 async function carga() {
   const r = await fetch("/api/miembros");
   if (!r.ok) throw new Error();
   D = await r.json();
   // Sin sesión se ve el listado, pero no las cuentas: aviso para entrar.
   $("cerrado").hidden = D.sesion;
+  $("btro").hidden = !D.admin;
   const sel = $("ffac"), v = sel.value;
   while (sel.options.length > 1) sel.remove(1);
   const usadas = new Set(D.miembros.flatMap((m) => m.facciones));
