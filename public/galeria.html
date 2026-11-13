@@ -62,8 +62,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 ::view-transition-old(cabecera),::view-transition-new(cabecera){animation:none}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
 @media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
-@media (max-width:600px){.menu{gap:10px}.menu a{font-size:14px}}
-@media (max-width:400px){.menu{gap:6px}.menu a{font-size:13px}}
+@media (max-width:600px){.menu{display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:2px 18px}.menu a{font-size:14px;padding:6px 0}}
 @media (max-width:600px){.c{padding-left:16px;padding-right:16px}}
 </style>
 </head>
@@ -71,7 +70,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 <div class="c">
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
-    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a class="on" href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a class="on" href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
     <span id="auth"></span>
   </div>
   <h1>Galería</h1>

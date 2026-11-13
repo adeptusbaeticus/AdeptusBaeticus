@@ -544,6 +544,31 @@ const urlExpira = (u) => {
 // ===== Posts de Inicio: /añadir-post, /editar-post y /borrar-post en #publicaciones-post-web =====
 const CANAL_POSTS = "publicaciones-post-web";
 
+// --- Miembros: ficha de cada socio (facciones y cuentas) ---
+const FACCIONES = [
+  "Adepta Sororitas", "Adeptus Custodes", "Adeptus Mechanicus", "Astra Militarum", "Black Templars", "Blood Angels",
+  "Dark Angels", "Deathwatch", "Grey Knights", "Imperial Agents", "Imperial Knights", "Space Marines", "Space Wolves",
+  "Chaos Daemons", "Chaos Knights", "Chaos Space Marines", "Death Guard", "Emperor's Children", "Thousand Sons", "World Eaters",
+  "Aeldari", "Drukhari", "Genestealer Cults", "Leagues of Votann", "Necrons", "Orks", "T'au Empire", "Tyranids",
+];
+// Limpia y valida cada cuenta; devuelve [valor | null, error | null]. Se aceptan enlaces y se guarda solo el usuario.
+function cuentaLimpia(tipo, v) {
+  v = String(v == null ? "" : v).trim();
+  if (!v) return [null, null];
+  if (tipo === "instagram") {
+    v = v.replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/[/?#].*$/, "").replace(/^@/, "");
+    return /^[A-Za-z0-9._]{1,30}$/.test(v) ? [v, null] : [null, "Usuario de Instagram no válido"];
+  }
+  if (tipo === "steam") {
+    const m = /^https?:\/\/(www\.)?steamcommunity\.com\/(id|profiles)\/([^/?#]+)/i.exec(v);
+    if (m) v = m[3];
+    return /^[A-Za-z0-9_-]{2,64}$/.test(v) ? [v, null] : [null, "Perfil de Steam no válido"];
+  }
+  if (tipo === "bcp") return /^[\p{L}\p{N} ._@'-]{2,40}$/u.test(v) ? [v, null] : [null, "Nombre de BCP no válido"];
+  if (tipo === "nr") return /^[\p{L}\p{N} ._@-]{2,40}$/u.test(v) ? [v, null] : [null, "Usuario de New Recruit no válido"];
+  return [null, null];
+}
+
 // --- FAQ: copia del canal #preguntas-frecuentes de Discord ---
 // Se guarda en nr_cache (clave 'discord:faq'). Discord no avisa a la web de las ediciones, así que al visitar
 // la FAQ, si la copia tiene más de FAQ_MINUTOS, se vuelve a leer el canal (normalmente una sola petición:
@@ -1720,6 +1745,47 @@ export default {
     }
 
     // Socios para elegir compañero o rival (solo nombre; requiere sesión).
+    // Miembros: listado público (nombre, foto, rol y facciones); las cuentas solo las ven los socios con sesión.
+    if (path === "/api/miembros" && request.method === "GET") {
+      const s = await readSession(env, request);
+      const { results } = await env.DB.prepare(
+        "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username FROM users ORDER BY name COLLATE NOCASE"
+      ).all();
+      const miembros = results.map((u) => {
+        let fac = [];
+        try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
+        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac };
+        if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username });
+        m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
+        return m;
+      });
+      return Response.json({ sesion: !!s, yo: s ? s.id : null, facciones: FACCIONES, miembros }, { headers: { ...noStore, vary: "cookie" } });
+    }
+    // Editar una ficha: cada socio la suya; el admin, todas.
+    const mbm = path.match(/^\/api\/miembros\/(\d+)$/);
+    if (mbm && request.method === "PUT") {
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      if (s.id !== mbm[1] && s.role !== "admin") return Response.json({ error: "Solo puedes editar tu propia ficha" }, { status: 403, headers: noStore });
+      const u = await env.DB.prepare("SELECT discord_id, nr_username FROM users WHERE discord_id=?1").bind(mbm[1]).first();
+      if (!u) return Response.json({ error: "Ese miembro no existe" }, { status: 404, headers: noStore });
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      const fac = Array.isArray(b.facciones) ? [...new Set(b.facciones.map(String))] : [];
+      if (fac.some((f) => !FACCIONES.includes(f))) return Response.json({ error: "Facción no válida" }, { status: 400, headers: noStore });
+      const v = {};
+      for (const [campo, tipo] of [["instagram", "instagram"], ["steam", "steam"], ["bcp", "bcp"], ["nr", "nr"]]) {
+        const [val, err] = cuentaLimpia(tipo, b[campo]);
+        if (err) return Response.json({ error: err }, { status: 400, headers: noStore });
+        v[campo] = val;
+      }
+      await env.DB.prepare("UPDATE users SET facciones=?2, instagram=?3, steam=?4, bcp=?5, nr_username=?6 WHERE discord_id=?1")
+        .bind(u.discord_id, fac.length ? JSON.stringify(fac) : null, v.instagram, v.steam, v.bcp, v.nr).run();
+      if ((v.nr || null) !== (u.nr_username || null)) { try { await ligaVincula(env, u.discord_id); } catch (e) {} }
+      return Response.json({ ok: true }, { headers: noStore });
+    }
+
     if (path === "/api/members" && request.method === "GET") {
       const s = await readSession(env, request);
       if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });

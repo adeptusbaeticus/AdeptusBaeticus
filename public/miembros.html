@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Miembros · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px 64px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.nav{position:sticky;top:0;z-index:40;background:#15171A}
+html{scroll-padding-top:96px}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+.menu{display:flex;gap:24px;flex-wrap:wrap}
+.menu a{color:#ECE7DC;text-decoration:none;font-weight:500;padding:8px 0;border-bottom:2px solid transparent}
+.menu a:hover,.menu a.on{border-color:#D9B25A}
+h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
+.lead{color:#CFC9BA;margin:0 0 20px;max-width:680px}
+.m{color:#A8A293;font-size:14px}
+.fil{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 20px}
+.fil input,.fil select{min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit}
+.fil input{flex:1 1 240px}
+.fil select{flex:0 1 260px}
+.aviso{background:#1F2328;border:1px solid #2C3036;border-radius:10px;padding:10px 14px;margin:0 0 20px;font-size:14px;color:#CFC9BA}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.mb{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:#1F2328;border:1px solid #2C3036;border-radius:14px;padding:20px 14px 16px;color:inherit;font:inherit;cursor:pointer;width:100%}
+.mb:hover,.mb:focus-visible{border-color:#D9B25A;outline:none}
+.mb.yo{border-color:#8A6416;box-shadow:inset 0 0 0 1px #8A6416}
+.av{width:72px;height:72px;border-radius:999px;object-fit:cover;background:#2A2F36;display:flex;align-items:center;justify-content:center;font:700 28px Cinzel,serif;color:#D9B25A;flex:none}
+.av.g{width:104px;height:104px;font-size:40px}
+.nm{font-weight:600;font-size:17px;overflow-wrap:anywhere}
+.rol{display:inline-block;font:600 11px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#D9B25A;border:1px solid #6B5A2E;border-radius:999px;padding:2px 10px}
+.tu{color:#15171A;background:#D9B25A;border-color:#D9B25A;margin-left:4px}
+.fc{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.fc span{background:#2A2F36;border-radius:999px;padding:2px 10px;font-size:12px;color:#DCD6C8}
+.fc .mas{background:none;color:#A8A293}
+.sin{font-size:13px;color:#7D776B}
+dialog{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:16px;padding:0;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.7)}
+.fi{padding:24px}
+.fi-cab{display:flex;gap:16px;align-items:center;margin-bottom:16px}
+.fi-cab h2{font:700 24px/1.2 Cinzel,Georgia,serif;margin:0 0 6px;overflow-wrap:anywhere}
+.fi h3{font:600 13px Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;margin:18px 0 8px}
+.fi .fc{justify-content:flex-start}
+.cu{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cu li{display:flex;gap:10px;align-items:center;min-height:36px;overflow-wrap:anywhere}
+.cu .et{flex:none;width:104px;font-size:13px;color:#A8A293}
+.acc{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:24px}
+.btn{display:inline-flex;align-items:center;justify-content:center;background:#A3211B;color:#fff;border:1px solid #A3211B;border-radius:8px;padding:10px 18px;min-height:44px;box-sizing:border-box;font:600 15px Inter,sans-serif;text-decoration:none;cursor:pointer}
+.btn.alt{background:#1F2328;color:#ECE7DC;border-color:#6B6558}
+.btn:disabled{opacity:.6;cursor:default}
+.ed label{display:block;font-weight:600;font-size:14px;margin:14px 0 4px}
+.ed input[type=text]{width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit}
+.ed .ay{font-size:12px;color:#A8A293;margin-top:2px}
+.ed fieldset{border:0;padding:0;margin:0}
+.ed legend{font:600 13px Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;margin:16px 0 4px;padding:0}
+.ed .gr{font-size:12px;color:#A8A293;margin:8px 0 2px;text-transform:uppercase;letter-spacing:.06em}
+.ed .chk{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:2px 10px}
+.ed .chk label{display:flex;align-items:center;gap:8px;font-weight:400;font-size:14px;margin:0;min-height:32px}
+.ed input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
+.err{color:#F0A39E;font-size:14px;min-height:20px;margin-top:10px}
+.ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
+.ftl{display:flex;gap:20px;flex-wrap:wrap}
+.ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
+.ftl a:hover{color:#F0CE82;text-decoration:underline}
+@view-transition{navigation:auto}
+.nav{view-transition-name:cabecera}
+.ft{view-transition-name:pie}
+::view-transition-old(cabecera),::view-transition-new(cabecera){animation:none}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+@media (max-width:600px){h1{font-size:32px}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.mb{padding:16px 10px 12px}.av{width:60px;height:60px}.fi{padding:18px}.cu .et{width:90px}}
+@media (max-width:600px){.menu{display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:2px 18px}.menu a{font-size:14px;padding:6px 0}}
+@media (max-width:600px){.c{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a class="on" href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <span id="auth"></span>
+  </div>
+  <h1>Miembros</h1>
+  <p class="lead">Los socios del club, las facciones que juegan y dónde encontrarlos. Pulsa en una ficha para verla entera.</p>
+  <p class="aviso" id="aviso" hidden>Entra con Discord para ver las cuentas de los socios y editar tu ficha.</p>
+  <div class="fil">
+    <input type="search" id="busca" placeholder="Buscar por nombre..." aria-label="Buscar por nombre">
+    <select id="ffac" aria-label="Filtrar por facción"><option value="">Todas las facciones</option></select>
+  </div>
+  <div class="grid" id="grid"><p class="m">Cargando...</p></div>
+  <p class="m" id="nada" hidden>No hay miembros que coincidan.</p>
+  <footer class="ft">
+    <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
+    <nav class="ftl" aria-label="Enlaces">
+      <a href="https://adeptus-baeticus.blogspot.com" target="_blank" rel="noopener">Blog</a>
+      <a href="https://www.instagram.com/adeptusbaeticus/" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a>
+    </nav>
+  </footer>
+</div>
+<dialog id="dlg" aria-labelledby="fi-n"><div class="fi" id="fi"></div></dialog>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+let D = null;
+const ROL = { admin: "Admin", veterano: "Veterano", miembro: "Miembro", aspirante: "Aspirante" };
+// Facciones agrupadas para el formulario.
+const GRUPOS = [
+  ["Imperium", ["Adepta Sororitas", "Adeptus Custodes", "Adeptus Mechanicus", "Astra Militarum", "Black Templars", "Blood Angels", "Dark Angels", "Deathwatch", "Grey Knights", "Imperial Agents", "Imperial Knights", "Space Marines", "Space Wolves"]],
+  ["Caos", ["Chaos Daemons", "Chaos Knights", "Chaos Space Marines", "Death Guard", "Emperor's Children", "Thousand Sons", "World Eaters"]],
+  ["Xenos", ["Aeldari", "Drukhari", "Genestealer Cults", "Leagues of Votann", "Necrons", "Orks", "T'au Empire", "Tyranids"]],
+];
+
+function avatar(m, grande) {
+  if (m.avatar) {
+    const i = el("img", "av" + (grande ? " g" : ""));
+    i.src = "https://cdn.discordapp.com/avatars/" + m.id + "/" + m.avatar + ".png?size=" + (grande ? 256 : 128);
+    i.alt = ""; i.loading = "lazy";
+    return i;
+  }
+  const d = el("span", "av" + (grande ? " g" : ""), (m.name || "?").trim().charAt(0).toUpperCase());
+  d.setAttribute("aria-hidden", "true");
+  return d;
+}
+function chips(fac, max) {
+  const w = el("div", "fc");
+  w.setAttribute("translate", "no");
+  (max ? fac.slice(0, max) : fac).forEach((f) => w.appendChild(el("span", "", f)));
+  if (max && fac.length > max) w.appendChild(el("span", "mas", "+" + (fac.length - max)));
+  return w;
+}
+
+function pintaGrid() {
+  const g = $("grid");
+  g.textContent = "";
+  const q = $("busca").value.trim().toLowerCase(), f = $("ffac").value;
+  const ms = D.miembros.filter((m) => (!q || m.name.toLowerCase().includes(q)) && (!f || m.facciones.includes(f)));
+  $("nada").hidden = ms.length > 0;
+  ms.forEach((m) => {
+    const b = el("button", "mb" + (m.id === D.yo ? " yo" : ""));
+    b.type = "button";
+    const nm = el("span", "nm", m.name); nm.setAttribute("translate", "no");
+    const rol = el("span");
+    rol.appendChild(el("span", "rol", ROL[m.role] || m.role));
+    if (m.id === D.yo) rol.appendChild(el("span", "rol tu", "Tú"));
+    b.append(avatar(m), nm, rol, m.facciones.length ? chips(m.facciones, 3) : el("span", "sin", "Sin facciones"));
+    b.onclick = () => ficha(m);
+    g.appendChild(b);
+  });
+}
+
+// Enlace (o texto) de cada cuenta.
+function cuentas(m) {
+  const ul = el("ul", "cu");
+  const fila = (et, valor, href) => {
+    const li = el("li");
+    li.appendChild(el("span", "et", et));
+    if (!valor) { li.appendChild(el("span", "sin", "—")); ul.appendChild(li); return; }
+    const v = href ? el("a", "", valor) : el("span", "", valor);
+    if (href) { v.href = href; v.target = "_blank"; v.rel = "noopener"; }
+    v.setAttribute("translate", "no");
+    li.appendChild(v); ul.appendChild(li);
+  };
+  fila("Discord", m.name, "https://discord.com/users/" + m.id);
+  fila("Instagram", m.instagram && "@" + m.instagram, m.instagram && "https://www.instagram.com/" + encodeURIComponent(m.instagram) + "/");
+  fila("Steam", m.steam, m.steam && "https://steamcommunity.com/" + (/^\d{17}$/.test(m.steam) ? "profiles/" : "id/") + encodeURIComponent(m.steam) + "/");
+  fila("New Recruit", m.nr);
+  fila("BCP", m.bcp);
+  return ul;
+}
+
+function ficha(m) {
+  const fi = $("fi");
+  fi.textContent = "";
+  const cab = el("div", "fi-cab");
+  const tx = el("div");
+  const h = el("h2", "", m.name); h.id = "fi-n"; h.setAttribute("translate", "no");
+  tx.append(h, el("span", "rol", ROL[m.role] || m.role));
+  cab.append(avatar(m, true), tx);
+  fi.append(cab, el("h3", "", "Facciones"), m.facciones.length ? chips(m.facciones) : el("p", "sin", "Todavía no ha indicado sus facciones."));
+  fi.appendChild(el("h3", "", "Cuentas"));
+  if (D.sesion) fi.appendChild(cuentas(m));
+  else { const a = el("a", "", "Entra con Discord para ver sus cuentas"); a.href = "/auth/login"; fi.appendChild(a); }
+  const acc = el("div", "acc");
+  if (m.editable) { const e = el("button", "btn", m.id === D.yo ? "Editar mi ficha" : "Editar ficha"); e.type = "button"; e.onclick = () => editar(m); acc.appendChild(e); }
+  const c = el("button", "btn alt", "Cerrar"); c.type = "button"; c.onclick = () => $("dlg").close();
+  acc.appendChild(c);
+  fi.appendChild(acc);
+  if (!$("dlg").open) $("dlg").showModal();
+}
+
+function editar(m) {
+  const fi = $("fi");
+  fi.textContent = "";
+  const f = el("form", "ed");
+  const h = el("h2", "", m.id === D.yo ? "Editar mi ficha" : "Editar la ficha de " + m.name);
+  h.id = "fi-n"; h.style.cssText = "font:700 22px Cinzel,Georgia,serif;margin:0";
+  f.appendChild(h);
+  const fs = el("fieldset");
+  fs.appendChild(el("legend", "", "Facciones que juegas"));
+  GRUPOS.forEach(([g, lista]) => {
+    fs.appendChild(el("div", "gr", g));
+    const w = el("div", "chk");
+    lista.forEach((fa) => {
+      const l = el("label"); l.setAttribute("translate", "no");
+      const i = el("input"); i.type = "checkbox"; i.name = "fac"; i.value = fa; i.checked = m.facciones.includes(fa);
+      l.append(i, fa); w.appendChild(l);
+    });
+    fs.appendChild(w);
+  });
+  f.appendChild(fs);
+  const campo = (id, et, valor, ayuda, ph) => {
+    const l = el("label", "", et); l.htmlFor = id;
+    const i = el("input"); i.type = "text"; i.id = id; i.value = valor || ""; i.maxLength = 120; i.autocomplete = "off";
+    if (ph) i.placeholder = ph;
+    f.append(l, i);
+    if (ayuda) f.appendChild(el("div", "ay", ayuda));
+    return i;
+  };
+  const ig = campo("e-ig", "Instagram", m.instagram, "Tu usuario o el enlace a tu perfil.", "@usuario");
+  const st = campo("e-st", "Steam", m.steam, "Tu nombre de perfil o el enlace a tu perfil de Steam.");
+  const nr = campo("e-nr", "New Recruit", m.nr, "Tu usuario de New Recruit (se usa para la Gran Liga).");
+  const bc = campo("e-bc", "BCP (Best Coast Pairings)", m.bcp, "Tu nombre en BCP.");
+  const err = el("div", "err"); err.setAttribute("role", "alert");
+  const acc = el("div", "acc");
+  const ok = el("button", "btn", "Guardar"); ok.type = "submit";
+  const vol = el("button", "btn alt", "Cancelar"); vol.type = "button"; vol.onclick = () => ficha(m);
+  acc.append(vol, ok);
+  f.append(err, acc);
+  f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    err.textContent = ""; ok.disabled = true;
+    const body = { facciones: [...f.querySelectorAll("input[name=fac]:checked")].map((x) => x.value), instagram: ig.value, steam: st.value, nr: nr.value, bcp: bc.value };
+    try {
+      const r = await fetch("/api/miembros/" + m.id, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { err.textContent = d.error || "No se pudo guardar."; ok.disabled = false; return; }
+      await carga();
+      ficha(D.miembros.find((x) => x.id === m.id) || m);
+    } catch (x) { err.textContent = "No se pudo guardar. Inténtalo de nuevo."; ok.disabled = false; }
+  };
+  fi.appendChild(f);
+  f.querySelector("input").focus();
+}
+
+async function carga() {
+  const r = await fetch("/api/miembros");
+  if (!r.ok) throw new Error();
+  D = await r.json();
+  $("aviso").hidden = D.sesion;
+  const sel = $("ffac"), v = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
+  const usadas = new Set(D.miembros.flatMap((m) => m.facciones));
+  D.facciones.filter((f) => usadas.has(f)).forEach((f) => { const o = el("option", "", f); o.value = f; o.setAttribute("translate", "no"); sel.appendChild(o); });
+  sel.value = usadas.has(v) ? v : "";
+  pintaGrid();
+}
+$("busca").addEventListener("input", pintaGrid);
+$("ffac").onchange = pintaGrid;
+$("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").close(); });
+carga().then(() => {
+  // miembros.html#yo abre directamente tu ficha.
+  if (location.hash === "#yo" && D.yo) { const m = D.miembros.find((x) => x.id === D.yo); if (m) ficha(m); }
+}).catch(() => { $("grid").textContent = ""; $("grid").appendChild(el("p", "m", "No se pudieron cargar los miembros.")); });
+</script>
+<script src="/i18n.js"></script>
+<script src="/auth.js"></script>
+</body>
+</html>

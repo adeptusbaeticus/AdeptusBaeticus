@@ -154,6 +154,7 @@
       menu.appendChild(a);
       return a;
     };
+    item("/miembros.html#yo", "Mi ficha");
     item("/mis-inscripciones.html", "Mis inscripciones");
     if (me.role === "admin") item("/admin.html", "Admin");
     const recarga = () => { try { sessionStorage.removeItem(KEY); } catch (e) {} location.reload(); };
