@@ -38,6 +38,10 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .btn.alt{background:#1F2328;color:#ECE7DC;border-color:#6B6558}
 .btn.alt:hover{border-color:#D9B25A}
 @media (max-width:600px){.reg{flex-direction:column;gap:10px;padding:16px}.reg-i{width:32px;height:32px}}
+.auto{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #6B6558;border-radius:10px;padding:10px 14px;margin:0 0 20px}
+.auto p{margin:0;flex:1 1 280px;font-size:14px;color:#CFC9BA}
+.auto.pend{border-left-color:#D9B25A;background:#262219}
+.auto.pend p{color:#F0CE82;font-weight:500}
 .sec{font:700 24px/1.2 Cinzel,Georgia,serif;color:#F0CE82;margin:32px 0 12px}
 .intro{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:16px 20px;margin-bottom:12px}
 details.q{background:#1F2328;border:1px solid #2C3036;border-radius:12px;margin-bottom:10px}
@@ -103,7 +107,10 @@ mark{background:#D9B25A;color:#15171A;border-radius:2px}
       </div>
     </section>
     <input class="busca" id="busca" type="search" placeholder="Buscar en las preguntas..." aria-label="Buscar en las preguntas" hidden>
-    <p class="m" id="auto" hidden>Las preguntas se traducen automáticamente del español; puede haber pequeños errores.</p>
+    <div class="auto" id="auto" role="status" hidden>
+      <p id="auto-t">Las preguntas se traducen automáticamente del español; puede haber pequeños errores. Tras un cambio, la traducción puede tardar unos minutos: si ves texto en español, refresca la página.</p>
+      <button type="button" class="btn alt" id="auto-r" hidden>Refrescar la página</button>
+    </div>
     <div id="faq"><p class="m">Cargando...</p></div>
     <p class="m" id="sin" hidden>No hay preguntas que coincidan con la búsqueda.</p>
     <p class="m pie" id="act"></p>
@@ -130,6 +137,9 @@ function huella(t) {
 const enIngles = () => !!(window.abI18n && window.abI18n.lang === "en");
 // Texto en el idioma elegido: en inglés, su traducción si ya existe; si no, el original.
 const tx = (t) => (t && enIngles() && EN[huella(t)]) || t;
+// Textos que se traducen (los mismos que en el servidor).
+const faqTextos = () => [...new Set(F.mensajes.flatMap((m) => [m.texto, ...(m.embeds || []).flatMap((e) => [e.titulo, e.texto, ...(e.campos || []).flatMap((c) => [c.nombre, c.valor])])])
+  .filter((t) => t && /[a-záéíóúñ]/i.test(t)))];
 
 // --- Formato de Discord → DOM (sin innerHTML) ---
 // En línea: enlaces, negrita, cursiva, subrayado, tachado, código, spoilers, menciones, emojis y fechas.
@@ -283,11 +293,19 @@ function pinta() {
   });
   $("busca").hidden = !box.querySelector("details.q");
   // Aviso de traducción automática (o de que aún falta alguna).
+  // En inglés: aviso de traducción automática; si falta alguna traducción, se destaca con un botón para refrescar.
+  const pendientes = enIngles() && faqTextos().some((t) => !EN[huella(t)]);
   $("auto").hidden = !enIngles();
+  $("auto").classList.toggle("pend", pendientes);
+  $("auto-t").textContent = pendientes
+    ? "Algunas preguntas aún se están traduciendo y se muestran en español. Puede tardar unos minutos: refresca la página en un rato."
+    : "Las preguntas se traducen automáticamente del español; puede haber pequeños errores. Tras un cambio, la traducción puede tardar unos minutos: si ves texto en español, refresca la página.";
+  $("auto-r").hidden = !pendientes;
 }
 // Al cambiar de idioma se vuelve a pintar con los textos del otro idioma.
 window.addEventListener("ab-idioma", () => { if (F) { pinta(); $("busca").dispatchEvent(new Event("input")); } });
 
+$("auto-r").onclick = () => location.reload();
 // Búsqueda: abre las preguntas que coinciden (en la pregunta o en la respuesta) y oculta el resto.
 const norm = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 $("busca").addEventListener("input", () => {
@@ -303,7 +321,7 @@ $("busca").addEventListener("input", () => {
   $("sin").hidden = hay > 0;
 });
 
-fetch("/api/faq").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
+fetch("/api/faq", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
   if (!d.faq) { $("faq").textContent = ""; $("faq").appendChild(el("p", "m", "Todavía no hay preguntas frecuentes.")); return; }
   F = d.faq;
   EN = d.en || {};
