@@ -88,6 +88,18 @@ th{color:#D9B25A;font-weight:600}
       </div>
       <p class="m" id="dmsg" style="margin:8px 0 0;min-height:20px"></p>
     </div>
+    <div class="card" style="margin-top:24px">
+      <strong>Gran Liga · New Recruit</strong>
+      <div class="m" id="nrstat">Comprobando...</div>
+      <div class="fg" style="margin-top:12px">
+        <div><label for="nrid">ID del torneo en New Recruit</label><input id="nrid" maxlength="24" value="6a8d953738377715abdd1309" autocomplete="off"></div>
+      </div>
+      <div class="acts" style="margin-top:12px">
+        <button class="chip" type="button" id="nrt">Sincronizar torneo</button>
+        <button class="chip" type="button" id="nrr">Sincronizar resultados</button>
+      </div>
+      <p class="m" id="nrmsg" style="margin:8px 0 0;min-height:20px"></p>
+    </div>
     <h2>Eventos</h2>
     <div id="list"></div>
   </div>
@@ -252,6 +264,33 @@ async function discordStatus() {
     $("dreg").disabled = !d.bot_token;
   } catch (e) { $("dstat").textContent = "No se pudo comprobar."; }
 }
+// New Recruit: estado de la copia local y sincronización manual (máximo una consulta cada 15 min).
+async function nrStatus() {
+  try {
+    const d = await (await fetch("/api/admin/nr")).json();
+    const txt = [];
+    if (!d.secretos) txt.push("Faltan los secretos NR_LOGIN y NR_PASSWORD.");
+    d.copias.forEach((c) => {
+      const tipo = c.clave.startsWith("reports") ? "Resultados" : "Torneo";
+      txt.push(tipo + ": " + (c.actualizado ? "actualizado " + c.actualizado + " UTC" : "sin datos") + (c.error ? " · error: " + c.error : ""));
+    });
+    $("nrstat").textContent = txt.length ? txt.join(" · ") : "Todavía no se ha sincronizado nada.";
+  } catch (e) { $("nrstat").textContent = "No se pudo comprobar."; }
+}
+async function nrSync(tipo, btn) {
+  btn.disabled = true;
+  $("nrmsg").textContent = "Consultando New Recruit...";
+  try {
+    const r = await fetch("/api/admin/nr", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: $("nrid").value.trim(), tipo }) });
+    const d = await r.json().catch(() => ({}));
+    $("nrmsg").textContent = d.ok ? "Sincronizado: " + d.bytes + " bytes." : d.error || "No se pudo sincronizar.";
+  } catch (e) { $("nrmsg").textContent = "No se pudo sincronizar."; }
+  btn.disabled = false;
+  nrStatus();
+}
+$("nrt").onclick = () => nrSync("tournament", $("nrt"));
+$("nrr").onclick = () => nrSync("reports", $("nrr"));
+
 $("dreg").onclick = async () => {
   $("dreg").disabled = true;
   $("dmsg").textContent = "";
@@ -264,7 +303,7 @@ $("dreg").onclick = async () => {
 };
 
 fetch("/api/me").then((r) => r.json()).then((me) => {
-  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); discordStatus(); }
+  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); discordStatus(); nrStatus(); }
   else $("gate").textContent = me ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
 }).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
 </script>

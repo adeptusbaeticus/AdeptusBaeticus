@@ -662,6 +662,57 @@ async function renovarUrls(env, urls) {
   return map;
 }
 
+// ===== New Recruit (API oficial): consultas mínimas, con copia local en D1 =====
+const NR_API = "https://www.newrecruit.eu/api/";
+const NR_ESPERA_MIN = 15; // minutos mínimos entre dos consultas del mismo tipo
+
+// Sincroniza un dato de New Recruit ('tournament' o 'reports') de un torneo. Una sola petición,
+// sin reintentos; si otra sincronización reciente o en curso ya lo hizo, no consulta.
+async function nrSync(env, tipo, idTorneo) {
+  if (!env.NR_LOGIN || !env.NR_PASSWORD) return { ok: false, error: "Faltan los secretos NR_LOGIN y NR_PASSWORD" };
+  const clave = tipo + ":" + idTorneo;
+  // Reserva atómica: solo pasa si no hubo consulta en los últimos NR_ESPERA_MIN minutos.
+  const r = await env.DB.prepare(
+    `INSERT INTO nr_cache (clave, intento) VALUES (?1, datetime('now'))
+     ON CONFLICT(clave) DO UPDATE SET intento=excluded.intento
+     WHERE nr_cache.intento IS NULL OR nr_cache.intento < datetime('now', ?2)`
+  ).bind(clave, "-" + NR_ESPERA_MIN + " minutes").run();
+  if (!r.meta.changes) {
+    const c = await env.DB.prepare("SELECT intento FROM nr_cache WHERE clave=?1").bind(clave).first();
+    return { ok: false, espera: true, error: "Se consultó hace poco (" + c.intento + " UTC). Espera " + NR_ESPERA_MIN + " minutos entre consultas." };
+  }
+  let texto = "", estado = 0;
+  try {
+    const res = await fetch(NR_API + tipo, {
+      method: "POST",
+      headers: { "content-type": "application/json", "NR-Login": env.NR_LOGIN, "NR-Password": env.NR_PASSWORD },
+      body: JSON.stringify(tipo === "reports" ? { id_tournament: idTorneo } : { id: idTorneo }),
+    });
+    estado = res.status;
+    texto = await res.text();
+    if (!res.ok) throw new Error("New Recruit respondió " + res.status + ": " + texto.slice(0, 200));
+    const json = JSON.parse(texto);
+    if (json && (json.error || json.message)) throw new Error("New Recruit: " + (json.error || json.message));
+    // Límite de tamaño de una fila de D1: si no cabe, se guarda sin las listas exportadas.
+    let guardar = texto;
+    if (guardar.length > 1800000) {
+      guardar = JSON.stringify(json, (k, v) => (k === "exported_list" ? undefined : v));
+    }
+    await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(clave, guardar).run();
+    return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json) };
+  } catch (e) {
+    await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(clave, String(e.message || e).slice(0, 500)).run();
+    return { ok: false, estado, error: String(e.message || e).slice(0, 300) };
+  }
+}
+
+// Resumen de la forma de los datos (claves y tamaños), sin contenido personal.
+function resumenNr(j) {
+  if (Array.isArray(j)) return { tipo: "lista", elementos: j.length, claves: j[0] && typeof j[0] === "object" ? Object.keys(j[0]) : [] };
+  if (j && typeof j === "object") return { tipo: "objeto", claves: Object.keys(j) };
+  return { tipo: typeof j };
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1263,6 +1314,24 @@ export default {
       if (s.role !== "admin") return new Response("Prohibido", { status: 403 });
 
       // Estado del bot de Discord y registro de los comandos de la galería en el servidor.
+      // New Recruit: estado de la copia local y sincronización manual (con espera mínima).
+      if (path === "/api/admin/nr") {
+        if (request.method === "GET") {
+          const { results } = await env.DB.prepare(
+            "SELECT clave, actualizado, intento, error, length(datos) AS bytes FROM nr_cache ORDER BY clave"
+          ).all();
+          return Response.json({ secretos: !!(env.NR_LOGIN && env.NR_PASSWORD), espera_min: NR_ESPERA_MIN, copias: results }, { headers: noStore });
+        }
+        if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        const id = String(b.id || "").trim();
+        const tipo = b.tipo === "tournament" ? "tournament" : b.tipo === "reports" ? "reports" : null;
+        if (!/^[a-f0-9]{24}$/.test(id) || !tipo) return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
+        return Response.json(await nrSync(env, tipo, id), { headers: noStore });
+      }
+
       if (path === "/api/admin/discord") {
         const cfg = { public_key: !!env.DISCORD_PUBLIC_KEY, bot_token: !!env.DISCORD_BOT_TOKEN };
         if (request.method === "GET") return Response.json(cfg, { headers: noStore });
