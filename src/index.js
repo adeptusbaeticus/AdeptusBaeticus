@@ -551,6 +551,56 @@ const CANAL_POSTS = "publicaciones-post-web";
 const CANAL_FAQ = "preguntas-frecuentes";
 const FAQ_CLAVE = "discord:faq";
 const FAQ_MINUTOS = 2;
+const FAQ_EN = "discord:faq:en"; // traducciones al inglés: { huella del texto en español: texto en inglés }
+
+// Huella corta de un texto (FNV-1a de 32 bits); la página calcula la misma para buscar la traducción.
+function huella(t) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16);
+}
+// Textos de la FAQ que se traducen (mensajes, y títulos, textos y campos de los embeds).
+function faqTextos(mensajes) {
+  const out = [];
+  for (const m of mensajes) {
+    out.push(m.texto);
+    for (const e of m.embeds || []) { out.push(e.titulo, e.texto); for (const c of e.campos || []) out.push(c.nombre, c.valor); }
+  }
+  return [...new Set(out.filter((t) => t && /[a-záéíóúñ]/i.test(t)))];
+}
+// Traduce al inglés con Workers AI solo los textos nuevos o editados; el resto se reutiliza.
+async function faqTraduce(env, mensajes) {
+  if (!env.AI) return { traducidos: 0, error: "Workers AI no está activado" };
+  const row = await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(FAQ_EN).first();
+  let prev = {};
+  try { prev = JSON.parse((row && row.datos) || "{}"); } catch (e) {}
+  const textos = faqTextos(mensajes);
+  const en = {};
+  for (const t of textos) if (prev[huella(t)]) en[huella(t)] = prev[huella(t)];
+  const faltan = textos.filter((t) => !en[huella(t)]).slice(0, 12);
+  let error = null;
+  const sistema = "You translate the FAQ of a Warhammer 40,000 wargaming club from Spanish (Spain) to natural British English. " +
+    "The input uses Discord markdown. Keep EXACTLY the same markdown and line breaks (**bold**, *italic*, __underline__, lists, headings, " +
+    "links [text](url) — translate the link text, never the URL). Keep URLs, mentions such as <@123>, <@&123>, <#123> and emojis such as <:name:123> unchanged. " +
+    "Do not translate proper nouns or game names (Adeptus Baeticus, Inner Circle, Mournival, Warhammer 40,000, Age of Sigmar, Necromunda, Blood Bowl, " +
+    "2d6 Store, WhatsApp, Discord, Instagram). Output ONLY the translated text, with no notes or quotes.";
+  await Promise.all(faltan.map(async (t) => {
+    try {
+      const r = await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
+        messages: [{ role: "system", content: sistema }, { role: "user", content: t }],
+        max_tokens: 2048, temperature: 0.2,
+      });
+      const out = String((r && r.response) || "").trim();
+      if (out) en[huella(t)] = out;
+    } catch (e) { error = String(e.message || e).slice(0, 200); }
+  }));
+  const ahora = new Date().toISOString().replace("T", " ").slice(0, 19);
+  await env.DB.prepare(
+    `INSERT INTO nr_cache (clave, datos, actualizado, error) VALUES (?1, ?2, ?3, ?4)
+     ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=?3, error=?4`
+  ).bind(FAQ_EN, JSON.stringify(en), ahora, error).run();
+  return { traducidos: faltan.length, pendientes: textos.filter((t) => !en[huella(t)]).length, error };
+}
 async function faqSync(env) {
   const ahora = new Date().toISOString().replace("T", " ").slice(0, 19);
   // Reserva: no más de una consulta cada 30 s aunque lleguen varias a la vez.
@@ -633,7 +683,9 @@ async function faqSync(env) {
     }
     const datos = JSON.stringify({ guild: env.GUILD_ID, canal_id: canalId, mensajes, canales, roles, usuarios });
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=?3, error=NULL WHERE clave=?1").bind(FAQ_CLAVE, datos, ahora).run();
-    return { ok: true, mensajes: mensajes.length };
+    // Traducción al inglés de lo nuevo o editado (no bloquea la copia en español si falla).
+    const tr = await faqTraduce(env, mensajes).catch((e) => ({ error: String(e.message || e) }));
+    return { ok: true, mensajes: mensajes.length, traduccion: tr };
   } catch (e) {
     await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(FAQ_CLAVE, String(e.message || e).slice(0, 300)).run();
     return { ok: false, error: String(e.message || e) };
@@ -1091,7 +1143,8 @@ export default {
         row = await lee();
       }
       if (!row || !row.datos) return Response.json({ mensajes: null }, { headers: noStore });
-      return new Response('{"actualizado":' + JSON.stringify(row.actualizado) + ',"faq":' + row.datos + "}", {
+      const en = await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(FAQ_EN).first();
+      return new Response('{"actualizado":' + JSON.stringify(row.actualizado) + ',"faq":' + row.datos + ',"en":' + ((en && en.datos) || "{}") + "}", {
         headers: { "content-type": "application/json", "cache-control": "public, max-age=30" },
       });
     }
@@ -1772,7 +1825,10 @@ export default {
           return Response.json(r, { status: r.ok ? 200 : 400, headers: noStore });
         }
         const row = await env.DB.prepare("SELECT actualizado, error, length(datos) AS n FROM nr_cache WHERE clave=?1").bind(FAQ_CLAVE).first();
-        return Response.json(row || {}, { headers: noStore });
+        const en = await env.DB.prepare("SELECT actualizado, error, datos FROM nr_cache WHERE clave=?1").bind(FAQ_EN).first();
+        let traducidos = 0;
+        try { traducidos = Object.keys(JSON.parse((en && en.datos) || "{}")).length; } catch (e) {}
+        return Response.json({ ...(row || {}), ingles: { traducidos, actualizado: en ? en.actualizado : null, error: en ? en.error : null, ai: !!env.AI } }, { headers: noStore });
       }
 
       if (path === "/api/admin/discord") {

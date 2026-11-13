@@ -43,7 +43,7 @@
     "Las dudas más habituales sobre el club. Se copian del canal #preguntas-frecuentes de nuestro Discord.": "The most common questions about the club, copied from the #preguntas-frecuentes channel on our Discord (in Spanish).",
     "Buscar en las preguntas...": "Search the questions...", "Reglamento interno": "Club rules",
     "Estatutos del club: finalidad, principios, organización, gestión económica, filosofía de eventos, convivencia y régimen de faltas.": "The club's statutes: purpose, principles, organisation, finances, event philosophy, conduct and disciplinary rules (in Spanish).",
-    "Leer el reglamento": "Read the rules", "Descargar PDF": "Download PDF", "PDF · 16 páginas": "PDF · 16 pages", "Buscar en las preguntas": "Search the questions",
+    "Leer el reglamento": "Read the rules", "Las preguntas se traducen automáticamente del español; puede haber pequeños errores.": "The questions are machine-translated from Spanish and may contain small mistakes.", "Descargar PDF": "Download PDF", "PDF · 16 páginas": "PDF · 16 pages", "Buscar en las preguntas": "Search the questions",
     "No hay preguntas que coincidan con la búsqueda.": "No questions match your search.",
     "Todavía no hay preguntas frecuentes.": "There are no FAQs yet.", "No se pudo cargar la FAQ.": "Could not load the FAQ.",
     "Preguntas frecuentes (FAQ)": "FAQ", "Actualizar FAQ desde Discord": "Update FAQ from Discord",
@@ -277,6 +277,8 @@
     [/^Empieza el (.+) a las (\d\d:\d\d)$/, (m, f, h) => "Starts on " + fechas(f) + " at " + h],
     [/^Resultados de New Recruit · actualizado (.+)$/, (m, f) => "New Recruit results · updated " + fechas(f)],
     [/^Actualizado el (.+)$/, (m, f) => "Updated " + fechas(f)],
+    [/^Copia del (.+?) UTC( · último error: .+?)? · Inglés: (\d+) textos traducidos(?: \(error: (.+)\))?$/, (m, f, e, n, x) => "Copy from " + f + " UTC" + (e ? " · last error: " + e.slice(17) : "") + " · English: " + n + " texts translated" + (x ? " (error: " + x + ")" : "")],
+    [/^Copia del (.+?) UTC( · último error: .+?)? · Inglés: Workers AI no está activado$/, (m, f, e) => "Copy from " + f + " UTC" + (e ? " · last error: " + e.slice(17) : "") + " · English: Workers AI is not enabled"],
     [/^Copia del (.+) UTC$/, "Copy from $1 UTC"],
     [/^Copia del (.+) UTC · último error: (.+)$/, "Copy from $1 UTC · last error: $2"],
     [/^Discord respondió (\d+) al leer #preguntas-frecuentes(.*)$/, (m, n, x) => "Discord returned " + n + " when reading #preguntas-frecuentes" + (x ? " (the bot needs to see the channel and read its history)" : "")],
@@ -456,6 +458,8 @@
     lang = code;
     try { localStorage.setItem(KEY, code); } catch (e) {}
     todo();
+    // Aviso a las páginas que pintan contenido propio en cada idioma (p. ej. la FAQ traducida).
+    window.dispatchEvent(new CustomEvent("ab-idioma", { detail: code }));
   }
 
   const css = document.createElement("style");

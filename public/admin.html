@@ -294,6 +294,7 @@ async function faqStatus() {
   try {
     const d = await (await fetch("/api/admin/faq")).json();
     $("faqstat").textContent = d.actualizado ? "Copia del " + d.actualizado + " UTC" + (d.error ? " · último error: " + d.error : "") : d.error ? "Error: " + d.error : "Todavía no se ha copiado.";
+    if (d.ingles) $("faqstat").textContent += " · Inglés: " + (d.ingles.ai ? d.ingles.traducidos + " textos traducidos" + (d.ingles.error ? " (error: " + d.ingles.error + ")" : "") : "Workers AI no está activado");
   } catch (e) { $("faqstat").textContent = "No se pudo comprobar."; }
 }
 $("faqsync").onclick = async () => {

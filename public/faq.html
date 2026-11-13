@@ -104,6 +104,7 @@ mark{background:#D9B25A;color:#15171A;border-radius:2px}
       </div>
     </section>
     <input class="busca" id="busca" type="search" placeholder="Buscar en las preguntas..." aria-label="Buscar en las preguntas" hidden>
+    <p class="m" id="auto" hidden>Las preguntas se traducen automáticamente del español; puede haber pequeños errores.</p>
     <div id="faq"><p class="m">Cargando...</p></div>
     <p class="m" id="sin" hidden>No hay preguntas que coincidan con la búsqueda.</p>
     <p class="m pie" id="act"></p>
@@ -120,6 +121,16 @@ mark{background:#D9B25A;color:#15171A;border-radius:2px}
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
 let F = null; // datos de la FAQ (mensajes, canales, roles, usuarios)
+let EN = {}; // traducciones al inglés por huella del texto en español
+// Misma huella que el servidor (FNV-1a de 32 bits).
+function huella(t) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16);
+}
+const enIngles = () => !!(window.abI18n && window.abI18n.lang === "en");
+// Texto en el idioma elegido: en inglés, su traducción si ya existe; si no, el original.
+const tx = (t) => (t && enIngles() && EN[huella(t)]) || t;
 
 // --- Formato de Discord → DOM (sin innerHTML) ---
 // En línea: enlaces, negrita, cursiva, subrayado, tachado, código, spoilers, menciones, emojis y fechas.
@@ -230,11 +241,11 @@ const esPregunta = (l) => {
 function construye() {
   const lineas = [];
   F.mensajes.forEach((m) => {
-    if (m.texto) lineas.push(...m.texto.split("\n"), "");
+    if (m.texto) lineas.push(...tx(m.texto).split("\n"), "");
     (m.embeds || []).forEach((e) => {
-      if (e.titulo) lineas.push("## " + e.titulo);
-      if (e.texto) lineas.push(...e.texto.split("\n"));
-      (e.campos || []).forEach((c) => lineas.push("**" + c.nombre + "**", ...String(c.valor).split("\n")));
+      if (e.titulo) lineas.push("## " + tx(e.titulo));
+      if (e.texto) lineas.push(...tx(e.texto).split("\n"));
+      (e.campos || []).forEach((c) => lineas.push("**" + tx(c.nombre) + "**", ...String(tx(c.valor)).split("\n")));
       lineas.push("");
     });
   });
@@ -272,7 +283,11 @@ function pinta() {
     box.appendChild(d);
   });
   $("busca").hidden = !box.querySelector("details.q");
+  // Aviso de traducción automática (o de que aún falta alguna).
+  $("auto").hidden = !enIngles();
 }
+// Al cambiar de idioma se vuelve a pintar con los textos del otro idioma.
+window.addEventListener("ab-idioma", () => { if (F) { pinta(); $("busca").dispatchEvent(new Event("input")); } });
 
 // Búsqueda: abre las preguntas que coinciden (en la pregunta o en la respuesta) y oculta el resto.
 const norm = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -292,6 +307,7 @@ $("busca").addEventListener("input", () => {
 fetch("/api/faq").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
   if (!d.faq) { $("faq").textContent = ""; $("faq").appendChild(el("p", "m", "Todavía no hay preguntas frecuentes.")); return; }
   F = d.faq;
+  EN = d.en || {};
   pinta();
   if (d.actualizado) {
     const f = new Date(d.actualizado.replace(" ", "T") + "Z");
