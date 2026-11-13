@@ -83,6 +83,7 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .nv.del{display:inline-flex;align-items:center;justify-content:center;color:#F0A39E;border-color:#6B6558}
 .nv.del:hover{border-color:#F0A39E}
 select.chip{appearance:auto;padding:8px 12px}
+select.chip option{background:#1F2328;color:#ECE7DC}
 .fld input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
 .card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
@@ -132,8 +133,13 @@ select.chip{appearance:auto;padding:8px 12px}
   <div class="filtros">
     <div class="row" id="chips">
       <button class="chip on" data-f="todos">Todos</button>
-      <button class="chip" data-f="eventos">Quedadas y torneos</button>
       <button class="chip" data-f="partida" id="chp" hidden>Partidas</button>
+      <select id="fe" class="chip" aria-label="Quedadas y torneos">
+        <option value="" hidden>Quedadas y torneos</option>
+        <option value="ambos">Quedadas y torneos</option>
+        <option value="quedada">Solo quedadas</option>
+        <option value="torneo">Solo torneos</option>
+      </select>
       <select id="fm" class="chip" aria-label="Modalidad" hidden>
         <option value="">Todas las modalidades</option>
         <option value="combat_patrol">Combat Patrol</option>
@@ -229,14 +235,15 @@ function renderLista() {
   const hasta = h.toISOString().slice(0, 16);
   const tit = document.createElement("h2");
   tit.className = "lh";
-  tit.textContent = "Quedadas y torneos de los próximos 3 meses";
+  const tipo = $("fe").value;
+  tit.textContent = tipo === "quedada" ? "Quedadas de los próximos 3 meses" : tipo === "torneo" ? "Torneos de los próximos 3 meses" : "Quedadas y torneos de los próximos 3 meses";
   box.appendChild(tit);
-  const es = ev.filter((e) => e.starts_at >= now.slice(0, 10) && e.starts_at <= hasta)
+  const es = ev.filter((e) => (tipo === "ambos" || e.type === tipo) && e.starts_at >= now.slice(0, 10) && e.starts_at <= hasta)
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   if (!es.length) {
     const p = document.createElement("p");
     p.className = "m";
-    p.textContent = "No hay quedadas ni torneos en los próximos 3 meses.";
+    p.textContent = tipo === "quedada" ? "No hay quedadas en los próximos 3 meses." : tipo === "torneo" ? "No hay torneos en los próximos 3 meses." : "No hay quedadas ni torneos en los próximos 3 meses.";
     box.appendChild(p);
     return;
   }
@@ -985,14 +992,20 @@ function loadPartidas() {
   return fetch("/api/partidas").then((r) => (r.ok ? r.json() : [])).then((d) => { partidas = d; }).catch(() => { partidas = []; });
 }
 
-$("chips").onclick = (x) => {
-  const f = x.target.dataset.f;
-  if (!f) return;
+// Filtros: Todos y Partidas son botones; quedadas y torneos se eligen en un desplegable
+// (al elegir, se muestra el listado de los próximos 3 meses).
+function filtrar(f, activo) {
   filtro = f;
-  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === x.target));
+  document.querySelectorAll("#chips .chip").forEach((c) => c.classList.toggle("on", c === activo));
+  if (f !== "eventos") $("fe").value = "";
   $("fm").hidden = f !== "partida";
   render();
+}
+$("chips").onclick = (x) => {
+  const f = x.target.dataset.f;
+  if (f) filtrar(f, x.target);
 };
+$("fe").onchange = () => { if ($("fe").value) filtrar("eventos", $("fe")); };
 $("fm").onchange = render;
 $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
