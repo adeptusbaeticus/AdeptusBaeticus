@@ -1,6 +1,10 @@
 const FEED = "https://adeptus-baeticus.blogspot.com/feeds/posts/default?alt=json&max-results=6";
 const COOKIE = "ab_session";
-const MAX_AGE = 3 * 24 * 3600;
+// La sesión dura 90 días y se renueva con el uso (ver /api/me): quien entra al menos una vez cada 90 días
+// no tiene que volver a iniciar sesión. Al renovarla (como mucho una vez al día) se comprueba con el bot
+// que sigue en el servidor de Discord y con qué rol.
+const MAX_AGE = 90 * 24 * 3600;
+const RENUEVA_SEG = 24 * 3600;
 const enc = new TextEncoder();
 
 const b64u = (buf) =>
@@ -1431,7 +1435,7 @@ export default {
         "INSERT INTO users (discord_id,name,avatar,role) VALUES (?1,?2,?3,?4) ON CONFLICT(discord_id) DO UPDATE SET name=excluded.name, avatar=excluded.avatar, role=excluded.role"
       ).bind(u.id, name, u.avatar, role).run();
       try { await ligaVincula(env, u.id); } catch (e) {}
-      const cookie = await makeSession(env, { id: u.id, name, avatar: u.avatar, role });
+      const cookie = await makeSession(env, { id: u.id, name, avatar: u.avatar, role, r: Math.floor(Date.now() / 1000) });
       const h = new Headers({ location: url.origin + "/" });
       h.append("set-cookie", `${COOKIE}=${cookie}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${MAX_AGE}`);
       h.append("set-cookie", "ab_state=; Path=/; Max-Age=0");
@@ -1447,6 +1451,38 @@ export default {
 
     if (path === "/api/me") {
       const raw = await leeSesion(env, request);
+      // Renovación de la sesión (no en el modo «ver como»): como mucho una vez al día se comprueba con el bot
+      // que sigue en el servidor y su rol, y la sesión vuelve a durar 90 días.
+      let renovada = null, cerrar = false;
+      const ahoraS = Math.floor(Date.now() / 1000);
+      if (raw && !raw.admin && !raw.invitado && ahoraS - (raw.r || 0) > RENUEVA_SEG && env.DISCORD_BOT_TOKEN) {
+        try {
+          const mr = await bot(env, `/guilds/${env.GUILD_ID}/members/${raw.id}`);
+          if (mr.status === 404) cerrar = true; // ya no está en el servidor
+          else if (mr.ok) {
+            const mem = await mr.json();
+            const role = roleOf(env, mem.roles || []);
+            if (!role) cerrar = true;
+            else {
+              const u = mem.user || {};
+              const name = mem.nick || u.global_name || u.username || raw.name;
+              await env.DB.prepare("UPDATE users SET name=?2, avatar=?3, role=?4 WHERE discord_id=?1").bind(raw.id, name, u.avatar || null, role).run();
+              renovada = { id: raw.id, name, avatar: u.avatar || null, role, r: ahoraS, exp: ahoraS + MAX_AGE };
+            }
+          }
+        } catch (e) {} // si Discord falla, la sesión sigue como estaba
+      }
+      if (cerrar) {
+        return Response.json(null, { headers: { "cache-control": "no-store", "set-cookie": `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` } });
+      }
+      if (renovada) {
+        const ck = await makeSession(env, renovada);
+        let nr = null;
+        const row = await env.DB.prepare("SELECT nr_username FROM users WHERE discord_id=?1").bind(renovada.id).first();
+        if (row) nr = row.nr_username;
+        return Response.json({ id: renovada.id, name: renovada.name, avatar: renovada.avatar, role: renovada.role, nr_username: nr, ver_como: null },
+          { headers: { "cache-control": "no-store", "set-cookie": `${COOKIE}=${ck}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${MAX_AGE}` } });
+      }
       if (raw && raw.invitado && raw.admin) {
         return Response.json({ invitado: true, ver_como: String(raw.admin.name || raw.admin.id) }, { headers: { "cache-control": "no-store" } });
       }
