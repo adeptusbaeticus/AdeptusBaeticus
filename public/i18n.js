@@ -278,7 +278,7 @@
     [/^Copia del (.+) UTC · último error: (.+)$/, "Copy from $1 UTC · last error: $2"],
     [/^Discord respondió (\d+) al leer #preguntas-frecuentes(.*)$/, (m, n, x) => "Discord returned " + n + " when reading #preguntas-frecuentes" + (x ? " (the bot needs to see the channel and read its history)" : "")],
     [/^Discord respondió (\d+) al pedir los canales$/, "Discord returned $1 when listing channels"],
-    [/^Discord entrega los (\d+) mensajes del canal sin texto: activa «Message Content Intent» del bot en el portal de desarrolladores de Discord$/, "Discord returns the channel's $1 messages without text: enable the bot's «Message Content Intent» in the Discord developer portal"],
+    [/^Discord entrega los (\d+) mensajes del canal sin texto: activa «Message Content Intent» del bot en el portal de desarrolladores de Discord(.*)$/, "Discord returns the channel's $1 messages without text: enable the bot's «Message Content Intent» in the Discord developer portal$2"],
     [/^El canal #preguntas-frecuentes no tiene mensajes que el bot pueda leer$/, "The #preguntas-frecuentes channel has no messages the bot can read"],
     [/^FAQ: (\d+) mensajes? de #preguntas-frecuentes · actualizada (.+)$/, (m, n, f) => "FAQ: " + n + " message" + (n === "1" ? "" : "s") + " from #preguntas-frecuentes · updated " + f],
     [/^FAQ actualizada: (\d+) mensajes?\.$/, (m, n) => "FAQ updated: " + n + " message" + (n === "1" ? "" : "s") + "."],

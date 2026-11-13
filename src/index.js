@@ -595,19 +595,24 @@ async function faqSync(env) {
       if (!leido.todos) throw new Error("Discord respondió " + leido.status + " al leer #" + CANAL_FAQ + (leido.status === 403 ? " (el bot necesita ver el canal y leer su historial)" : ""));
     }
     const todos = leido.todos.reverse(); // del más antiguo al más reciente
-    // Sin el permiso «Message Content Intent», Discord entrega los mensajes de otros con el texto vacío.
+    // El texto puede venir en el mensaje, en un mensaje reenviado (message_snapshots) o en «componentes»
+    // (mensajes hechos con bots o Discohook: bloques de texto dentro de contenedores y secciones).
+    const textoComp = (cs) => (cs || []).flatMap((c) => (c.type === 10 && c.content ? [c.content] : textoComp(c.components).concat(c.accessory ? textoComp([c.accessory]) : []))).filter(Boolean);
+    const embedsDe = (es) => (es || []).filter((e) => e.title || e.description || (e.fields || []).length)
+      .map((e) => ({ titulo: e.title || "", texto: e.description || "", campos: (e.fields || []).map((f) => ({ nombre: f.name, valor: f.value })) }));
+    const partes = (m) => {
+      const fuentes = [m, ...(m.message_snapshots || []).map((x) => x.message || {})];
+      const texto = fuentes.flatMap((f) => [f.content || "", ...textoComp(f.components)]).filter(Boolean).join("\n\n");
+      return { texto, embeds: fuentes.flatMap((f) => embedsDe(f.embeds)) };
+    };
     const deOtros = todos.filter((m) => m.type === 0 || m.type === 19);
-    if (deOtros.length && deOtros.every((m) => !m.content && !(m.embeds || []).length && !(m.attachments || []).length))
-      throw new Error("Discord entrega los " + deOtros.length + " mensajes del canal sin texto: activa «Message Content Intent» del bot en el portal de desarrolladores de Discord");
+    const mensajes = deOtros.map((m) => ({ id: m.id, ...partes(m) })).filter((m) => m.texto || m.embeds.length);
     if (!deOtros.length) throw new Error("El canal #" + CANAL_FAQ + " no tiene mensajes que el bot pueda leer");
-    const mensajes = todos
-      .filter((m) => (m.type === 0 || m.type === 19) && (m.content || (m.embeds || []).length))
-      .map((m) => ({
-        id: m.id,
-        texto: m.content || "",
-        embeds: (m.embeds || []).filter((e) => e.title || e.description || (e.fields || []).length)
-          .map((e) => ({ titulo: e.title || "", texto: e.description || "", campos: (e.fields || []).map((f) => ({ nombre: f.name, valor: f.value })) })),
-      }));
+    // Sin el permiso «Message Content Intent», Discord entrega los mensajes de otros con el texto vacío.
+    if (!mensajes.length) {
+      const tipos = deOtros.map((m) => "flags " + (m.flags || 0) + (m.attachments && m.attachments.length ? " +adjuntos" : "") + (m.components && m.components.length ? " +componentes" : "") + (m.message_snapshots ? " +reenviado" : "")).join("; ");
+      throw new Error("Discord entrega los " + deOtros.length + " mensajes del canal sin texto: activa «Message Content Intent» del bot en el portal de desarrolladores de Discord (" + tipos + ")");
+    }
     // Nombres para las menciones (#canal, @rol y @usuario); se reutilizan los ya conocidos.
     const todoTexto = JSON.stringify(mensajes);
     const idsDe = (re) => [...new Set([...todoTexto.matchAll(re)].map((x) => x[1]))];
