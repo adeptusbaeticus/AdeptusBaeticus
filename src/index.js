@@ -585,7 +585,10 @@ async function faqSync(env) {
     let canalId = prev.canal_id, leido = canalId ? await lee(canalId) : { status: 404 };
     if (!leido.todos) {
       // Sin id guardado, o el canal cambió: se busca por nombre.
-      const c = (await pideCanales()).find((x) => x.name === CANAL_FAQ && (x.type === 0 || x.type === 5));
+      // El nombre puede llevar letras decorativas de Unicode (p. ej. «𝐏𝐫𝐞𝐠𝐮𝐧𝐭𝐚𝐬-𝐟𝐫𝐞𝐜𝐮𝐞𝐧𝐭𝐞𝐬») o emojis:
+      // se pasa a letras normales, sin tildes ni símbolos, antes de comparar.
+      const normal = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const c = (await pideCanales()).find((x) => (x.type === 0 || x.type === 5) && normal(x.name).includes(CANAL_FAQ));
       if (!c) throw new Error("No encuentro el canal #" + CANAL_FAQ);
       canalId = c.id;
       leido = await lee(canalId);
