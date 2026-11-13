@@ -699,17 +699,29 @@ function avisoEvento(env, id, ev, autor) {
   return notifica(env, { tipo: "eventos", excepto: autor, titulo: ev.type === "torneo" ? "Nuevo torneo" : "Nueva quedada",
     texto: ev.title + " · " + fechaCorta(ev.starts_at), url: "/calendario.html?evento=" + id });
 }
+// Pone en la cola un aviso para los dispositivos que lo quieren (tipo) de unos socios (o de todos), menos a
+// «excepto», y envía enseguida una primera tanda; el resto lo envía el temporizador al minuto siguiente.
 async function notifica(env, { tipo, a = null, excepto = null, titulo, texto, url }) {
   if (!env.VAPID_PRIVATE) return 0;
-  let sql = "SELECT endpoint, discord_id, p256dh, auth FROM push_subs WHERE (?1 IS NULL OR EXISTS (SELECT 1 FROM json_each(tipos) WHERE value=?1))";
+  let sql = "SELECT endpoint, discord_id, p256dh, auth FROM push_subs WHERE EXISTS (SELECT 1 FROM json_each(tipos) WHERE value=?1)";
   const args = [tipo];
   if (a) { sql += " AND discord_id IN (SELECT value FROM json_each(?2))"; args.push(JSON.stringify(a)); }
-  const { results } = await env.DB.prepare(sql).bind(...args).all();
+  const subs = (await env.DB.prepare(sql).bind(...args).all()).results.filter((x) => !excepto || x.discord_id !== excepto);
+  if (!subs.length) return 0;
+  const msg = { titulo, texto, url: url || "/", tag: tipo };
+  const filas = subs.map((x) => ({ sub: { endpoint: x.endpoint, p256dh: x.p256dh, auth: x.auth }, msg }));
+  await env.DB.prepare("INSERT INTO cola_avisos (tipo, datos, coste) SELECT 'push', value, 1 FROM json_each(?1)").bind(JSON.stringify(filas)).run();
+  await procesaCola(env, 12).catch(() => {});
+  return subs.length;
+}
+// Envío inmediato (sin cola) a los dispositivos de un socio: solo para el aviso de prueba.
+async function notificaAhora(env, uid, msg) {
+  if (!env.VAPID_PRIVATE) return 0;
+  const { results } = await env.DB.prepare("SELECT endpoint, p256dh, auth FROM push_subs WHERE discord_id=?1 LIMIT 10").bind(uid).all();
   let enviados = 0;
   for (const sub of results) {
-    if (excepto && sub.discord_id === excepto) continue;
     try {
-      const st = await pushEnvia(env, sub, { titulo, texto, url: url || "/", tag: tipo || "prueba" });
+      const st = await pushEnvia(env, sub, msg);
       if (st === 404 || st === 410) await env.DB.prepare("DELETE FROM push_subs WHERE endpoint=?1").bind(sub.endpoint).run();
       else if (st < 300) enviados++;
     } catch (e) {}
@@ -717,23 +729,103 @@ async function notifica(env, { tipo, a = null, excepto = null, titulo, texto, ur
   return enviados;
 }
 
-// --- Recordatorios de la Gran Liga por mensaje privado (temporizador de Cloudflare, cada hora) ---
+// --- Cola de avisos: se procesa por tandas para no pasar los límites del plan gratuito de Cloudflare
+// (50 llamadas externas y 50 consultas por ejecución). El temporizador la vacía cada minuto. ---
+async function procesaCola(env, presupuesto = 25) {
+  const { results: pend } = await env.DB.prepare(
+    "SELECT id, tipo, datos, lote, coste, intentos FROM cola_avisos WHERE despues IS NULL OR despues <= datetime('now') ORDER BY id LIMIT 40"
+  ).all();
+  if (!pend.length) return 0;
+  const elegidos = [];
+  let suma = 0;
+  for (const j of pend) { if (elegidos.length && suma + j.coste > presupuesto) break; suma += j.coste; elegidos.push(j); }
+  // Reserva atómica (por si otra ejecución procesa la cola a la vez).
+  const { results: tomados } = await env.DB.prepare(
+    `UPDATE cola_avisos SET despues=datetime('now','+5 minutes'), intentos=intentos+1
+     WHERE id IN (SELECT value FROM json_each(?1)) AND (despues IS NULL OR despues <= datetime('now')) RETURNING id`
+  ).bind(JSON.stringify(elegidos.map((j) => j.id))).all();
+  const mios = new Set(tomados.map((x) => x.id));
+  const trabajos = elegidos.filter((j) => mios.has(j.id)).map((j) => ({ ...j, intentos: j.intentos + 1, d: JSON.parse(j.datos) }));
+  if (!trabajos.length) return 0;
+  // Datos para los recordatorios de la liga: canal privado guardado y dispositivos de cada jugador.
+  const uids = [...new Set(trabajos.filter((j) => j.tipo === "liga").map((j) => j.d.uid))];
+  const canales = new Map(), subsDe = new Map();
+  if (uids.length) {
+    for (const r of (await env.DB.prepare("SELECT discord_id, canal_id FROM dm_canales WHERE discord_id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(uids)).all()).results) canales.set(r.discord_id, r.canal_id);
+    for (const r of (await env.DB.prepare(
+      "SELECT endpoint, discord_id, p256dh, auth FROM push_subs WHERE discord_id IN (SELECT value FROM json_each(?1)) AND EXISTS (SELECT 1 FROM json_each(tipos) WHERE value='liga')"
+    ).bind(JSON.stringify(uids)).all()).results) { if (!subsDe.has(r.discord_id)) subsDe.set(r.discord_id, []); subsDe.get(r.discord_id).push(r); }
+  }
+  const hechos = [], reintentar = [], esperar = [], caducadas = [], canalesNuevos = [], canalesMalos = [];
+  const lotes = new Map(); // lote → { ok, sin: [] } de esta tanda
+  const enLote = (l) => { if (!lotes.has(l)) lotes.set(l, { ok: 0, sin: [] }); return lotes.get(l); };
+  for (const j of trabajos) {
+    try {
+      if (j.tipo === "push") {
+        const st = await pushEnvia(env, j.d.sub, j.d.msg);
+        if (st === 404 || st === 410) { caducadas.push(j.d.sub.endpoint); hechos.push(j.id); }
+        else if (st === 429 || st >= 500) reintentar.push(j.id);
+        else hechos.push(j.id);
+      } else if (j.tipo === "liga") {
+        let ok = false;
+        let canal = canales.get(j.d.uid);
+        if (!canal) {
+          const c = await bot(env, "/users/@me/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ recipient_id: j.d.uid }) });
+          if (c.status === 429) { reintentar.push(j.id); continue; }
+          if (c.ok) { canal = (await c.json()).id; canalesNuevos.push([j.d.uid, canal]); }
+        }
+        if (canal) {
+          const m = await bot(env, `/channels/${canal}/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: j.d.texto, allowed_mentions: { parse: [] } }) });
+          if (m.status === 429) { reintentar.push(j.id); continue; }
+          if (m.ok) ok = true; else if (m.status === 404) canalesMalos.push(j.d.uid);
+        }
+        for (const sub of subsDe.get(j.d.uid) || []) {
+          const st = await pushEnvia(env, sub, j.d.push).catch(() => 0);
+          if (st && st < 300) ok = true; else if (st === 404 || st === 410) caducadas.push(sub.endpoint);
+        }
+        if (j.lote) { const r = enLote(j.lote); if (ok) r.ok++; else r.sin.push(j.d.nombre + " (no acepta mensajes privados)"); }
+        hechos.push(j.id);
+      } else if (j.tipo === "canal") {
+        // El resumen sale cuando ya no queda nada de su lote en la cola (ni en esta tanda).
+        const quedan = (await env.DB.prepare("SELECT COUNT(*) n FROM cola_avisos WHERE lote=?1 AND id<>?2").bind(j.lote, j.id).first()).n;
+        if (quedan) { esperar.push(j.id); continue; }
+        const est = await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind("lote:" + j.lote).first();
+        const r = est ? JSON.parse(est.datos) : { ok: 0, sin: [] };
+        await avisoCanal(env, CANAL_AVISOS, j.d.cabecera + r.ok + (r.ok === 1 ? " jugador" : " jugadores") + " (mensaje privado o notificación de la app)." +
+          (r.sin.length ? "\nSin aviso (hacedlo a mano): " + r.sin.join(", ") : ""));
+        hechos.push(j.id);
+        await env.DB.prepare("DELETE FROM nr_cache WHERE clave=?1").bind("lote:" + j.lote).run();
+      } else hechos.push(j.id);
+    } catch (e) { reintentar.push(j.id); }
+  }
+  // Se guarda todo de una vez.
+  const J = (x) => JSON.stringify(x);
+  const st = [
+    env.DB.prepare("DELETE FROM cola_avisos WHERE id IN (SELECT value FROM json_each(?1))").bind(J(hechos)),
+    // Reintento con espera creciente; tras 3 intentos se descarta.
+    env.DB.prepare("DELETE FROM cola_avisos WHERE id IN (SELECT value FROM json_each(?1)) AND intentos >= 3").bind(J(reintentar)),
+    env.DB.prepare("UPDATE cola_avisos SET despues=datetime('now', '+' || (intentos * 2) || ' minutes') WHERE id IN (SELECT value FROM json_each(?1))").bind(J(reintentar)),
+    env.DB.prepare("UPDATE cola_avisos SET despues=datetime('now','+1 minute'), intentos=intentos-1 WHERE id IN (SELECT value FROM json_each(?1))").bind(J(esperar)),
+    env.DB.prepare("DELETE FROM push_subs WHERE endpoint IN (SELECT value FROM json_each(?1))").bind(J(caducadas)),
+    env.DB.prepare("INSERT OR REPLACE INTO dm_canales (discord_id, canal_id) SELECT json_extract(value,'$[0]'), json_extract(value,'$[1]') FROM json_each(?1)").bind(J(canalesNuevos)),
+    env.DB.prepare("DELETE FROM dm_canales WHERE discord_id IN (SELECT value FROM json_each(?1))").bind(J(canalesMalos)),
+  ];
+  for (const [l, r] of lotes) {
+    st.push(env.DB.prepare(
+      `UPDATE nr_cache SET datos=json_set(datos, '$.ok', json_extract(datos,'$.ok') + ?2,
+         '$.sin', (SELECT json_group_array(value) FROM (SELECT value FROM json_each(json_extract(datos,'$.sin')) UNION ALL SELECT value FROM json_each(?3))))
+       WHERE clave=?1`
+    ).bind("lote:" + l, r.ok, J(r.sin)));
+  }
+  await env.DB.batch(st);
+  return hechos.length;
+}
+
+// --- Recordatorios de la Gran Liga por mensaje privado (temporizador de Cloudflare; envío por la cola) ---
 // Al empezar cada ronda (domingo 22:00) se avisa a cada jugador de su partida; el jueves anterior al cierre
 // (20:00) a quien aún no tiene resultado. Solo jugadores con su cuenta de Discord vinculada. Cada aviso se
 // envía una sola vez (marca en nr_cache) y al terminar se deja un resumen en #inner-circle-general.
 const WEB = "https://adeptusbaeticus.adeptusbaeticus.workers.dev";
-async function mensajePrivado(env, userId, texto) {
-  try {
-    const c = await bot(env, "/users/@me/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ recipient_id: userId }) });
-    if (!c.ok) return false;
-    const { id } = await c.json();
-    const m = await bot(env, `/channels/${id}/messages`, {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ content: texto, allowed_mentions: { parse: [] } }),
-    });
-    return m.ok;
-  } catch (e) { return false; }
-}
 async function avisoCanal(env, nombreCanal, texto) {
   try {
     const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
@@ -766,31 +858,37 @@ async function ligaRecordatorios(env, ahora = nowLocal()) {
       ).bind(...(aplazadas ? [fase.id] : [fase.id, n])).all()).results;
       if (!ps.length) { hechos.push({ n, tipo, enviados: 0 }); continue; }
       const nombreRonda = aplazadas ? "Ronda " + n + " (aplazadas)" : "Ronda " + n;
-      let ok = 0;
-      const sinAviso = [];
+      // Cada jugador vinculado, a la cola (mensaje privado + notificación); al final, el resumen del lote.
+      const filas = [], sinCuenta = [];
       for (const p of ps) {
         const enlace = p.nr_partida && fase.nr_torneo
           ? "https://www.newrecruit.eu/app/tournydetails/match?id_match=" + p.nr_partida + "&id=" + fase.nr_torneo
           : fase.nr_torneo ? "https://www.newrecruit.eu/app/tournydetails/details?id=" + fase.nr_torneo : null;
         for (const [yo, yoId, rival] of [[p.a, p.a_id, p.b], [p.b, p.b_id, p.a]]) {
-          if (!yoId) { sinAviso.push(yo + " (sin cuenta vinculada)"); continue; }
+          if (!yoId) { sinCuenta.push(yo + " (sin cuenta vinculada)"); continue; }
           const texto = tipo === "inicio"
             ? "⚔️ **Gran Liga · " + nombreRonda + "**\nJuegas contra **" + rival + "**" + (aplazadas ? "" : " (mesa " + p.mesa + ")") + ".\n" +
               "Plazo: hasta el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Resultado en New Recruit: <" + enlace + ">\n" : "") + "Calendario y clasificación: <" + WEB + "/gran-liga.html>"
             : "⏰ **Gran Liga · " + nombreRonda + "**\nAún no está subido el resultado de tu partida contra **" + rival + "**.\n" +
               "El plazo termina el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Súbelo en New Recruit: <" + enlace + ">" : "");
-          const dm = await mensajePrivado(env, yoId, texto);
-          const app = await notifica(env, { tipo: "liga", a: [yoId],
+          const push = { tag: "liga", url: "/gran-liga.html?fase=" + fase.id + "#ronda-" + n,
             titulo: tipo === "inicio" ? "Gran Liga · " + nombreRonda : "Gran Liga · falta tu resultado",
             texto: tipo === "inicio" ? "Juegas contra " + rival + (aplazadas ? "" : " (mesa " + p.mesa + ")") + ". Plazo: " + fechaLarga(fin) + " a las 14:00."
-              : "Aún no está subido el resultado contra " + rival + ". Plazo: " + fechaLarga(fin) + " a las 14:00.",
-            url: "/gran-liga.html?fase=" + fase.id + "#ronda-" + n }).catch(() => 0);
-          if (dm || app) ok++; else sinAviso.push(yo + " (no acepta mensajes privados)");
+              : "Aún no está subido el resultado contra " + rival + ". Plazo: " + fechaLarga(fin) + " a las 14:00." };
+          filas.push({ uid: yoId, nombre: yo, texto, push });
         }
       }
-      hechos.push({ n, tipo, enviados: ok, sin_aviso: sinAviso });
-      await avisoCanal(env, CANAL_AVISOS, (tipo === "inicio" ? "📨 Gran Liga · " + nombreRonda + ": avisados " : "📨 Gran Liga · " + nombreRonda + ", recordatorio de resultados: avisados ") +
-        ok + (ok === 1 ? " jugador" : " jugadores") + " (mensaje privado o notificación de la app)." + (sinAviso.length ? "\nSin aviso (hacedlo a mano): " + sinAviso.join(", ") : ""));
+      const cabecera = tipo === "inicio" ? "📨 Gran Liga · " + nombreRonda + ": avisados " : "📨 Gran Liga · " + nombreRonda + ", recordatorio de resultados: avisados ";
+      await env.DB.batch([
+        env.DB.prepare("INSERT OR REPLACE INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now'))").bind("lote:" + clave, JSON.stringify({ ok: 0, sin: sinCuenta })),
+        // Coste estimado de cada jugador: mensaje privado (hasta 2 llamadas) + sus dispositivos.
+        env.DB.prepare(
+          `INSERT INTO cola_avisos (tipo, datos, lote, coste)
+           SELECT 'liga', value, ?2, 2 + (SELECT COUNT(*) FROM push_subs WHERE discord_id=json_extract(value,'$.uid')) FROM json_each(?1)`
+        ).bind(JSON.stringify(filas), clave),
+        env.DB.prepare("INSERT INTO cola_avisos (tipo, datos, lote, coste) VALUES ('canal', ?1, ?2, 2)").bind(JSON.stringify({ cabecera }), clave),
+      ]);
+      hechos.push({ n, tipo, encolados: filas.length, sin_cuenta: sinCuenta });
     }
   }
   return hechos;
@@ -1383,9 +1481,12 @@ async function ligaVincula(env, discordId) {
 }
 
 export default {
-  // Temporizador de Cloudflare (cada hora): recordatorios de la Gran Liga.
+  // Temporizador de Cloudflare (cada minuto): recordatorios de la Gran Liga y envío de la cola de avisos.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(ligaRecordatorios(env).catch(() => {}));
+    ctx.waitUntil((async () => {
+      await ligaRecordatorios(env).catch(() => {});
+      await procesaCola(env, 25).catch(() => {});
+    })());
   },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1558,7 +1659,7 @@ export default {
         return Response.json({ ok: true }, { headers: noStore });
       }
       if (path === "/api/push/prueba") {
-        const n = await notifica(env, { tipo: null, a: [s.id], titulo: "Adeptus Baeticus", texto: "Las notificaciones funcionan en este dispositivo. ¡Por el Emperador!", url: "/" });
+        const n = await notificaAhora(env, s.id, { titulo: "Adeptus Baeticus", texto: "Las notificaciones funcionan en este dispositivo. ¡Por el Emperador!", url: "/", tag: "prueba" });
         return Response.json({ ok: n > 0, enviados: n, error: n ? undefined : "No se pudo enviar el aviso de prueba" }, { status: n ? 200 : 502, headers: noStore });
       }
       return new Response("No encontrado", { status: 404 });
@@ -2618,4 +2719,4 @@ export default {
 };
 
 // Solo para las pruebas automáticas (no es una ruta de la web).
-export const _test = { ligaRecordatorios, calendarioEventos, ics, pushEnvia, ogPara };
+export const _test = { ligaRecordatorios, calendarioEventos, ics, pushEnvia, ogPara, procesaCola };

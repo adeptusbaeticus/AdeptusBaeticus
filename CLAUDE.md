@@ -29,8 +29,12 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **Notificaciones en el móvil (Web Push):** cada socio las activa por dispositivo desde su menú y elige
   tipos (`eventos`, `partidas`, `liga`, `galeria`); tabla `push_subs` (migración 0018), clave privada en el
   secreto `VAPID_PRIVATE` (la pública está en `src/index.js`). Al añadir un aviso nuevo, usar `notifica()`.
-- **Discord:** recordatorios de la liga por mensaje privado (temporizador cada hora) y avisos de
-  mantenimiento en #inner-circle-general (solo al fallar y al recuperarse).
+- **Discord:** recordatorios de la liga por mensaje privado y avisos de mantenimiento en
+  #inner-circle-general (solo al fallar y al recuperarse).
+- **Límites del plan gratuito de Cloudflare** (50 llamadas externas y 50 consultas a D1 por ejecución, 10 ms
+  de CPU): los envíos en grupo (notificaciones y recordatorios) van a la tabla `cola_avisos` (migración 0022)
+  y se envían por tandas (`procesaCola`, ~25 llamadas como máximo); el temporizador corre cada minuto y la
+  vacía. No enviar en bucle a muchos destinatarios dentro de una misma petición.
 
 ## Gran Liga Adeptus
 
