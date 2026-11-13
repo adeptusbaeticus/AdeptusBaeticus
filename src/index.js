@@ -19,7 +19,8 @@ async function makeSession(env, user) {
   return body + "." + (await hmac(env.SESSION_SECRET, body));
 }
 
-async function readSession(env, request) {
+// Sesión firmada tal cual (incluida la de «ver como invitado»).
+async function leeSesion(env, request) {
   const m = (request.headers.get("cookie") || "").match(new RegExp(COOKIE + "=([^;]+)"));
   if (!m) return null;
   const [body, sig] = m[1].split(".");
@@ -30,6 +31,12 @@ async function readSession(env, request) {
   } catch (e) {
     return null;
   }
+}
+
+// Sesión del usuario. En el modo «ver como invitado» se comporta como si no hubiera sesión.
+async function readSession(env, request) {
+  const u = await leeSesion(env, request);
+  return u && !u.invitado ? u : null;
 }
 
 function roleOf(env, roles) {
@@ -844,14 +851,14 @@ export default {
     // Modo «ver como» (un admin viendo la web con los permisos de otro usuario): solo lectura.
     // Cualquier petición que modifique datos se rechaza, salvo la de salir del modo.
     if (path.startsWith("/api/") && request.method !== "GET" && request.method !== "HEAD" && path !== "/api/ver-como/salir") {
-      const sv = await readSession(env, request);
+      const sv = await leeSesion(env, request);
       if (sv && sv.admin) return Response.json({ error: "Modo «ver como»: solo lectura" }, { status: 403, headers: { "cache-control": "no-store" } });
     }
     const cookieSesion = (valor, maxAge) => `${COOKIE}=${valor}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 
     // Salir del modo «ver como»: se recupera la sesión del admin guardada en la sesión firmada.
     if (path === "/api/ver-como/salir" && request.method === "POST") {
-      const sv = await readSession(env, request);
+      const sv = await leeSesion(env, request);
       if (!sv || !sv.admin) return Response.json({ error: "No estás en el modo «ver como»" }, { status: 400, headers: { "cache-control": "no-store" } });
       if (request.headers.get("origin") && request.headers.get("origin") !== url.origin) return new Response("Prohibido", { status: 403 });
       const a = sv.admin;
@@ -1189,6 +1196,10 @@ export default {
     }
 
     if (path === "/api/me") {
+      const raw = await leeSesion(env, request);
+      if (raw && raw.invitado && raw.admin) {
+        return Response.json({ invitado: true, ver_como: String(raw.admin.name || raw.admin.id) }, { headers: { "cache-control": "no-store" } });
+      }
       const s = await readSession(env, request);
       let nr = null;
       if (s) {
@@ -1577,6 +1588,13 @@ export default {
         let b = {};
         try { b = await request.json(); } catch (e) {}
         const did = String(b.discord_id || "");
+        const admin = { id: s.id, name: s.name, avatar: s.avatar, role: s.role, exp: s.exp };
+        if (did === "invitado") {
+          // Visitante sin registrar: una sesión que el servidor trata como si no hubiera sesión.
+          const exp = Math.min(s.exp, Math.floor(Date.now() / 1000) + 2 * 3600);
+          const cookie = await makeSession(env, { invitado: true, exp, admin });
+          return Response.json({ ok: true }, { headers: { ...noStore, "set-cookie": cookieSesion(cookie, exp - Math.floor(Date.now() / 1000)) } });
+        }
         if (!did || did === s.id) return Response.json({ error: "Elige otro usuario" }, { status: 400, headers: noStore });
         const u = await env.DB.prepare("SELECT discord_id, name, avatar, role FROM users WHERE discord_id=?1").bind(did).first();
         if (!u) return Response.json({ error: "Ese usuario no existe" }, { status: 404, headers: noStore });

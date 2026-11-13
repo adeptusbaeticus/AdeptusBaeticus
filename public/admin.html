@@ -363,7 +363,7 @@ $("dreg").onclick = async () => {
 
 fetch("/api/me").then((r) => r.json()).then((me) => {
   if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); discordStatus(); nrStatus(); ligaJugadores(); }
-  else $("gate").textContent = me ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
+  else $("gate").textContent = me && !me.invitado ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
 }).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
 </script>
 </body>

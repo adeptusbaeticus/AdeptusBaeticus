@@ -26,7 +26,7 @@
     }
     f.textContent = "";
     const t = document.createElement("span");
-    t.textContent = "Estás viendo la web como " + me.name + " (solo lectura).";
+    t.textContent = me.invitado ? "Estás viendo la web como invitado (sin registrar)." : "Estás viendo la web como " + me.name + " (solo lectura).";
     const b = document.createElement("button");
     b.type = "button";
     b.textContent = "Salir de «ver como»";
@@ -112,7 +112,15 @@
   function pinta(me) {
   box.textContent = "";
   if (window.abI18n) box.appendChild(window.abI18n.selector());
-  if (me) {
+  if (me && me.invitado) {
+    // «Ver como invitado»: la web como un visitante sin sesión, con la franja para volver.
+    franjaVerComo(me);
+    const a = document.createElement("a");
+    a.href = "/auth/login";
+    a.textContent = "Entrar con Discord";
+    a.style.cssText = "background:#A3211B;color:#fff;border-radius:8px;padding:12px 20px;font-weight:600;text-decoration:none;display:inline-block";
+    box.appendChild(a);
+  } else if (me) {
     // Menú de usuario desplegable: avatar y nombre; dentro, Mis inscripciones, Admin y Salir.
     const wrap = document.createElement("span");
     wrap.className = "um";
@@ -164,6 +172,7 @@
       sel.id = "um-vc-sel";
       const op = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); return o; };
       op("", "— Elige un usuario —");
+      op("invitado", "Invitado (sin registrar)");
       let cargado = false;
       const carga = () => {
         if (cargado) return;
