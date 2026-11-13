@@ -17,6 +17,8 @@
     "La fase ha terminado.": "The phase has finished.", "Todavía no hay ninguna fase de la liga.": "There is no league phase yet.",
     "No se pudo cargar la liga.": "Could not load the league.", "Fase": "Phase",
     "Aplazar": "Postpone", "Quitar aplazamiento": "Cancel postponement",
+    "Subir resultado": "Upload result", "Solo pueden aplazarla sus jugadores o un admin": "Only its players or an admin can postpone it",
+    "La ronda ya ha cerrado: habla con un admin": "The round has already closed: talk to an admin",
     "Tu partida": "Your game", "Recuerda subir el resultado a New Recruit antes del cierre.": "Remember to upload the result to New Recruit before the deadline.",
     "Jugadores de la Gran Liga": "Grand League players", "Cuenta vinculada": "Linked account", "— Sin vincular —": "— Not linked —",
     "Se vinculan solos al entrar con Discord si coinciden su apodo y su usuario de New Recruit. Aquí puedes confirmar las sugerencias o vincular a mano.":

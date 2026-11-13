@@ -957,6 +957,32 @@ export default {
       );
     }
 
+    // Aplazar (o quitar el aplazamiento de) una partida sin resultado: un admin en cualquier momento,
+    // o uno de sus dos jugadores (cuenta vinculada) antes del cierre de la ronda.
+    const apm = path.match(/^\/api\/liga\/partida\/(\d+)\/aplazar$/);
+    if (apm && request.method === "POST") {
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      if (typeof b.aplazada !== "boolean") return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
+      const p = await env.DB.prepare(
+        `SELECT p.id, p.ronda, p.pv_a, p.pv_b, f.inicio, a.discord_id AS da, bb.discord_id AS db
+         FROM liga_partidas p JOIN liga_fases f ON f.id=p.fase_id
+         JOIN liga_jugadores a ON a.id=p.jugador_a JOIN liga_jugadores bb ON bb.id=p.jugador_b WHERE p.id=?1`
+      ).bind(Number(apm[1])).first();
+      if (!p) return Response.json({ error: "La partida no existe" }, { status: 404, headers: noStore });
+      const admin = s.role === "admin", jugador = s.id === p.da || s.id === p.db;
+      if (!admin && !jugador) return Response.json({ error: "Solo pueden aplazarla sus jugadores o un admin" }, { status: 403, headers: noStore });
+      if (p.pv_a != null || p.pv_b != null) return Response.json({ error: "La partida ya tiene resultado" }, { status: 409, headers: noStore });
+      if (!admin && nowLocal() > masDias(p.inicio.slice(0, 10), 14 * p.ronda) + "T14:00") {
+        return Response.json({ error: "La ronda ya ha cerrado: habla con un admin" }, { status: 409, headers: noStore });
+      }
+      await env.DB.prepare("UPDATE liga_partidas SET aplazada=?2 WHERE id=?1 AND pv_a IS NULL AND pv_b IS NULL").bind(p.id, b.aplazada ? 1 : 0).run();
+      return Response.json({ ok: true, aplazada: b.aplazada }, { headers: noStore });
+    }
+
     // Jugador de la liga vinculado al usuario con sesión (para resaltarle y mostrar su partida).
     if (path === "/api/liga/yo" && request.method === "GET") {
       const s = await readSession(env, request);
@@ -1553,21 +1579,6 @@ export default {
         stmts.push(env.DB.prepare("UPDATE liga_jugadores SET discord_id=?2, sugerido_id=NULL WHERE id=?1").bind(id, did));
         await env.DB.batch(stmts);
         return Response.json({ ok: true }, { headers: noStore });
-      }
-
-      // Gran Liga: marcar o desmarcar como aplazada una partida que aún no tiene resultado.
-      const lpm = path.match(/^\/api\/admin\/liga\/partida\/(\d+)$/);
-      if (lpm && request.method === "POST") {
-        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
-        let b = {};
-        try { b = await request.json(); } catch (e) {}
-        if (typeof b.aplazada !== "boolean") return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
-        const id = Number(lpm[1]);
-        const p = await env.DB.prepare("SELECT pv_a, pv_b FROM liga_partidas WHERE id=?1").bind(id).first();
-        if (!p) return Response.json({ error: "La partida no existe" }, { status: 404, headers: noStore });
-        if (p.pv_a != null || p.pv_b != null) return Response.json({ error: "La partida ya tiene resultado" }, { status: 409, headers: noStore });
-        await env.DB.prepare("UPDATE liga_partidas SET aplazada=?2 WHERE id=?1 AND pv_a IS NULL AND pv_b IS NULL").bind(id, b.aplazada ? 1 : 0).run();
-        return Response.json({ ok: true, aplazada: b.aplazada }, { headers: noStore });
       }
 
       if (path === "/api/admin/discord") {

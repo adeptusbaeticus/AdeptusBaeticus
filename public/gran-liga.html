@@ -69,7 +69,8 @@ details.ronda>summary strong{flex:1}
 .pt .gana{color:#F0CE82}
 .pt .res{font:700 18px Inter,sans-serif;min-width:84px;text-align:center}
 .pt .est{font-size:13px;color:#A8A293;text-align:center}
-.pt .acc{display:flex;gap:6px;justify-content:flex-end}
+.pt .acc{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.chip.sube{background:#A3211B;border-color:#A3211B;color:#fff}
 .chip{background:#15171A;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:6px 12px;min-height:36px;font:500 13px Inter,sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
 .listas{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .listas[hidden],.misl[hidden]{display:none}
@@ -306,8 +307,10 @@ function filaPartida(p, ronda) {
     };
     acc.appendChild(b);
   }
-  // Admin: aplazar (o quitar el aplazamiento de) una partida sin resultado.
-  if (esAdmin && !hay) {
+  // Partida pendiente: el admin y sus dos jugadores pueden aplazarla y subir el resultado a New Recruit.
+  const mia = yo && (p.jugador_a === yo || p.jugador_b === yo);
+  const enPlazo = ahora <= fechasRonda(p.ronda).cierra;
+  if (!hay && (esAdmin || (mia && enPlazo))) {
     const total = D.fase.rondas + 1;
     const ba = el("button", "chip", p.aplazada ? "Quitar aplazamiento" : "Aplazar");
     ba.type = "button";
@@ -316,22 +319,31 @@ function filaPartida(p, ronda) {
       if (!confirm(nuevo ? "¿Aplazar esta partida a la ronda " + total + "?" : "¿Quitar el aplazamiento de esta partida?")) return;
       ba.disabled = true;
       try {
-        const r = await fetch("/api/admin/liga/partida/" + p.id, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ aplazada: nuevo }) });
+        const r = await fetch("/api/liga/partida/" + p.id + "/aplazar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ aplazada: nuevo }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) { alert(d.error || "No se pudo guardar."); ba.disabled = false; return; }
         p.aplazada = nuevo ? 1 : 0;
         const abiertas = [...document.querySelectorAll("details.ronda[open]")].map((x) => x.id);
+        pintaActual();
         pintaRondas();
         abiertas.forEach((id) => { const x = $(id); if (x) x.open = true; });
       } catch (e) { alert("No se pudo guardar."); ba.disabled = false; }
     };
     acc.appendChild(ba);
   }
-  if (p.nr_partida && D.fase.nr_torneo) {
-    const a = el("a", "chip", "New Recruit");
-    a.href = "https://www.newrecruit.eu/app/tournydetails/match?id_match=" + encodeURIComponent(p.nr_partida) + "&id=" + encodeURIComponent(D.fase.nr_torneo);
-    a.target = "_blank"; a.rel = "noopener";
-    acc.appendChild(a);
+  if (D.fase.nr_torneo) {
+    const nr = p.nr_partida
+      ? "https://www.newrecruit.eu/app/tournydetails/match?id_match=" + encodeURIComponent(p.nr_partida) + "&id=" + encodeURIComponent(D.fase.nr_torneo)
+      : "https://www.newrecruit.eu/app/tournydetails/details?id=" + encodeURIComponent(D.fase.nr_torneo);
+    if (!hay && (esAdmin || mia)) {
+      const a = el("a", "chip sube", "Subir resultado");
+      a.href = nr; a.target = "_blank"; a.rel = "noopener";
+      acc.appendChild(a);
+    } else if (p.nr_partida) {
+      const a = el("a", "chip", "New Recruit");
+      a.href = nr; a.target = "_blank"; a.rel = "noopener";
+      acc.appendChild(a);
+    }
   }
   fila.append(mesa, lado(ja, p.faccion_a, false, hay && p.pv_a > p.pv_b), centro, lado(jb, p.faccion_b, true, hay && p.pv_b > p.pv_a), acc, caja);
   return fila;
