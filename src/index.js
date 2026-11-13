@@ -602,6 +602,49 @@ async function avisoEstado(env, servicio, nombre, error) {
   } catch (e) {} // un aviso que falla no debe romper nada
 }
 
+// --- Vista previa al compartir enlaces (Open Graph): título, descripción e imagen de cada página ---
+const OG_PAGINAS = {
+  "/": ["Adeptus Baeticus · Club de Warhammer 40.000 en Málaga", "Club gratuito y abierto a noveles: quedada el primer sábado de cada mes en 2d6 Store, Gran Liga, torneos y pintura."],
+  "/calendario": ["Calendario · Adeptus Baeticus", "Quedadas, torneos y partidas del club. Apúntate o busca rival."],
+  "/galeria": ["Galería · Adeptus Baeticus", "Miniaturas pintadas por los socios del club."],
+  "/gran-liga": ["Gran Liga Adeptus · Adeptus Baeticus", "Clasificación, rondas y resultados de la liga del club."],
+  "/miembros": ["Miembros · Adeptus Baeticus", "Los socios del club: sus facciones, su ranking y su palmarés."],
+  "/faq": ["Reglas y FAQ · Adeptus Baeticus", "El reglamento del club y las dudas más habituales."],
+};
+const escAttr = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Etiquetas de la vista previa de una dirección (para un evento concreto, su nombre, fecha y lugar).
+async function ogPara(env, url) {
+  // Cloudflare sirve las páginas sin «.html» (/gran-liga.html → /gran-liga): se aceptan las dos formas.
+  let ruta = url.pathname.replace(/\.html$/, "");
+  if (ruta === "/index") ruta = "/";
+  let [titulo, desc] = OG_PAGINAS[ruta] || ["Adeptus Baeticus", OG_PAGINAS["/"][1]];
+  const id = ruta === "/calendario" ? Number(url.searchParams.get("evento")) : 0;
+  if (id) {
+    let e = null;
+    try { e = await env.DB.prepare("SELECT type, title, starts_at, location, description FROM events WHERE id=?1 AND status='publicado'").bind(id).first(); } catch (x) {}
+    if (e) {
+      titulo = (e.type === "torneo" ? "Torneo: " : "Quedada: ") + e.title;
+      desc = fechaCorta(e.starts_at) + (e.location ? " · " + e.location : "") + (e.description ? " — " + String(e.description).slice(0, 160) : "");
+    }
+  }
+  const pagina = url.origin + ruta + (id ? "?evento=" + id : "");
+  return [
+    ["name", "description", desc], ["property", "og:type", "website"], ["property", "og:site_name", "Adeptus Baeticus"],
+    ["property", "og:locale", "es_ES"], ["property", "og:title", titulo], ["property", "og:description", desc],
+    ["property", "og:url", pagina], ["property", "og:image", url.origin + "/og-imagen.jpg"], ["property", "og:image:width", "1200"],
+    ["property", "og:image:height", "630"], ["property", "og:image:alt", "Escudo del club Adeptus Baeticus"],
+    ["name", "twitter:card", "summary_large_image"], ["name", "twitter:title", titulo], ["name", "twitter:description", desc],
+    ["name", "twitter:image", url.origin + "/og-imagen.jpg"],
+  ];
+}
+// Añade las etiquetas al <head> de las páginas HTML que se sirven.
+async function conVistaPrevia(request, env, url, res) {
+  if (request.method !== "GET" || !(res.headers.get("content-type") || "").includes("text/html") || typeof HTMLRewriter === "undefined") return res;
+  let tags = "";
+  try { tags = (await ogPara(env, url)).map(([k, n, v]) => `<meta ${k}="${n}" content="${escAttr(v)}">`).join("\n"); } catch (e) { return res; }
+  return new HTMLRewriter().on("head", { element(el) { el.append(tags, { html: true }); } }).transform(res);
+}
+
 // --- Notificaciones en el móvil (Web Push: cifrado RFC 8291 y firma VAPID RFC 8292, sin librerías) ---
 // Cada socio las activa por dispositivo y elige qué avisos quiere: eventos, partidas, liga y galería.
 const VAPID_PUBLICA = "BKqVWHJMWWkT1cSTBrnXswmQ_AfX4ErXHsl8FH144YNB8dAGFxBBZiKs_weXEa5H-NJbWJfKoi3qpeFnZnffEo8";
@@ -2570,9 +2613,9 @@ export default {
       }
     }
 
-    return env.ASSETS.fetch(request);
+    return conVistaPrevia(request, env, url, await env.ASSETS.fetch(request));
   },
 };
 
 // Solo para las pruebas automáticas (no es una ruta de la web).
-export const _test = { ligaRecordatorios, calendarioEventos, ics, pushEnvia };
+export const _test = { ligaRecordatorios, calendarioEventos, ics, pushEnvia, ogPara };
