@@ -6,6 +6,59 @@
     norole: "No tienes ninguno de los roles del club en Discord.",
     error: "No se pudo iniciar sesión. Inténtalo de nuevo.",
   };
+  // Quien entra con Discord sin ser del club: aviso claro con cómo unirse (formulario de registro).
+  const FORM_REGISTRO = "https://docs.google.com/forms/d/e/1FAIpQLSczIfv-On4CBaHXP3S-OxmiCbCmjOdVmkIADGmr1O2s3JJECQ/viewform";
+  function avisoNoMiembro(tipo) {
+    const ov = document.createElement("div");
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.setAttribute("aria-labelledby", "nm-t");
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;z-index:60";
+    const card = document.createElement("div");
+    card.style.cssText = "background:#1F2328;border:1px solid #2C3036;border-left:4px solid #A3211B;border-radius:12px;padding:24px;max-width:460px;width:100%;box-sizing:border-box;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif";
+    const h = document.createElement("h3");
+    h.id = "nm-t";
+    h.style.cssText = "margin:0 0 10px;font:700 22px/1.2 Cinzel,Georgia,serif;color:#F0CE82";
+    const p1 = document.createElement("p");
+    p1.style.cssText = "margin:0 0 10px;color:#DCD6C8";
+    const p2 = document.createElement("p");
+    p2.style.cssText = "margin:0 0 18px;color:#CFC9BA;font-size:15px";
+    if (tipo === "norole") {
+      h.textContent = "Aún no tienes acceso";
+      p1.textContent = "Tu cuenta está en el servidor de Discord del club, pero todavía no tiene ningún rol del club.";
+      p2.textContent = "Si ya rellenaste el formulario de registro, espera a que la administración te asigne el rol. Si no, rellénalo y te contactaremos.";
+    } else {
+      h.textContent = "Todavía no eres del club";
+      p1.textContent = "Para entrar en la web tienes que formar parte del servidor de Discord de Adeptus Baeticus.";
+      p2.textContent = "¿Quieres unirte? Rellena el formulario de registro: te contactaremos y te invitaremos a nuestros eventos.";
+    }
+    const acc = document.createElement("div");
+    acc.style.cssText = "display:flex;gap:10px;flex-wrap:wrap";
+    const btn = (txt, primario) => {
+      const b = document.createElement(primario ? "a" : "button");
+      b.textContent = txt;
+      b.style.cssText = "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:10px 18px;border-radius:8px;font:600 15px Inter,sans-serif;text-decoration:none;cursor:pointer;" +
+        (primario ? "background:#A3211B;color:#fff;border:1px solid #A3211B" : "background:#1F2328;color:#ECE7DC;border:1px solid #6B6558");
+      acc.appendChild(b);
+      return b;
+    };
+    const f = btn("Rellenar el formulario de registro", true);
+    f.href = FORM_REGISTRO; f.target = "_blank"; f.rel = "noopener";
+    const faq = btn("Ver las preguntas frecuentes", true);
+    faq.href = "/faq.html";
+    faq.style.background = "#1F2328"; faq.style.borderColor = "#6B6558"; faq.style.color = "#ECE7DC";
+    const cerrar = btn("Cerrar", false);
+    cerrar.type = "button";
+    const fuera = () => { ov.remove(); document.removeEventListener("keydown", esc); };
+    const esc = (e) => { if (e.key === "Escape") fuera(); };
+    cerrar.onclick = fuera;
+    ov.addEventListener("click", (e) => { if (e.target === ov) fuera(); });
+    document.addEventListener("keydown", esc);
+    card.append(h, p1, p2, acc);
+    ov.appendChild(card);
+    document.body.appendChild(ov);
+    f.focus();
+  }
   // Salir del modo «ver como» (vuelve a la cuenta del admin).
   async function salirVerComo(recarga) {
     try {
@@ -228,7 +281,7 @@
     a.textContent = "Entrar con Discord";
     a.style.cssText = "background:#A3211B;color:#fff;border-radius:8px;padding:12px 20px;font-weight:600;text-decoration:none;display:inline-block";
     box.appendChild(a);
-    const txt = msgs[q] || (q ? "Detalle: " + decodeURIComponent(q) : "");
+    const txt = q === "nomember" || q === "norole" ? "" : msgs[q] || (q ? "Detalle: " + decodeURIComponent(q) : "");
     if (txt) {
       const s = document.createElement("div");
       s.style.cssText = "color:#A8A293;font-size:14px;margin-top:6px";
@@ -243,6 +296,11 @@
   fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => {
     if (cache === undefined || q || JSON.stringify(me) !== JSON.stringify(cache)) pinta(me);
     guarda(me);
+    if (!me && (q === "nomember" || q === "norole")) {
+      avisoNoMiembro(q);
+      // Se quita ?login= de la dirección para que el aviso no vuelva a salir al recargar.
+      try { const u = new URL(location.href); u.searchParams.delete("login"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
+    }
     if (me && !me.nr_username && !me.ver_como) askNr();
   });
 })();
