@@ -62,6 +62,14 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .btn.alt{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
 .btn:hover{color:#fff;filter:brightness(1.1)}.btn.alt:hover{color:#ECE7DC}
 #quedada > .m{margin:0 0 48px}
+/* Navegador flotante de entradas (abajo a la derecha) */
+.saltos{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;gap:6px;padding:8px;background:#1F2328;border:1px solid #6B6558;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.45);transition:opacity .2s,transform .2s}
+.saltos.oculto{opacity:0;transform:translateY(12px);pointer-events:none}
+.saltos button{width:36px;height:36px;border-radius:6px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:600 14px Inter,sans-serif;cursor:pointer;padding:0}
+.saltos button:hover{border-color:#D9B25A}
+.saltos button[aria-current=true]{background:#D9B25A;border-color:#D9B25A;color:#15171A}
+@media (max-width:600px){.saltos{right:8px;bottom:8px;gap:4px;padding:6px}.saltos button{width:32px;height:32px}}
+@media (prefers-reduced-motion:reduce){.saltos{transition:none}}
 /* Entradas del blog, una debajo de otra (la más nueva arriba) */
 .blog{margin-bottom:56px}
 .slide{box-sizing:border-box;margin:0 0 24px;padding:32px 40px}
@@ -126,6 +134,7 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
   <section class="blog">
     <h2>Últimas entradas del blog</h2>
     <div id="posts"><span class="m">Cargando entradas...</span></div>
+    <nav class="saltos" id="saltos" aria-label="Entradas del blog" hidden></nav>
   </section>
   <footer class="ft">
     <span>Adeptus Baeticus</span>
@@ -394,6 +403,43 @@ function htmlSeguro(html, destino) {
 }
 
 // --- Carrusel: de la más nueva a la más antigua; gira despacio y vuelve a la primera ---
+// Navegador flotante: un cuadradito por entrada, marcando la que se está leyendo.
+function saltos() {
+  const arts = [...$("posts").querySelectorAll("article")];
+  const nav = $("saltos");
+  if (arts.length < 2) return;
+  const quieto = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const botones = arts.map((a, i) => {
+    a.id = "entrada-" + (i + 1);
+    const b = nuevo("button", "", String(i + 1));
+    b.type = "button";
+    const titulo = (a.querySelector("h3") || {}).textContent || "";
+    b.title = titulo;
+    b.setAttribute("aria-label", "Entrada " + (i + 1) + ": " + titulo);
+    b.onclick = () => a.scrollIntoView({ behavior: quieto ? "auto" : "smooth", block: "start" });
+    nav.appendChild(b);
+    return b;
+  });
+  nav.hidden = false;
+  const seccion = nav.closest("section");
+  let pendiente = false;
+  function actualiza() {
+    pendiente = false;
+    const h = innerHeight;
+    // Visible solo mientras se está en la zona del blog.
+    const r = seccion.getBoundingClientRect();
+    nav.classList.toggle("oculto", !(r.top < h * 0.6 && r.bottom > h * 0.3));
+    // Actual: la última entrada cuyo principio ya ha pasado por el tercio superior de la pantalla.
+    let act = 0;
+    arts.forEach((a, i) => { if (a.getBoundingClientRect().top <= h * 0.35) act = i; });
+    botones.forEach((b, i) => b.setAttribute("aria-current", String(i === act)));
+  }
+  const pide = () => { if (!pendiente) { pendiente = true; requestAnimationFrame(actualiza); } };
+  addEventListener("scroll", pide, { passive: true });
+  addEventListener("resize", pide);
+  actualiza();
+}
+
 // Entradas del blog completas, una debajo de otra (la más nueva arriba).
 function entradas(posts) {
   const track = $("posts");
@@ -436,6 +482,7 @@ fetch("/api/blog")
   .then((posts) => {
     if (!posts.length) { $("posts").textContent = "No se han podido cargar las entradas."; return; }
     entradas(posts.slice(0, 6));
+    saltos();
   })
   .catch(() => { $("posts").textContent = "No se han podido cargar las entradas."; });
 </script>
