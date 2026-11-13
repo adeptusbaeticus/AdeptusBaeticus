@@ -6,6 +6,34 @@
     norole: "No tienes ninguno de los roles del club en Discord.",
     error: "No se pudo iniciar sesión. Inténtalo de nuevo.",
   };
+  // Salir del modo «ver como» (vuelve a la cuenta del admin).
+  async function salirVerComo(recarga) {
+    try {
+      const r = await fetch("/api/ver-como/salir", { method: "POST" });
+      if (r.ok) { recarga(); return; }
+    } catch (e) {}
+    alert("No se pudo salir del modo «ver como».");
+  }
+  // Franja fija arriba mientras se ve la web como otro usuario.
+  function franjaVerComo(me) {
+    let f = document.getElementById("ver-como");
+    if (!me || !me.ver_como) { if (f) f.remove(); return; }
+    if (!f) {
+      f = document.createElement("div");
+      f.id = "ver-como";
+      f.setAttribute("role", "status");
+      document.body.prepend(f);
+    }
+    f.textContent = "";
+    const t = document.createElement("span");
+    t.textContent = "Estás viendo la web como " + me.name + " (solo lectura).";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "Salir de «ver como»";
+    b.onclick = () => salirVerComo(() => { try { sessionStorage.removeItem(KEY); } catch (e) {} location.reload(); });
+    f.append(t, b);
+  }
+
   const css = document.createElement("style");
   css.textContent = ".um{position:relative;display:inline-block;vertical-align:middle}" +
     ".um-btn{display:inline-flex;align-items:center;gap:8px;background:none;border:1px solid transparent;border-radius:999px;padding:4px 10px 4px 4px;min-height:44px;color:#ECE7DC;font:500 15px Inter,system-ui,sans-serif;cursor:pointer}" +
@@ -15,7 +43,12 @@
     ".um-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:200px;background:#1F2328;border:1px solid #6B6558;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);padding:6px;z-index:60;display:flex;flex-direction:column}" +
     ".um-menu[hidden]{display:none}" +
     ".um-menu a{display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:6px;color:#ECE7DC;text-decoration:none;font-weight:500}" +
-    ".um-menu a:hover,.um-menu a:focus{background:#2A2F36;color:#F0CE82;outline:none}";
+    ".um-menu a:hover,.um-menu a:focus{background:#2A2F36;color:#F0CE82;outline:none}" +
+    ".um-vc{border-top:1px solid #2C3036;margin-top:6px;padding:8px 6px 4px}" +
+    ".um-vc label{display:block;font-size:13px;color:#A8A293;margin-bottom:4px}" +
+    ".um-vc select{width:100%;min-height:40px;border-radius:6px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;padding:6px}" +
+    "#ver-como{position:relative;z-index:70;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;background:#A3211B;color:#fff;padding:8px 16px;font:600 14px Inter,system-ui,sans-serif}" +
+    "#ver-como button{background:#fff;color:#A3211B;border:0;border-radius:999px;padding:6px 14px;min-height:36px;font:700 13px Inter,sans-serif;cursor:pointer}";
   document.head.appendChild(css);
   const q = new URLSearchParams(location.search).get("login");
   // La sesión se guarda durante la visita para pintar la cabecera al instante al cambiar de página
@@ -115,6 +148,47 @@
     };
     item("/mis-inscripciones.html", "Mis inscripciones");
     if (me.role === "admin") item("/admin.html", "Admin");
+    const recarga = () => { try { sessionStorage.removeItem(KEY); } catch (e) {} location.reload(); };
+    if (me.ver_como) {
+      // Volver a la cuenta del admin.
+      const sal = item("#", "Salir de «ver como»");
+      sal.onclick = (e) => { e.preventDefault(); salirVerComo(recarga); };
+    } else if (me.role === "admin") {
+      // Ver la web como otro usuario (solo lectura).
+      const vc = document.createElement("div");
+      vc.className = "um-vc";
+      const lb = document.createElement("label");
+      lb.textContent = "Ver la web como";
+      lb.htmlFor = "um-vc-sel";
+      const sel = document.createElement("select");
+      sel.id = "um-vc-sel";
+      const op = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); return o; };
+      op("", "— Elige un usuario —");
+      let cargado = false;
+      const carga = () => {
+        if (cargado) return;
+        cargado = true;
+        fetch("/api/admin/usuarios").then((r) => (r.ok ? r.json() : [])).then((us) => {
+          us.filter((u) => u.discord_id !== me.id).forEach((u) => op(u.discord_id, u.name).setAttribute("translate", "no"));
+        }).catch(() => {});
+      };
+      sel.addEventListener("focus", carga);
+      btn.addEventListener("click", carga);
+      sel.onchange = async () => {
+        if (!sel.value) return;
+        sel.disabled = true;
+        try {
+          const r = await fetch("/api/admin/ver-como", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discord_id: sel.value }) });
+          if (r.ok) { recarga(); return; }
+          const d = await r.json().catch(() => ({}));
+          alert(d.error || "No se pudo cambiar de usuario.");
+        } catch (e) { alert("No se pudo cambiar de usuario."); }
+        sel.disabled = false;
+        sel.value = "";
+      };
+      vc.append(lb, sel);
+      menu.appendChild(vc);
+    }
     // Al salir se olvida la sesión guardada.
     item("/auth/logout", "Salir").addEventListener("click", () => { try { sessionStorage.removeItem(KEY); } catch (e) {} });
     const abre = (si) => {
@@ -136,7 +210,9 @@
     wrap.addEventListener("focusout", (e) => { if (!wrap.contains(e.relatedTarget)) abre(false); });
     wrap.append(btn, menu);
     box.appendChild(wrap);
+    franjaVerComo(me);
   } else {
+    franjaVerComo(null);
     const a = document.createElement("a");
     a.href = "/auth/login";
     a.textContent = "Entrar con Discord";
@@ -157,6 +233,6 @@
   fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => {
     if (cache === undefined || q || JSON.stringify(me) !== JSON.stringify(cache)) pinta(me);
     guarda(me);
-    if (me && !me.nr_username) askNr();
+    if (me && !me.nr_username && !me.ver_como) askNr();
   });
 })();

@@ -15,7 +15,7 @@ async function hmac(secret, data) {
 }
 
 async function makeSession(env, user) {
-  const body = toB64(JSON.stringify({ ...user, exp: Math.floor(Date.now() / 1000) + MAX_AGE }));
+  const body = toB64(JSON.stringify({ ...user, exp: user.exp || Math.floor(Date.now() / 1000) + MAX_AGE }));
   return body + "." + (await hmac(env.SESSION_SECRET, body));
 }
 
@@ -841,6 +841,24 @@ export default {
     const path = url.pathname;
     const back = (q) => Response.redirect(url.origin + "/?login=" + q, 302);
 
+    // Modo «ver como» (un admin viendo la web con los permisos de otro usuario): solo lectura.
+    // Cualquier petición que modifique datos se rechaza, salvo la de salir del modo.
+    if (path.startsWith("/api/") && request.method !== "GET" && request.method !== "HEAD" && path !== "/api/ver-como/salir") {
+      const sv = await readSession(env, request);
+      if (sv && sv.admin) return Response.json({ error: "Modo «ver como»: solo lectura" }, { status: 403, headers: { "cache-control": "no-store" } });
+    }
+    const cookieSesion = (valor, maxAge) => `${COOKIE}=${valor}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+
+    // Salir del modo «ver como»: se recupera la sesión del admin guardada en la sesión firmada.
+    if (path === "/api/ver-como/salir" && request.method === "POST") {
+      const sv = await readSession(env, request);
+      if (!sv || !sv.admin) return Response.json({ error: "No estás en el modo «ver como»" }, { status: 400, headers: { "cache-control": "no-store" } });
+      if (request.headers.get("origin") && request.headers.get("origin") !== url.origin) return new Response("Prohibido", { status: 403 });
+      const a = sv.admin;
+      const cookie = await makeSession(env, { id: a.id, name: a.name, avatar: a.avatar, role: a.role, exp: a.exp });
+      return Response.json({ ok: true }, { headers: { "cache-control": "no-store", "set-cookie": cookieSesion(cookie, Math.max(60, a.exp - Math.floor(Date.now() / 1000))) } });
+    }
+
     // Interacciones de Discord (comandos /publicar, /editar y /borrar).
     if (path === "/discord/interactions" && request.method === "POST") {
       const raw = await request.text();
@@ -1178,7 +1196,7 @@ export default {
         nr = row ? row.nr_username : null;
       }
       return Response.json(
-        s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role, nr_username: nr } : null,
+        s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role, nr_username: nr, ver_como: s.admin ? String(s.admin.name || s.admin.id) : null } : null,
         { headers: { "cache-control": "no-store" } }
       );
     }
@@ -1545,6 +1563,29 @@ export default {
         const tipo = b.tipo === "tournament" ? "tournament" : b.tipo === "reports" ? "reports" : null;
         if (!/^[a-f0-9]{24}$/.test(id) || !tipo) return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
         return Response.json(await nrSync(env, tipo, id), { headers: noStore });
+      }
+
+      // Usuarios de la web (para «ver como»).
+      if (path === "/api/admin/usuarios" && request.method === "GET") {
+        const { results } = await env.DB.prepare("SELECT discord_id, name, role FROM users ORDER BY name COLLATE NOCASE").all();
+        return Response.json(results, { headers: noStore });
+      }
+      // Ver la web como otro usuario (solo lectura, 2 horas como máximo). La sesión del admin
+      // queda guardada dentro de la nueva sesión firmada para poder volver.
+      if (path === "/api/admin/ver-como" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        const did = String(b.discord_id || "");
+        if (!did || did === s.id) return Response.json({ error: "Elige otro usuario" }, { status: 400, headers: noStore });
+        const u = await env.DB.prepare("SELECT discord_id, name, avatar, role FROM users WHERE discord_id=?1").bind(did).first();
+        if (!u) return Response.json({ error: "Ese usuario no existe" }, { status: 404, headers: noStore });
+        const exp = Math.min(s.exp, Math.floor(Date.now() / 1000) + 2 * 3600);
+        const cookie = await makeSession(env, {
+          id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, exp,
+          admin: { id: s.id, name: s.name, avatar: s.avatar, role: s.role, exp: s.exp },
+        });
+        return Response.json({ ok: true, name: u.name }, { headers: { ...noStore, "set-cookie": cookieSesion(cookie, exp - Math.floor(Date.now() / 1000)) } });
       }
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
