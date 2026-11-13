@@ -60,6 +60,25 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .top{padding-bottom:12px}
 .filtros{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:24px}
 #navmes[hidden]{display:flex!important;visibility:hidden} /* en el listado se oculta sin mover la cabecera */
+/* Agenda (móvil): lista por días en lugar de la cuadrícula del mes. */
+.vista{display:none}
+@media (max-width:600px){.vista{display:inline-flex;align-items:center}body[data-vista=agenda] #navmes{display:none!important}}
+.ag-d{font:600 13px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#A8A293;margin:18px 0 8px}
+.ag-d:first-child{margin-top:0}
+.ag-d.hoy{color:#F0CE82}
+.ag-i{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #6B6558;border-radius:10px;padding:10px 14px;margin-bottom:6px;color:#ECE7DC;font:inherit;cursor:pointer;text-decoration:none;box-sizing:border-box;min-height:52px}
+.ag-i:hover,.ag-i:focus-visible{border-color:#D9B25A;outline:none}
+.ag-i.sel{background:#262A30;border-color:#D9B25A}
+.ag-i .hh{flex:none;min-width:48px;font:700 15px Inter,sans-serif;color:#ECE7DC}
+.ag-i .tt{flex:1;min-width:0}
+.ag-i .tt strong{display:block;font-size:15px;overflow-wrap:anywhere}
+.ag-i .tt span{display:block;font-size:13px;color:#A8A293}
+.ag-i.ag-q{border-left-color:#F0CE82}.ag-i.ag-q.ag-x{border-left-color:#8A6416}
+.ag-i.ag-t{border-left-color:#F08A82}.ag-i.ag-t.ag-x{border-left-color:#7A1712}
+.ag-i.ag-p{border-left-color:#A8E0A0}.ag-i.ag-p.ag-x{border-left-color:#2F6B2A}
+.ag-i.ag-x .tt strong{color:#A8A293}
+.ag-i.ag-l{border-left-color:#6E56B8;min-height:40px;padding:6px 14px}
+.ag-i.ag-l .tt strong{font-size:14px;color:#D9CCFA}
 .lh{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
 .li{display:flex;gap:16px;align-items:center;width:100%;text-align:left;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #F0CE82;border-radius:10px;padding:12px 16px;margin-bottom:8px;color:#ECE7DC;font:inherit;cursor:pointer}
 .li.tor{border-left-color:#F08A82}
@@ -143,6 +162,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
   </div>
   <div class="top">
     <h1>Calendario</h1>
+    <button type="button" class="chip vista" id="bvista">Ver mes</button>
     <div class="row" id="navmes">
       <button class="nv" id="prev" aria-label="Mes anterior">‹</button>
       <span class="mes" id="mes"></span>
@@ -179,6 +199,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
   <div class="lay">
     <div class="a"><div class="cal" id="cal"><div class="g" id="g"></div></div>
       <div id="lista" hidden></div>
+      <div id="agenda" hidden></div>
       <div class="ley" id="ley" aria-label="Leyenda">
         <span><i class="q"></i>Quedada</span><span><i class="t2"></i>Torneo</span><span class="solo-cal"><i class="pt"></i>Partida</span>
         <span class="solo-cal"><i class="lg"></i>Ronda de la Gran Liga (pulsa para verla)</span>
@@ -318,9 +339,89 @@ function renderLista() {
   });
 }
 
+// Vista del calendario en móvil: «agenda» (lista por días, por defecto) o «mes» (cuadrícula).
+const esMovil = () => window.matchMedia("(max-width: 600px)").matches;
+let vista = "agenda";
+try { vista = localStorage.getItem("ab_vista_cal") === "mes" ? "mes" : "agenda"; } catch (e) {}
+const enAgenda = () => esMovil() && vista === "agenda" && filtro !== "eventos";
+$("bvista").onclick = () => {
+  vista = vista === "agenda" ? "mes" : "agenda";
+  try { localStorage.setItem("ab_vista_cal", vista); } catch (e) {}
+  render();
+};
+window.matchMedia("(max-width: 600px)").addEventListener("change", () => render());
+
+function renderAgenda() {
+  const box = $("agenda");
+  box.textContent = "";
+  const now = localNow(), hoy = now.slice(0, 10), manana = (() => { const d = new Date(hoy + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })();
+  const hasta = (() => { const d = new Date(hoy + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 60); return d.toISOString().slice(0, 10); })();
+  const porDia = new Map();
+  const mete = (dia, orden, nodo) => { if (dia < hoy || dia > hasta) return; if (!porDia.has(dia)) porDia.set(dia, []); porDia.get(dia).push([orden, nodo]); };
+  const fila = (cls, hora, titulo, sub, noTraducir) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "ag-i " + cls;
+    const h = document.createElement("span"); h.className = "hh"; h.textContent = hora || "";
+    const t = document.createElement("span"); t.className = "tt";
+    const st = document.createElement("strong"); st.textContent = titulo; if (noTraducir) st.setAttribute("translate", "no");
+    t.appendChild(st);
+    if (sub) { const sp = document.createElement("span"); sp.textContent = sub; t.appendChild(sp); }
+    b.append(h, t);
+    return b;
+  };
+  const marca = (b) => { box.querySelectorAll(".ag-i").forEach((x) => x.classList.toggle("sel", x === b)); };
+  if (filtro === "todos") {
+    ev.forEach((e) => {
+      const llena = e.type === "quedada" && e.capacity && (e.inscritos || 0) >= e.capacity;
+      const b = fila((e.type === "torneo" ? "ag-t" : "ag-q") + (llena || e.starts_at <= now ? " ag-x" : ""), e.starts_at.slice(11, 16), e.title, e.type === "torneo" ? "Torneo" : "Quedada", true);
+      b.onclick = () => { marca(b); show(e); irAFicha(); };
+      mete(e.starts_at.slice(0, 10), e.starts_at.slice(11, 16), b);
+    });
+  }
+  if (filtro === "todos" || filtro === "partida") {
+    const fm = filtro === "partida" ? $("fm").value : "";
+    partidas.filter((p) => !fm || p.activity === fm).forEach((p) => {
+      partidaDias(p).forEach((dia) => {
+        const av = p.availability.find((x) => x.date === dia);
+        const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from : "";
+        const sub = p.starts_at ? "Partida" : av ? "Partida · disponible " + av.from + "–" + av.to : "Partida";
+        const b = fila("ag-p" + (p.status === "completa" || partidaCerrada(p) ? " ag-x" : ""), hora, CORTO[p.activity] + " · " + p.organiza, sub, false);
+        b.onclick = () => { marca(b); showPartida(p); irAFicha(); };
+        mete(dia, hora || "99", b);
+      });
+    });
+  }
+  // Inicio y cierre de las rondas de la Gran Liga (enlace a la ronda).
+  rondasLiga().forEach((r) => {
+    const a1 = fila("ag-l", r.hora, "▶ Inicio R" + r.n + " · " + r.hora, "Gran Liga"); const l1 = document.createElement("a"); l1.className = a1.className; l1.href = enlaceRonda(r); l1.append(...a1.childNodes); mete(r.ini, r.hora, l1);
+    const a2 = fila("ag-l", "14:00", "■ Cierre R" + r.n + " · 14:00", "Gran Liga"); const l2 = document.createElement("a"); l2.className = a2.className; l2.href = enlaceRonda(r); l2.append(...a2.childNodes); mete(r.fin, "14:00", l2);
+  });
+  const dias = [...porDia.keys()].sort();
+  if (!dias.length) { const p = document.createElement("p"); p.className = "m"; p.textContent = "No hay nada previsto en los próximos dos meses."; box.appendChild(p); return; }
+  dias.forEach((dia) => {
+    const h = document.createElement("h3");
+    h.className = "ag-d" + (dia === hoy ? " hoy" : "");
+    h.textContent = dia === hoy ? "Hoy · " + fechaLarga(dia) : dia === manana ? "Mañana · " + fechaLarga(dia) : fechaLarga(dia);
+    box.appendChild(h);
+    porDia.get(dia).sort((a, b) => a[0].localeCompare(b[0])).forEach(([, n]) => box.appendChild(n));
+  });
+}
+
 function render() {
   const enLista = filtro === "eventos";
-  $("cal").hidden = $("navmes").hidden = enLista;
+  const ag = enAgenda();
+  document.body.dataset.vista = ag ? "agenda" : "mes";
+  $("bvista").textContent = vista === "agenda" ? "Ver mes" : "Ver agenda";
+  $("bvista").hidden = enLista;
+  $("agenda").hidden = !ag;
+  $("cal").hidden = enLista || ag;
+  $("navmes").hidden = enLista;
+  if (ag) {
+    document.querySelectorAll("#ley .solo-cal").forEach((x) => { x.hidden = false; });
+    $("lista").hidden = true;
+    renderAgenda();
+    return;
+  }
   // En el listado la leyenda se queda solo con quedadas y torneos.
   document.querySelectorAll("#ley .solo-cal").forEach((x) => { x.hidden = enLista; });
   $("lista").hidden = !enLista;
