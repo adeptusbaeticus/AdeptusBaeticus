@@ -12,6 +12,9 @@ body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui
 a{color:#D9B25A}
 .c{max-width:1120px;margin:0 auto;padding:0 32px}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+/* La cabecera se queda fija arriba al hacer scroll. */
+.nav{position:sticky;top:0;z-index:40;background:#15171A}
+html{scroll-padding-top:96px}
 .brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
 .lg{height:44px;width:auto;border-radius:6px;display:block}
 .menu{display:flex;gap:24px;flex-wrap:wrap}

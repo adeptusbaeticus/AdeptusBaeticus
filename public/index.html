@@ -12,6 +12,9 @@ body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui
 a{color:#D9B25A}a:hover{color:#F0CE82}
 .c{max-width:1120px;margin:0 auto;padding:0 32px}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+/* La cabecera se queda fija arriba al hacer scroll. */
+.nav{position:sticky;top:0;z-index:40;background:#15171A}
+html{scroll-padding-top:96px}
 .brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
 .bd{width:36px;height:36px;border-radius:8px;background:#D9B25A;color:#15171A;display:flex;align-items:center;justify-content:center;font:700 16px Cinzel,Georgia,serif}
 .menu{display:flex;gap:24px;flex-wrap:wrap}
@@ -59,11 +62,9 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .btn.alt{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
 .btn:hover{color:#fff;filter:brightness(1.1)}.btn.alt:hover{color:#ECE7DC}
 #quedada > .m{margin:0 0 48px}
-/* Carrusel del blog */
+/* Entradas del blog, una debajo de otra (la más nueva arriba) */
 .blog{margin-bottom:56px}
-.car-vp{overflow:hidden;border-radius:12px;transition:height .5s ease}
-.car-track{display:flex;align-items:flex-start;transition:transform .8s ease}
-.slide{flex:0 0 100%;min-width:0;box-sizing:border-box;margin:0;padding:32px 40px}
+.slide{box-sizing:border-box;margin:0 0 24px;padding:32px 40px}
 .sl-body{max-width:860px;min-width:0;margin:0 auto}
 .sl-body h3{font:700 30px/1.25 Cinzel,Georgia,serif;margin:8px 0 20px}
 .sl-body h3 a{color:#ECE7DC;text-decoration:none}.sl-body h3 a:hover{color:#F0CE82}
@@ -83,14 +84,6 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .bc ul,.bc ol{margin:0 0 10px;padding-left:22px}
 .bc blockquote{margin:0 0 10px;padding-left:12px;border-left:3px solid #6B6558}
 .sl-link{display:inline-block;margin-top:16px;font-weight:600}
-.car-ctl{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px}
-.cb{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:8px;min-width:44px;min-height:44px;font:600 18px Inter,sans-serif;cursor:pointer}
-#pausa{font-size:13px}
-.dots{display:flex;gap:4px}
-.dots button{width:28px;height:44px;background:none;border:0;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
-.dots button::after{content:"";width:10px;height:10px;border-radius:50%;background:#6B6558}
-.dots button[aria-current=true]::after{background:#D9B25A;width:12px;height:12px}
-@media (prefers-reduced-motion:reduce){.car-track,.car-vp{transition:none}}
 /* Noticia destacada: imagen a la izquierda y texto a la derecha (apilado en móvil). */
 .destacada{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:48px;border-color:#D9B25A}
 .destacada .ph{flex:1 1 320px;height:auto;min-height:220px;max-height:420px;margin:0}
@@ -132,15 +125,7 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
   </section>
   <section class="blog">
     <h2>Últimas entradas del blog</h2>
-    <div class="car" id="car" aria-roledescription="carrusel" aria-label="Últimas entradas del blog">
-      <div class="car-vp"><div class="car-track" id="posts"><span class="m">Cargando entradas...</span></div></div>
-      <div class="car-ctl" id="ctl" hidden>
-        <button type="button" class="cb" id="prev" aria-label="Entrada anterior">‹</button>
-        <div class="dots" id="dots"></div>
-        <button type="button" class="cb" id="pausa" aria-label="Pausar">❚❚</button>
-        <button type="button" class="cb" id="next" aria-label="Entrada siguiente">›</button>
-      </div>
-    </div>
+    <div id="posts"><span class="m">Cargando entradas...</span></div>
   </section>
   <footer class="ft">
     <span>Adeptus Baeticus</span>
@@ -409,15 +394,12 @@ function htmlSeguro(html, destino) {
 }
 
 // --- Carrusel: de la más nueva a la más antigua; gira despacio y vuelve a la primera ---
-function carrusel(posts) {
-  const track = $("posts"), dots = $("dots"), vp = track.parentNode;
+// Entradas del blog completas, una debajo de otra (la más nueva arriba).
+function entradas(posts) {
+  const track = $("posts");
   track.textContent = "";
-  const n = posts.length;
-  const slides = posts.map((p, i) => {
+  posts.forEach((p) => {
     const art = nuevo("article", "card slide");
-    art.setAttribute("role", "group");
-    art.setAttribute("aria-roledescription", "diapositiva");
-    art.setAttribute("aria-label", "Entrada " + (i + 1) + " de " + n);
     const url = p.url && p.url.startsWith("http") ? p.url : null;
     const body = nuevo("div", "sl-body");
     const meta = nuevo("div", "m");
@@ -446,58 +428,14 @@ function carrusel(posts) {
     if (url) { const v = enlace(url, "Ver en el blog"); v.className = "sl-link"; v.rel = "noopener"; body.appendChild(v); }
     art.appendChild(body);
     track.appendChild(art);
-    const d = nuevo("button");
-    d.type = "button";
-    d.setAttribute("aria-label", "Ir a la entrada " + (i + 1));
-    d.onclick = () => { ir(i); usuario(); };
-    dots.appendChild(d);
-    return art;
   });
-  let i = 0, pausaUsuario = false, encima = false, timer = null;
-  // El carrusel toma la altura de la entrada visible (también cuando terminan de cargar sus imágenes).
-  const ajusta = () => { vp.style.height = slides[i].offsetHeight + "px"; };
-  if (window.ResizeObserver) { const ro = new ResizeObserver(() => ajusta()); slides.forEach((s) => ro.observe(s)); }
-  window.addEventListener("resize", ajusta);
-  function ir(k) {
-    i = (k + n) % n;
-    track.style.transform = "translateX(" + (-100 * i) + "%)";
-    slides.forEach((s, j) => { s.inert = j !== i; s.setAttribute("aria-hidden", String(j !== i)); });
-    [...dots.children].forEach((d, j) => d.setAttribute("aria-current", String(j === i)));
-    ajusta();
-  }
-  ir(0);
-  if (n < 2) return;
-  $("ctl").hidden = false;
-  const quieto = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function programa() {
-    clearTimeout(timer);
-    if (!quieto && !pausaUsuario && !encima) timer = setTimeout(() => { ir(i + 1); programa(); }, 15000);
-  }
-  // Al usar los controles, el carrusel anuncia el cambio a los lectores de pantalla.
-  function usuario() { track.setAttribute("aria-live", "polite"); programa(); }
-  $("prev").onclick = () => { ir(i - 1); usuario(); };
-  $("next").onclick = () => { ir(i + 1); usuario(); };
-  const pb = $("pausa");
-  const pintaPausa = () => { pb.textContent = pausaUsuario || quieto ? "▶" : "❚❚"; pb.setAttribute("aria-label", pausaUsuario || quieto ? "Reanudar" : "Pausar"); };
-  pb.onclick = () => { pausaUsuario = !pausaUsuario; pintaPausa(); programa(); };
-  // Se detiene mientras se lee: ratón encima, foco dentro o al tocar.
-  const car = $("car");
-  car.addEventListener("mouseenter", () => { encima = true; programa(); });
-  car.addEventListener("mouseleave", () => { encima = false; programa(); });
-  car.addEventListener("focusin", () => { encima = true; programa(); });
-  car.addEventListener("focusout", (e) => { if (!car.contains(e.relatedTarget)) { encima = false; programa(); } });
-  car.addEventListener("touchstart", () => { pausaUsuario = true; pintaPausa(); programa(); }, { passive: true });
-  if (quieto) pausaUsuario = true;
-  pintaPausa();
-  track.setAttribute("aria-live", "off");
-  programa();
 }
 
 fetch("/api/blog")
   .then((r) => r.json())
   .then((posts) => {
     if (!posts.length) { $("posts").textContent = "No se han podido cargar las entradas."; return; }
-    carrusel(posts.slice(0, 6));
+    entradas(posts.slice(0, 6));
   })
   .catch(() => { $("posts").textContent = "No se han podido cargar las entradas."; });
 </script>
