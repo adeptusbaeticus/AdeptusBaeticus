@@ -341,6 +341,7 @@
     [/^Actualizado el (.+)$/, (m, f) => "Updated " + fechas(f)],
     [/^Editar la ficha de (.+)$/, "Edit $1's profile"],
     [/^Miembro (\d+)$/, "Member $1"],
+    [/^(.+) — ([123])\.º puesto · (Individual|Parejas|Equipo)$/, (m, n, p, mo) => n + " — " + ({ 1: "1st", 2: "2nd", 3: "3rd" })[p] + " place · " + ({ Individual: "Individual", Parejas: "Pairs", Equipo: "Team" })[mo]],
     [/^(\d+) trofeos?$/, (m, n) => n + (n === "1" ? " trophy" : " trophies")],
     [/^¿Quitar el trofeo «(.+)»\?$/, "Remove the trophy «$1»?"],
     [/^(.+) · ([123])\.º puesto · (Individual|Parejas|Equipo)(?: con (.+))?$/, (m, n, p, mo, c) => n + " · " + ({ 1: "1st", 2: "2nd", 3: "3rd" })[p] + " place · " + ({ Individual: "Individual", Parejas: "Pairs", Equipo: "Team" })[mo] + (c ? " with " + c : "")],
