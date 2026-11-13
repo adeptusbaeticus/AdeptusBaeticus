@@ -8,6 +8,7 @@
 <link rel="icon" href="/Final_General.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+[hidden]{display:none!important}
 body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif}
 a{color:#D9B25A}
 .c{max-width:1120px;margin:0 auto;padding:0 32px}
@@ -108,6 +109,7 @@ select.chip{appearance:auto;padding:8px 12px}
         <option value="bloodbowl">Blood Bowl</option>
       </select>
       <button class="btn" id="bp" type="button" hidden style="margin:0">Buscar partida</button>
+      <a class="btn" id="bpl" href="/auth/login" hidden style="margin:0;text-decoration:none">Entra con Discord para buscar partida</a>
       <button class="nv del" id="bdel" type="button" hidden aria-label="Borrar mis partidas" title="Borrar mis partidas">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
       </button>
@@ -860,6 +862,7 @@ $("bdel").onclick = openGestion;
 
 Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine().then(() => (mine ? loadPartidas() : null))]).then(([d]) => {
   if (mine) $("bp").hidden = $("bdel").hidden = $("chp").hidden = false;
+  else $("bpl").hidden = false; // sin sesión: invitación a entrar para buscar partida
   ev = d;
   const now = new Date().toISOString().slice(0, 16);
   const next = ev.find((e) => e.starts_at >= now);

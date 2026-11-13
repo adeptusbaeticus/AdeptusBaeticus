@@ -34,7 +34,7 @@
     "Todavía no ha usado ninguna lista.": "Has not used any list yet.",
     "Solo aparecen las listas que ya ha usado en alguna partida.": "Only lists already used in a game are shown.",
     "No se pudieron cargar las listas.": "Could not load the lists.", "usada en 1 partida": "used in 1 game", "Instagram": "Instagram", "Enlaces": "Links", "Calendario": "Calendar", "Galería": "Gallery", "Admin": "Admin", "Salir": "Log out",
-    "Mis inscripciones": "My sign-ups", "Entrar con Discord": "Log in with Discord",
+    "Mis inscripciones": "My sign-ups", "Entrar con Discord": "Log in with Discord", "Entra con Discord para buscar partida": "Log in with Discord to find a game",
     "Adeptus Baeticus": "Adeptus Baeticus",
     "Calendario · Adeptus Baeticus": "Calendar · Adeptus Baeticus",
     "Galería · Adeptus Baeticus": "Gallery · Adeptus Baeticus",
