@@ -598,7 +598,8 @@ async function faqSync(env) {
     // El texto puede venir en el mensaje, en un mensaje reenviado (message_snapshots) o en «componentes»
     // (mensajes hechos con bots o Discohook: bloques de texto dentro de contenedores y secciones).
     const textoComp = (cs) => (cs || []).flatMap((c) => (c.type === 10 && c.content ? [c.content] : textoComp(c.components).concat(c.accessory ? textoComp([c.accessory]) : []))).filter(Boolean);
-    const embedsDe = (es) => (es || []).filter((e) => e.title || e.description || (e.fields || []).length)
+    // Solo embeds hechos a propósito («rich»); las vistas previas de enlaces que añade Discord se descartan.
+    const embedsDe = (es) => (es || []).filter((e) => (!e.type || e.type === "rich") && (e.title || e.description || (e.fields || []).length))
       .map((e) => ({ titulo: e.title || "", texto: e.description || "", campos: (e.fields || []).map((f) => ({ nombre: f.name, valor: f.value })) }));
     const partes = (m) => {
       const fuentes = [m, ...(m.message_snapshots || []).map((x) => x.message || {})];
