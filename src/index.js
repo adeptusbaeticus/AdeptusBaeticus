@@ -982,6 +982,16 @@ export default {
       );
     }
 
+    // Fechas de las fases de la liga para marcar sus rondas en el calendario (sin consultar New Recruit).
+    if (path === "/api/liga/calendario" && request.method === "GET") {
+      const { results } = await env.DB.prepare(
+        `SELECT f.id, f.nombre, f.inicio, f.rondas,
+           EXISTS (SELECT 1 FROM liga_partidas p WHERE p.fase_id=f.id AND p.aplazada=1) AS aplazadas
+         FROM liga_fases f ORDER BY f.inicio`
+      ).all();
+      return Response.json(results, { headers: { "cache-control": "public, max-age=300" } });
+    }
+
     // Aplazar (o quitar el aplazamiento de) una partida sin resultado: un admin en cualquier momento,
     // o uno de sus dos jugadores (cuenta vinculada) antes del cierre de la ronda.
     const apm = path.match(/^\/api\/liga\/partida\/(\d+)\/aplazar$/);

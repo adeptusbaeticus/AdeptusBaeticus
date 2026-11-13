@@ -38,6 +38,16 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .d.hoy{box-shadow:inset 0 0 0 2px #D9B25A;background:#262A30}
 .d .dn{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:999px;background:#D9B25A;color:#15171A;font-weight:700}
 .d .hoy-tag{margin-left:6px;font-size:12px;font-weight:600;color:#D9B25A;text-transform:uppercase;letter-spacing:.06em}
+/* Gran Liga: cada día de una ronda lleva una barra (tonos alternos por ronda) que enlaza con la ronda;
+   el día de inicio y el de cierre llevan además su marca. */
+.d{position:relative}
+.d.lr-d{padding-bottom:30px}
+.lr{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:0 0 8px 8px;font:600 11px Inter,sans-serif;color:#fff;text-decoration:none;white-space:nowrap;overflow:hidden}
+.lr.r1{background:#6E56B8}.lr.r0{background:#463A7A}
+.lr:hover,.lr:focus{filter:brightness(1.2);outline:2px solid #C9B8F5;outline-offset:-2px}
+.lm{display:block;margin-top:6px;border:1px solid #9C84E0;color:#D9CCFA;background:rgba(110,86,184,.18);border-radius:6px;padding:2px 6px;font:700 11px Inter,sans-serif;text-decoration:none}
+.lm:hover,.lm:focus{background:rgba(110,86,184,.4);outline:none}
+.ley i.lg{background:linear-gradient(90deg,#6E56B8 50%,#463A7A 50%)}
 .e{display:block;width:100%;border:0;text-align:left;cursor:pointer;font:600 12px Inter,sans-serif;border-radius:6px;padding:3px 6px;margin-top:6px}
 /* Claro: abierto. Oscuro: completo o cerrado. */
 .q{background:#F0CE82;color:#15171A}.q.x{background:#8A6416;color:#fff}
@@ -124,6 +134,7 @@ select.chip{appearance:auto;padding:8px 12px}
     <div class="a"><div class="cal"><div class="g" id="g"></div></div>
       <div class="ley" aria-label="Leyenda">
         <span><i class="q"></i>Quedada</span><span><i class="t2"></i>Torneo</span><span><i class="pt"></i>Partida</span>
+        <span><i class="lg"></i>Ronda de la Gran Liga (pulsa para verla)</span>
         <span>Color claro: abierto · oscuro: completo o cerrado</span>
       </div>
     </div>
@@ -146,6 +157,46 @@ let mine = null;
 const hoy = new Date();
 let y = hoy.getFullYear(), m = hoy.getMonth();
 
+// Fases de la Gran Liga (para marcar sus rondas). Cada ronda va del domingo de inicio (22:00)
+// al domingo de cierre (14:00), dos semanas después; la siguiente a la última es la de aplazadas.
+let liga = [];
+const masDias = (dia, n) => { const d = new Date(dia + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+function rondasLiga() {
+  const out = [];
+  liga.forEach((f) => {
+    const total = f.rondas + (f.aplazadas ? 1 : 0);
+    for (let n = 1; n <= total; n++) {
+      const ini = masDias(f.inicio.slice(0, 10), 14 * (n - 1));
+      out.push({ f, n, ini, fin: masDias(ini, 14), hora: f.inicio.slice(11, 16) || "22:00", apl: n > f.rondas });
+    }
+  });
+  return out;
+}
+const enlaceRonda = (r) => "/gran-liga.html?fase=" + r.f.id + "#ronda-" + r.n;
+function marcasLiga(cell, key, rondas) {
+  rondas.filter((r) => r.fin === key).forEach((r) => {
+    const a = document.createElement("a");
+    a.className = "lm"; a.href = enlaceRonda(r);
+    a.textContent = "■ Cierre R" + r.n + " · 14:00";
+    cell.appendChild(a);
+  });
+  rondas.filter((r) => r.ini === key).forEach((r) => {
+    const a = document.createElement("a");
+    a.className = "lm"; a.href = enlaceRonda(r);
+    a.textContent = "▶ Inicio R" + r.n + " · " + r.hora;
+    cell.appendChild(a);
+  });
+  const r = rondas.find((x) => x.ini <= key && key < x.fin);
+  if (r) {
+    const a = document.createElement("a");
+    a.className = "lr r" + (r.n % 2); a.href = enlaceRonda(r);
+    a.textContent = r.apl ? "Liga · aplazadas" : "Liga · R" + r.n;
+    a.title = r.apl ? "Ronda de aplazadas de la Gran Liga" : "Ronda " + r.n + " de la Gran Liga";
+    cell.classList.add("lr-d");
+    cell.appendChild(a);
+  }
+}
+
 function render() {
   $("mes").textContent = MESES[m] + " " + y;
   const g = $("g");
@@ -159,6 +210,7 @@ function render() {
   for (let i = 0; i < off; i++) {
     const e = document.createElement("div"); e.className = "d n"; g.appendChild(e);
   }
+  const rondas = rondasLiga();
   for (let d = 1; d <= days; d++) {
     const cell = document.createElement("div");
     const key = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
@@ -201,6 +253,7 @@ function render() {
         cell.appendChild(b);
       });
     }
+    marcasLiga(cell, key, rondas);
     g.appendChild(cell);
   }
 }
@@ -858,6 +911,7 @@ $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
 
 $("bp").onclick = openPartidaForm;
+fetch("/api/liga/calendario").then((r) => (r.ok ? r.json() : [])).then((d) => { liga = d; render(); }).catch(() => {});
 $("bdel").onclick = openGestion;
 
 Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine().then(() => (mine ? loadPartidas() : null))]).then(([d]) => {

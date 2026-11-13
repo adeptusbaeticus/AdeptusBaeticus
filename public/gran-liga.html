@@ -436,6 +436,17 @@ function pinta() {
   pintaRondas();
 }
 
+// Enlace directo a una ronda (gran-liga.html?fase=ID#ronda-N, p. ej. desde el calendario):
+// se abre y se lleva a la vista solo en la primera carga.
+let irPendiente = /^#ronda-\d+$/.test(location.hash);
+function irARonda() {
+  if (!irPendiente) return;
+  const d = document.getElementById(location.hash.slice(1));
+  if (!d) return;
+  d.open = true;
+  d.scrollIntoView({ block: "start" });
+}
+
 function carga(fase) {
   fetch("/api/liga" + (fase ? "?fase=" + fase : "")).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
     if (!d.fase) { $("msg").textContent = "Todavía no hay ninguna fase de la liga."; return; }
@@ -446,15 +457,21 @@ function carga(fase) {
     d.fases.forEach((f) => { const o = el("option", "", f.nombre); o.value = f.id; o.selected = f.id === d.fase.id; sel.appendChild(o); });
     sel.hidden = d.fases.length < 2;
     pinta();
+    if (irPendiente) {
+      // Se abre la ronda pedida y se cierra la actual si es otra.
+      document.querySelectorAll("details.ronda[open]").forEach((x) => { if ("#" + x.id !== location.hash) x.open = false; });
+      irARonda();
+    }
     // ¿Quién soy en la liga? (sin caché pública; solo si hay sesión)
     fetch("/api/liga/yo?fase=" + d.fase.id).then((r) => r.json()).then((x) => {
-      if (x && x.jugador) { yo = x.jugador; const abiertas = [...document.querySelectorAll("details.ronda[open]")].map((e) => e.id); pinta(); abiertas.forEach((id) => { const e = $(id); if (e) e.open = true; }); }
+      if (x && x.jugador) { yo = x.jugador; const abiertas = [...document.querySelectorAll("details.ronda[open]")].map((e) => e.id); pinta(); abiertas.forEach((id) => { const e = $(id); if (e) e.open = true; }); irARonda(); }
+      irPendiente = false;
     }).catch(() => {});
   }).catch(() => { $("msg").textContent = "No se pudo cargar la liga."; });
 }
 $("fase").onchange = () => carga($("fase").value);
 // ¿Es admin? Se pide antes de pintar para mostrar los botones de aplazar.
-fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => { esAdmin = !!(me && me.role === "admin"); carga(); });
+fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => { esAdmin = !!(me && me.role === "admin"); carga(new URLSearchParams(location.search).get("fase")); });
 </script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>
