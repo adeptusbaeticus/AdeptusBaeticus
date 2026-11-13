@@ -2219,14 +2219,14 @@ export default {
       }
       // Trofeos (palmarés): por socio, con su puesto, modalidad y compañeros.
       const tr = (await env.DB.prepare(
-        `SELECT t.id, t.nombre, t.puesto, t.modalidad, t.created_at, m.discord_id
-         FROM trofeos t JOIN trofeo_miembros m ON m.trofeo_id=t.id ORDER BY t.puesto, t.id DESC`
+        `SELECT t.id, t.nombre, t.puesto, t.modalidad, t.fecha, t.created_at, m.discord_id
+         FROM trofeos t JOIN trofeo_miembros m ON m.trofeo_id=t.id ORDER BY t.fecha DESC, t.puesto, t.id DESC`
       ).all()).results;
       const nombreDe = new Map(results.map((u) => [u.discord_id, u.name]));
       const ganadores = new Map();
       for (const x of tr) { if (!ganadores.has(x.id)) ganadores.set(x.id, []); ganadores.get(x.id).push(x.discord_id); }
       const trofeosDe = (id) => tr.filter((x) => x.discord_id === id).map((x) => ({
-        id: x.id, nombre: x.nombre, puesto: x.puesto, modalidad: x.modalidad,
+        id: x.id, nombre: x.nombre, puesto: x.puesto, modalidad: x.modalidad, fecha: x.fecha,
         con: ganadores.get(x.id).filter((o) => o !== id).map((o) => nombreDe.get(o)).filter(Boolean),
       }));
       const miembros = results.map((u) => {
@@ -2238,7 +2238,7 @@ export default {
         m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
         return m;
       });
-      const lista = [...ganadores.keys()].map((id) => { const x = tr.find((t) => t.id === id); return { id, nombre: x.nombre, puesto: x.puesto, modalidad: x.modalidad, miembros: ganadores.get(id).map((o) => nombreDe.get(o)).filter(Boolean) }; });
+      const lista = [...ganadores.keys()].map((id) => { const x = tr.find((t) => t.id === id); return { id, nombre: x.nombre, puesto: x.puesto, modalidad: x.modalidad, fecha: x.fecha, ids: ganadores.get(id), miembros: ganadores.get(id).map((o) => nombreDe.get(o)).filter(Boolean) }; });
       return Response.json({ sesion: !!s, yo: s ? s.id : null, admin: !!s && s.role === "admin", facciones: FACCIONES, liga_nr: NR_ELO.liga,
         trofeos: s && s.role === "admin" ? lista : undefined, miembros }, { headers: { ...noStore, vary: "cookie" } });
     }
@@ -2331,17 +2331,21 @@ export default {
       }
 
       // Trofeos (palmarés): asignar uno (nombre, puesto 1-3, modalidad y ganadores) o quitarlo.
-      if (path === "/api/admin/trofeos" && request.method === "POST") {
+      // Crear (POST /api/admin/trofeos) o editar (PUT /api/admin/trofeos/:id) un trofeo.
+      const tre = path.match(/^\/api\/admin\/trofeos(?:\/(\d+))?$/);
+      if (tre && ((!tre[1] && request.method === "POST") || (tre[1] && request.method === "PUT"))) {
         if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
         let b = {};
         try { b = await request.json(); } catch (e) {}
         const nombre = String(b.nombre || "").trim().slice(0, 120);
-        const puesto = Number(b.puesto), modalidad = String(b.modalidad || "");
+        const puesto = Number(b.puesto), modalidad = String(b.modalidad || ""), fecha = String(b.fecha || "");
         const ids = Array.isArray(b.miembros) ? [...new Set(b.miembros.map(String))] : [];
         const err = (t) => Response.json({ error: t }, { status: 400, headers: noStore });
         if (nombre.length < 2) return err("Escribe el nombre del trofeo");
         if (![1, 2, 3].includes(puesto)) return err("Elige el puesto (1.º, 2.º o 3.º)");
         if (!["individual", "parejas", "equipo"].includes(modalidad)) return err("Elige si es individual, de parejas o de equipo");
+        const fm = /^(\d{4})-(\d{2})$/.exec(fecha);
+        if (!fm || +fm[1] < 2000 || +fm[1] > 2100 || +fm[2] < 1 || +fm[2] > 12) return err("Elige el mes y el año del trofeo");
         const cuantos = modalidad === "individual" ? 1 : modalidad === "parejas" ? 2 : null;
         if (cuantos ? ids.length !== cuantos : ids.length < 2 || ids.length > 20) {
           return err(modalidad === "individual" ? "Elige un miembro" : modalidad === "parejas" ? "Elige los dos miembros de la pareja" : "Elige entre 2 y 20 miembros del equipo, sin repetir");
@@ -2349,9 +2353,20 @@ export default {
         if (Array.isArray(b.miembros) && b.miembros.length !== ids.length) return err("No repitas miembros");
         const existen = (await env.DB.prepare("SELECT COUNT(*) n FROM users WHERE discord_id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(ids)).first()).n;
         if (existen !== ids.length) return err("Algún miembro no existe");
-        const r = await env.DB.prepare("INSERT INTO trofeos (nombre, puesto, modalidad) VALUES (?1, ?2, ?3)").bind(nombre, puesto, modalidad).run();
-        const tid = r.meta.last_row_id;
-        await env.DB.batch(ids.map((id) => env.DB.prepare("INSERT INTO trofeo_miembros (trofeo_id, discord_id) VALUES (?1, ?2)").bind(tid, id)));
+        let tid;
+        if (tre[1]) {
+          tid = Number(tre[1]);
+          const r = await env.DB.prepare("UPDATE trofeos SET nombre=?2, puesto=?3, modalidad=?4, fecha=?5 WHERE id=?1").bind(tid, nombre, puesto, modalidad, fecha).run();
+          if (!r.meta.changes) return Response.json({ error: "Ese trofeo no existe" }, { status: 404, headers: noStore });
+          await env.DB.batch([
+            env.DB.prepare("DELETE FROM trofeo_miembros WHERE trofeo_id=?1").bind(tid),
+            ...ids.map((id) => env.DB.prepare("INSERT INTO trofeo_miembros (trofeo_id, discord_id) VALUES (?1, ?2)").bind(tid, id)),
+          ]);
+        } else {
+          const r = await env.DB.prepare("INSERT INTO trofeos (nombre, puesto, modalidad, fecha) VALUES (?1, ?2, ?3, ?4)").bind(nombre, puesto, modalidad, fecha).run();
+          tid = r.meta.last_row_id;
+          await env.DB.batch(ids.map((id) => env.DB.prepare("INSERT INTO trofeo_miembros (trofeo_id, discord_id) VALUES (?1, ?2)").bind(tid, id)));
+        }
         return Response.json({ ok: true, id: tid }, { headers: noStore });
       }
       const trm = path.match(/^\/api\/admin\/trofeos\/(\d+)$/);

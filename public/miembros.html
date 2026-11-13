@@ -62,7 +62,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .trl small{display:block;color:#A8A293;font-size:13px}
 .adm-t form{display:grid;gap:12px}
 .adm-t label{display:block;font-weight:600;font-size:14px;margin-bottom:4px}
-.adm-t input[type=text],.adm-t input[type=number],.adm-t select{width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit}
+.adm-t input[type=text],.adm-t input[type=number],.adm-t input[type=month],.adm-t select{width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit}
 .adm-t .rads{display:flex;gap:8px;flex-wrap:wrap}
 .adm-t .rads label{display:flex;align-items:center;gap:6px;font-weight:500;background:#15171A;border:1px solid #6B6558;border-radius:999px;padding:6px 12px;margin:0;cursor:pointer;min-height:36px;box-sizing:border-box}
 .adm-t .rads input{accent-color:#D9B25A}
@@ -231,6 +231,8 @@ function copa(puesto, modalidad) {
   return sv;
 }
 
+// «noviembre de 2026» (i18n lo traduce a «November 2026»).
+const mesAnio = (f) => (f ? new Date(f + "-15T12:00:00Z").toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }) : "");
 const textoTrofeo = (t) => PUESTO[t.puesto] + " · " + MODALIDAD[t.modalidad] + (t.con.length ? " con " + t.con.join(", ") : "");
 // Trofeos idénticos (mismo puesto y tipo) apilados en cascada hacia atrás, con «×N» si hay varios.
 const ORDEN_MOD = { individual: 0, parejas: 1, equipo: 2 };
@@ -366,10 +368,13 @@ function ficha(m) {
   if (m.trofeos.length) {
     fi.appendChild(el("h3", "", "Trofeos"));
     const ul = el("ul", "trl");
-    [...m.trofeos].sort((a, b) => a.puesto - b.puesto).forEach((t) => {
+    // En la ficha: del más reciente al más antiguo (y, el mismo mes, oro antes que plata y bronce).
+    [...m.trofeos].sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "") || a.puesto - b.puesto).forEach((t) => {
       const li = el("li"); li.appendChild(copa(t.puesto, t.modalidad));
       const tx = el("span"); const n = el("strong", "", t.nombre); n.setAttribute("translate", "no");
-      tx.append(n, el("small", "", textoTrofeo(t))); li.appendChild(tx); ul.appendChild(li);
+      tx.append(n, el("small", "", textoTrofeo(t)));
+      if (t.fecha) tx.appendChild(el("small", "", mesAnio(t.fecha)));
+      li.appendChild(tx); ul.appendChild(li);
     });
     fi.appendChild(ul);
   }
@@ -439,27 +444,31 @@ function editar(m) {
 }
 
 // Admin: asignar trofeos (nombre, puesto, modalidad y ganadores) y quitar los existentes.
-function asignarTrofeos() {
+function asignarTrofeos(editando = null) {
   const fi = $("fi");
   fi.textContent = "";
   fi.classList.add("adm-t");
-  const h = el("h2", "", "Asignar trofeos"); h.id = "fi-n"; h.style.cssText = "font:700 22px Cinzel,Georgia,serif;margin:0 0 12px";
+  const h = el("h2", "", editando ? "Editar trofeo" : "Asignar trofeos"); h.id = "fi-n"; h.style.cssText = "font:700 22px Cinzel,Georgia,serif;margin:0 0 12px";
   fi.appendChild(h);
   const f = el("form");
   const campo = (et, nodo) => { const w = el("div"); const l = el("label", "", et); if (nodo.id) l.htmlFor = nodo.id; w.append(l, nodo); f.appendChild(w); return w; };
-  const nombre = el("input"); nombre.type = "text"; nombre.id = "t-nombre"; nombre.maxLength = 120; nombre.required = true; nombre.placeholder = "Por ejemplo: Torneo de Navidad 2026";
+  const nombre = el("input"); nombre.type = "text"; nombre.id = "t-nombre"; nombre.maxLength = 120; nombre.required = true; nombre.placeholder = "Por ejemplo: Torneo de Navidad 2026"; if (editando) nombre.value = editando.nombre;
   campo("Nombre del trofeo", nombre);
+  const hoy = new Date();
+  const fecha = el("input"); fecha.type = "month"; fecha.id = "t-fecha"; fecha.required = true; fecha.min = "2000-01"; fecha.placeholder = "AAAA-MM"; fecha.pattern = "\\d{4}-\\d{2}"; fecha.style.colorScheme = "dark";
+  fecha.value = editando ? editando.fecha : hoy.getFullYear() + "-" + String(hoy.getMonth() + 1).padStart(2, "0");
+  campo("Mes y año", fecha);
   const radios = (nombreGrupo, ops, def) => {
     const w = el("div", "rads"); w.setAttribute("role", "radiogroup");
     ops.forEach(([v, t, icono]) => { const l = el("label"); const i = el("input"); i.type = "radio"; i.name = nombreGrupo; i.value = v; i.checked = v === def; if (icono) l.append(i, icono, t); else l.append(i, t); w.appendChild(l); });
     return w;
   };
-  const wp = radios("t-puesto", [["1", "1.º (oro)", copa(1, "individual")], ["2", "2.º (plata)", copa(2, "individual")], ["3", "3.º (bronce)", copa(3, "individual")]], "1");
+  const wp = radios("t-puesto", [["1", "1.º (oro)", copa(1, "individual")], ["2", "2.º (plata)", copa(2, "individual")], ["3", "3.º (bronce)", copa(3, "individual")]], editando ? String(editando.puesto) : "1");
   wp.querySelectorAll(".copa").forEach((c) => { c.style.width = "16px"; c.style.height = "18px"; });
   campo("Puesto", wp);
-  const wm = radios("t-mod", [["individual", "Individual"], ["parejas", "Parejas"], ["equipo", "Equipo"]], "individual");
+  const wm = radios("t-mod", [["individual", "Individual"], ["parejas", "Parejas"], ["equipo", "Equipo"]], editando ? editando.modalidad : "individual");
   campo("Tipo de trofeo", wm);
-  const num = el("input"); num.type = "number"; num.id = "t-num"; num.min = 2; num.max = 20; num.value = 3;
+  const num = el("input"); num.type = "number"; num.id = "t-num"; num.min = 2; num.max = 20; num.value = editando && editando.modalidad === "equipo" ? editando.ids.length : 3;
   const wn = campo("Número de miembros del equipo", num);
   const gan = el("div", "gan");
   const wg = campo("Ganadores", gan);
@@ -469,7 +478,7 @@ function asignarTrofeos() {
     const mod = f.querySelector("input[name=t-mod]:checked").value;
     wn.hidden = mod !== "equipo";
     const n = mod === "individual" ? 1 : mod === "parejas" ? 2 : Math.max(2, Math.min(20, Number(num.value) || 2));
-    const antes = [...gan.querySelectorAll("select")].map((x) => x.value);
+    const antes = gan.childNodes.length ? [...gan.querySelectorAll("select")].map((x) => x.value) : editando ? editando.ids : [];
     gan.textContent = "";
     for (let i = 0; i < n; i++) {
       const sel = el("select"); sel.setAttribute("aria-label", "Miembro " + (i + 1));
@@ -484,8 +493,9 @@ function asignarTrofeos() {
   pintaSelects();
   const err = el("div", "err"); err.setAttribute("role", "alert");
   const acc = el("div", "acc");
-  const ok = el("button", "btn", "Guardar trofeo"); ok.type = "submit";
-  const cerrar = el("button", "btn alt", "Cerrar"); cerrar.type = "button"; cerrar.onclick = () => $("dlg").close();
+  const ok = el("button", "btn", editando ? "Guardar cambios" : "Guardar trofeo"); ok.type = "submit";
+  const cerrar = el("button", "btn alt", editando ? "Cancelar edición" : "Cerrar"); cerrar.type = "button";
+  cerrar.onclick = () => (editando ? asignarTrofeos() : $("dlg").close());
   acc.append(cerrar, ok);
   f.append(err, acc);
   f.onsubmit = async (ev) => {
@@ -494,21 +504,22 @@ function asignarTrofeos() {
     const ids = [...gan.querySelectorAll("select")].map((x) => x.value);
     if (ids.some((x) => !x)) { err.textContent = "Elige todos los ganadores."; return; }
     if (new Set(ids).size !== ids.length) { err.textContent = "No repitas miembros."; return; }
+    if (!fecha.value) { err.textContent = "Elige el mes y el año del trofeo"; return; }
     ok.disabled = true;
     try {
-      const r = await fetch("/api/admin/trofeos", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ nombre: nombre.value, puesto: Number(f.querySelector("input[name=t-puesto]:checked").value), modalidad: f.querySelector("input[name=t-mod]:checked").value, miembros: ids }) });
+      const r = await fetch("/api/admin/trofeos" + (editando ? "/" + editando.id : ""), { method: editando ? "PUT" : "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ nombre: nombre.value, fecha: fecha.value, puesto: Number(f.querySelector("input[name=t-puesto]:checked").value), modalidad: f.querySelector("input[name=t-mod]:checked").value, miembros: ids }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { err.textContent = d.error || "No se pudo guardar."; ok.disabled = false; return; }
       await carga();
       asignarTrofeos();
-      $("t-ok").textContent = "Trofeo guardado.";
+      $("t-ok").textContent = editando ? "Cambios guardados." : "Trofeo guardado.";
     } catch (x) { err.textContent = "No se pudo guardar."; ok.disabled = false; }
   };
   fi.appendChild(f);
   const okm = el("p", "m"); okm.id = "t-ok"; okm.setAttribute("role", "status"); fi.appendChild(okm);
-  // Trofeos ya asignados (para quitar uno si hubo un error).
-  if ((D.trofeos || []).length) {
+  // Trofeos ya asignados (más recientes primero): editar o quitar.
+  if (!editando && (D.trofeos || []).length) {
     fi.appendChild(el("h3", "", "Trofeos asignados"));
     const ul = el("ul", "trl exist");
     D.trofeos.forEach((t) => {
@@ -516,7 +527,12 @@ function asignarTrofeos() {
       const iz = el("span"); iz.style.cssText = "display:flex;gap:10px;align-items:center";
       const tx = el("span"); const n = el("strong", "", t.nombre); n.setAttribute("translate", "no");
       const sub = el("small", "", PUESTO[t.puesto] + " · " + MODALIDAD[t.modalidad] + " · "); const qn = el("span", "", t.miembros.join(", ")); qn.setAttribute("translate", "no"); sub.appendChild(qn);
-      tx.append(n, sub); iz.append(copa(t.puesto, t.modalidad), tx);
+      tx.append(n, sub);
+      if (t.fecha) tx.appendChild(el("small", "", mesAnio(t.fecha)));
+      iz.append(copa(t.puesto, t.modalidad), tx);
+      const bts = el("span"); bts.style.cssText = "display:flex;gap:6px;flex:none";
+      const ed = el("button", "", "Editar"); ed.type = "button"; ed.style.color = "#ECE7DC";
+      ed.onclick = () => asignarTrofeos(t);
       const q = el("button", "", "Quitar"); q.type = "button";
       q.onclick = async () => {
         if (!confirm("¿Quitar el trofeo «" + t.nombre + "»?")) return;
@@ -524,14 +540,15 @@ function asignarTrofeos() {
         const r = await fetch("/api/admin/trofeos/" + t.id, { method: "DELETE" });
         if (r.ok) { await carga(); asignarTrofeos(); } else q.disabled = false;
       };
-      li.append(iz, q); ul.appendChild(li);
+      bts.append(ed, q);
+      li.append(iz, bts); ul.appendChild(li);
     });
     fi.appendChild(ul);
   }
   if (!$("dlg").open) $("dlg").showModal();
   nombre.focus();
 }
-$("btro").onclick = asignarTrofeos;
+$("btro").onclick = () => asignarTrofeos();
 $("dlg").addEventListener("close", () => $("fi").classList.remove("adm-t"));
 
 async function carga() {
