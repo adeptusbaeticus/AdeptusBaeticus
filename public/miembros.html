@@ -44,8 +44,8 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .sin{font-size:13px;color:#7D776B}
 .elo{display:inline-flex;align-items:center;gap:6px;background:#15171A;border:1px solid #2C3036;border-radius:999px;padding:2px 10px;font:600 12px Inter,sans-serif;color:#ECE7DC}
 .elo b{color:#F0CE82}
-.rk{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch}
-.rk div{background:#15171A;border:1px solid #2C3036;border-radius:10px;padding:8px 14px;min-width:84px;text-align:center}
+.rk{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px}
+.rk div{background:#15171A;border:1px solid #2C3036;border-radius:10px;padding:8px 6px;text-align:center}
 .rk b{display:block;font:700 22px Inter,sans-serif;color:#F0CE82}
 .rk span{font-size:12px;color:#A8A293}
 dialog{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:16px;padding:0;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
@@ -162,7 +162,12 @@ function pintaGrid() {
     rol.appendChild(el("span", "rol", ROL[m.role] || m.role));
     if (m.id === D.yo) rol.appendChild(el("span", "rol tu", "Tú"));
     b.append(avatar(m), nm, rol);
-    if (m.elo) { const e = el("span", "elo"); e.append(el("b", "", "#" + m.elo.pos), "ELO " + m.elo.elo); b.appendChild(e); }
+    if (m.liga || m.elo) {
+      const fila = el("span", "fc");
+      if (m.liga) { const e = el("span", "elo"); e.append(el("b", "", "#" + m.liga.pos), "Liga"); fila.appendChild(e); }
+      if (m.elo) { const e = el("span", "elo"); e.append(el("b", "", "#" + m.elo.pos), "ELO " + m.elo.elo); fila.appendChild(e); }
+      b.appendChild(fila);
+    }
     b.appendChild(m.facciones.length ? chips(m.facciones, 3) : el("span", "sin", "Sin facciones"));
     b.onclick = () => ficha(m);
     g.appendChild(b);
@@ -198,6 +203,28 @@ function ficha(m) {
   tx.append(h, el("span", "rol", ROL[m.role] || m.role));
   cab.append(avatar(m, true), tx);
   fi.append(cab, el("h3", "", "Facciones"), m.facciones.length ? chips(m.facciones) : el("p", "sin", "Todavía no ha indicado sus facciones."));
+  // Estadísticas en la Gran Liga (fase actual).
+  if (m.liga) {
+    const L = m.liga;
+    const h = el("h3"); h.append("Gran Liga · ", el("span", "", L.fase));
+    fi.appendChild(h);
+    const rk = el("div", "rk");
+    const dato = (v, et) => { const d = el("div"); d.append(el("b", "", v), el("span", "", et)); rk.appendChild(d); };
+    dato("#" + L.pos, "de " + L.total);
+    dato(String(L.pj), "Jugadas");
+    dato(L.v + "-" + L.d + (L.e ? "-" + L.e : ""), L.e ? "V-D-E" : "V-D");
+    dato(String(L.pv), "PV a favor");
+    dato((L.pv - L.contra > 0 ? "+" : "") + (L.pv - L.contra), "Diferencia");
+    fi.appendChild(rk);
+    if (L.facciones.length) {
+      const w = el("div", "fc"); w.style.cssText = "justify-content:flex-start;margin-top:8px"; w.setAttribute("translate", "no");
+      L.facciones.forEach((x) => w.appendChild(el("span", "", x.f + (x.n > 1 ? " ×" + x.n : ""))));
+      fi.append(el("p", "m", "Facciones jugadas en la liga:"), w);
+      fi.lastChild.previousSibling.style.margin = "10px 0 4px";
+    }
+    const a = el("a", "m", "Ver la Gran Liga"); a.href = "/gran-liga.html"; a.style.cssText = "display:inline-block;margin-top:8px";
+    fi.appendChild(a);
+  }
   // Ranking ELO de la Gran Liga (New Recruit).
   fi.appendChild(el("h3", "", "Ranking ELO de la Gran Liga"));
   if (m.elo) {

@@ -573,6 +573,33 @@ function cuentaLimpia(tipo, v) {
   return [null, null];
 }
 
+// --- Avisos de mantenimiento en Discord (#inner-circle-general) ---
+// El bot escribe solo cuando algo empieza a fallar y cuando vuelve a funcionar (no en cada intento).
+const CANAL_AVISOS = "inner-circle-general";
+const normalCanal = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+async function avisoEstado(env, servicio, nombre, error) {
+  try {
+    if (!env.DISCORD_BOT_TOKEN) return;
+    const clave = "aviso:" + servicio;
+    const prev = await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(clave).first();
+    const antes = prev ? prev.datos : "ok", ahora = error ? "error" : "ok";
+    if (antes === ahora) return;
+    await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now')")
+      .bind(clave, ahora).run();
+    const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
+    if (!rc.ok) return;
+    const c = (await rc.json()).find((x) => (x.type === 0 || x.type === 5) && normalCanal(x.name).includes(CANAL_AVISOS));
+    if (!c) return;
+    const texto = error
+      ? "⚠️ **Web del club: falla " + nombre + ".**\n" + String(error).slice(0, 300) + "\nLa web sigue mostrando la última copia buena; avisaré cuando vuelva a funcionar."
+      : "✅ **Web del club: " + nombre + " vuelve a funcionar.**";
+    await bot(env, `/channels/${c.id}/messages`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: texto, allowed_mentions: { parse: [] } }),
+    });
+  } catch (e) {} // un aviso que falla no debe romper nada
+}
+
 // --- FAQ: copia del canal #preguntas-frecuentes de Discord ---
 // Se guarda en nr_cache (clave 'discord:faq'). Discord no avisa a la web de las ediciones, así que al visitar
 // la FAQ, si la copia tiene más de FAQ_MINUTOS, se vuelve a leer el canal (normalmente una sola petición:
@@ -612,7 +639,9 @@ async function faqTraduce(env, mensajes) {
     "The input uses Discord markdown. Keep EXACTLY the same markdown and line breaks (**bold**, *italic*, __underline__, lists, headings, " +
     "links [text](url) — translate the link text, never the URL). Keep URLs, mentions such as <@123>, <@&123>, <#123> and emojis such as <:name:123> unchanged. " +
     "Do not translate proper nouns or game names (Adeptus Baeticus, Inner Circle, Mournival, Warhammer 40,000, Age of Sigmar, Necromunda, Blood Bowl, " +
-    "2d6 Store, WhatsApp, Discord, Instagram). Output ONLY the translated text, with no notes or quotes.";
+    "2d6 Store, WhatsApp, Discord, Instagram). Club glossary: «quedada» = «meetup» (never «meeting»), «partida» = «game», «torneo» = «tournament», " +
+    "«socio»/«miembro» = «member», «la administración» = «the admins», «ejército» = «army», «lista» = «army list». " +
+    "Output ONLY the translated text, with no notes or quotes.";
   await Promise.all(faltan.map(async (t) => {
     try {
       const r = await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
@@ -666,8 +695,7 @@ async function faqSync(env) {
       // Sin id guardado, o el canal cambió: se busca por nombre.
       // El nombre puede llevar letras decorativas de Unicode (p. ej. «𝐏𝐫𝐞𝐠𝐮𝐧𝐭𝐚𝐬-𝐟𝐫𝐞𝐜𝐮𝐞𝐧𝐭𝐞𝐬») o emojis:
       // se pasa a letras normales, sin tildes ni símbolos, antes de comparar.
-      const normal = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-      const c = (await pideCanales()).find((x) => (x.type === 0 || x.type === 5) && normal(x.name).includes(CANAL_FAQ));
+      const c = (await pideCanales()).find((x) => (x.type === 0 || x.type === 5) && normalCanal(x.name).includes(CANAL_FAQ));
       if (!c) throw new Error("No encuentro el canal #" + CANAL_FAQ);
       canalId = c.id;
       leido = await lee(canalId);
@@ -714,9 +742,12 @@ async function faqSync(env) {
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=?3, error=NULL WHERE clave=?1").bind(FAQ_CLAVE, datos, ahora).run();
     // Traducción al inglés de lo nuevo o editado (no bloquea la copia en español si falla).
     const tr = await faqTraduce(env, mensajes).catch((e) => ({ error: String(e.message || e) }));
+    await avisoEstado(env, "faq", "la copia de la FAQ desde Discord", null);
+    await avisoEstado(env, "faq-en", "la traducción al inglés de la FAQ", tr && tr.error);
     return { ok: true, mensajes: mensajes.length, traduccion: tr };
   } catch (e) {
     await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(FAQ_CLAVE, String(e.message || e).slice(0, 300)).run();
+    await avisoEstado(env, "faq", "la copia de la FAQ desde Discord", String(e.message || e));
     return { ok: false, error: String(e.message || e) };
   }
 }
@@ -889,9 +920,11 @@ async function eloSync(env) {
     }).filter((x) => x.login && x.elo).sort((a, b) => b.elo - a.elo);
     lista.forEach((x, i) => { x.pos = i + 1; });
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(ELO_CLAVE, JSON.stringify(lista)).run();
+    await avisoEstado(env, "elo", "el ranking ELO de New Recruit", null);
     return { ok: true, jugadores: lista.length };
   } catch (e) {
     await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(ELO_CLAVE, String(e.message || e).slice(0, 300)).run();
+    await avisoEstado(env, "elo", "el ranking ELO de New Recruit", String(e.message || e));
     return { ok: false, error: String(e.message || e) };
   }
 }
@@ -932,9 +965,11 @@ async function nrSync(env, tipo, idTorneo) {
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(clave, guardar).run();
     // Con los resultados nuevos, también el ranking ELO de la liga.
     const elo = tipo === "reports" ? await eloSync(env).catch((e) => ({ ok: false, error: String(e.message || e) })) : null;
+    await avisoEstado(env, "nr-" + tipo, tipo === "reports" ? "la sincronización de resultados con New Recruit" : "la sincronización del torneo con New Recruit", null);
     return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json), liga, elo };
   } catch (e) {
     await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(clave, String(e.message || e).slice(0, 500)).run();
+    await avisoEstado(env, "nr-" + tipo, tipo === "reports" ? "la sincronización de resultados con New Recruit" : "la sincronización del torneo con New Recruit", String(e.message || e));
     return { ok: false, estado, error: String(e.message || e).slice(0, 300) };
   }
 }
@@ -1844,11 +1879,36 @@ export default {
       const porLogin = new Map(elo.map((x) => [x.login.trim().toLowerCase(), x]));
       const nrLiga = new Map((await env.DB.prepare("SELECT discord_id, nr_nombre FROM liga_jugadores WHERE discord_id IS NOT NULL AND nr_nombre IS NOT NULL").all()).results.map((j) => [j.discord_id, j.nr_nombre]));
       const eloDe = (u) => porLogin.get(String(u.nr_username || "").trim().toLowerCase()) || porLogin.get(String(nrLiga.get(u.discord_id) || "").trim().toLowerCase()) || null;
+      // Gran Liga (fase más reciente): clasificación como en la página de la liga (V → PV → DIF) y datos de cada jugador vinculado.
+      const ligaDe = new Map();
+      const fase = await env.DB.prepare("SELECT id, nombre FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+      if (fase) {
+        const js = (await env.DB.prepare("SELECT id, discord, discord_id FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
+        const t = new Map(js.map((j) => [j.id, { j, pj: 0, v: 0, d: 0, e: 0, pv: 0, contra: 0, fac: new Map() }]));
+        const ps = (await env.DB.prepare("SELECT jugador_a, jugador_b, pv_a, pv_b, faccion_a, faccion_b FROM liga_partidas WHERE fase_id=?1 AND pv_a IS NOT NULL AND pv_b IS NOT NULL").bind(fase.id).all()).results;
+        for (const p of ps) {
+          for (const [id, mio, suyo, fac] of [[p.jugador_a, p.pv_a, p.pv_b, p.faccion_a], [p.jugador_b, p.pv_b, p.pv_a, p.faccion_b]]) {
+            const x = t.get(id);
+            if (!x) continue;
+            x.pj++; x.pv += mio; x.contra += suyo;
+            if (mio > suyo) x.v++; else if (mio < suyo) x.d++; else x.e++;
+            if (fac) x.fac.set(fac, (x.fac.get(fac) || 0) + 1);
+          }
+        }
+        const orden = [...t.values()].sort((a, b) => b.v - a.v || b.pv - a.pv || (b.pv - b.contra) - (a.pv - a.contra) || a.j.discord.localeCompare(b.j.discord));
+        orden.forEach((x, i) => {
+          if (!x.j.discord_id) return;
+          ligaDe.set(x.j.discord_id, {
+            fase: fase.nombre, pos: i + 1, total: orden.length, pj: x.pj, v: x.v, d: x.d, e: x.e, pv: x.pv, contra: x.contra,
+            facciones: [...x.fac.entries()].sort((a, b) => b[1] - a[1]).map(([f, n]) => ({ f, n })),
+          });
+        });
+      }
       const miembros = results.map((u) => {
         let fac = [];
         try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
         const x = eloDe(u);
-        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null };
+        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null, liga: ligaDe.get(u.discord_id) || null };
         if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username });
         m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
         return m;
