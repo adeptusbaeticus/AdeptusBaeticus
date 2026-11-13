@@ -24,6 +24,14 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.
 
+## Avisos
+
+- **Notificaciones en el móvil (Web Push):** cada socio las activa por dispositivo desde su menú y elige
+  tipos (`eventos`, `partidas`, `liga`, `galeria`); tabla `push_subs` (migración 0018), clave privada en el
+  secreto `VAPID_PRIVATE` (la pública está en `src/index.js`). Al añadir un aviso nuevo, usar `notifica()`.
+- **Discord:** recordatorios de la liga por mensaje privado (temporizador cada hora) y avisos de
+  mantenimiento en #inner-circle-general (solo al fallar y al recuperarse).
+
 ## Gran Liga Adeptus
 
 - Edición = Fase I (ida) + Fase II (vuelta, cruces sorteados de nuevo); campeón de cada fase y global.

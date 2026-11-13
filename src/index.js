@@ -455,6 +455,8 @@ async function runCommand(env, it, uid, name, role) {
     // Por si el número cambió mientras se subía (alguien borró otra publicación).
     await syncNumeros(env, 5);
     const ahora = (await env.DB.prepare("SELECT numero FROM publicaciones WHERE id=?1").bind(id).first()).numero;
+    await notifica(env, { tipo: "galeria", excepto: uid, titulo: "Fotos nuevas en la galería",
+      texto: name + " ha publicado " + (n > 1 ? n + " fotos" : "una foto") + (texto ? ": " + texto.slice(0, 80) : ""), url: "/galeria.html" }).catch(() => 0);
     return `✅ Publicada en la web con el número **${ahora}**` + (n > 1 ? ` (${n} fotos)` : "") +
       `.\nPara cambiar el texto: \`/editar id:${ahora}\` · Para quitarla: \`/borrar id:${ahora}\``;
   }
@@ -600,6 +602,78 @@ async function avisoEstado(env, servicio, nombre, error) {
   } catch (e) {} // un aviso que falla no debe romper nada
 }
 
+// --- Notificaciones en el móvil (Web Push: cifrado RFC 8291 y firma VAPID RFC 8292, sin librerías) ---
+// Cada socio las activa por dispositivo y elige qué avisos quiere: eventos, partidas, liga y galería.
+const VAPID_PUBLICA = "BKqVWHJMWWkT1cSTBrnXswmQ_AfX4ErXHsl8FH144YNB8dAGFxBBZiKs_weXEa5H-NJbWJfKoi3qpeFnZnffEo8";
+const PUSH_TIPOS = ["eventos", "partidas", "liga", "galeria"];
+const b64uDec = (t) => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)), (c) => c.charCodeAt(0));
+const b64uEnc = (b) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unir = (...ps) => { const out = new Uint8Array(ps.reduce((t, p) => t + p.length, 0)); let i = 0; for (const p of ps) { out.set(p, i); i += p.length; } return out; };
+async function hkdf(salt, ikm, info, bytes) {
+  const k = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, k, bytes * 8));
+}
+let vapidClave = null;
+async function vapidJwt(env, endpoint) {
+  if (!vapidClave) {
+    const pub = b64uDec(VAPID_PUBLICA);
+    vapidClave = await crypto.subtle.importKey("jwk", { kty: "EC", crv: "P-256", d: env.VAPID_PRIVATE, x: b64uEnc(pub.slice(1, 33)), y: b64uEnc(pub.slice(33, 65)), ext: true },
+      { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  }
+  const enc8 = (o) => b64uEnc(new TextEncoder().encode(JSON.stringify(o)));
+  const datos = enc8({ typ: "JWT", alg: "ES256" }) + "." + enc8({ aud: new URL(endpoint).origin, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: WEB });
+  const firma = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, vapidClave, new TextEncoder().encode(datos));
+  return datos + "." + b64uEnc(firma);
+}
+// Cifra y envía un aviso a una suscripción. Devuelve el estado HTTP (404/410: suscripción caducada).
+async function pushEnvia(env, sub, mensaje) {
+  const uaPub = b64uDec(sub.p256dh), auth = b64uDec(sub.auth);
+  const efimera = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const asPub = new Uint8Array(await crypto.subtle.exportKey("raw", efimera.publicKey));
+  const uaKey = await crypto.subtle.importKey("raw", uaPub, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const compartido = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: uaKey }, efimera.privateKey, 256));
+  const te = new TextEncoder();
+  const ikm = await hkdf(auth, compartido, unir(te.encode("WebPush: info\0"), uaPub, asPub), 32);
+  const sal = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(sal, ikm, te.encode("Content-Encoding: aes128gcm\0"), 16);
+  const nonce = await hkdf(sal, ikm, te.encode("Content-Encoding: nonce\0"), 12);
+  const claro = unir(te.encode(JSON.stringify(mensaje)), new Uint8Array([2]));
+  const k = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
+  const cifrado = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, k, claro));
+  const cab = new Uint8Array(21); cab.set(sal, 0); new DataView(cab.buffer).setUint32(16, 4096); cab[20] = 65;
+  const r = await fetch(sub.endpoint, {
+    method: "POST",
+    headers: { "content-encoding": "aes128gcm", "content-type": "application/octet-stream", ttl: "86400", urgency: "normal",
+      authorization: "vapid t=" + (await vapidJwt(env, sub.endpoint)) + ", k=" + VAPID_PUBLICA },
+    body: unir(cab, asPub, cifrado),
+  });
+  return r.status;
+}
+// Envía un aviso a los dispositivos que lo quieren (tipo) de unos socios (o de todos), menos a «excepto».
+// Avisos concretos de cada tipo.
+const fechaCorta = (t) => new Date(t.slice(0, 10) + "T12:00:00Z").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) + (t.length > 10 ? " · " + t.slice(11, 16) : "");
+function avisoEvento(env, id, ev, autor) {
+  return notifica(env, { tipo: "eventos", excepto: autor, titulo: ev.type === "torneo" ? "Nuevo torneo" : "Nueva quedada",
+    texto: ev.title + " · " + fechaCorta(ev.starts_at), url: "/calendario.html?evento=" + id });
+}
+async function notifica(env, { tipo, a = null, excepto = null, titulo, texto, url }) {
+  if (!env.VAPID_PRIVATE) return 0;
+  let sql = "SELECT endpoint, discord_id, p256dh, auth FROM push_subs WHERE (?1 IS NULL OR EXISTS (SELECT 1 FROM json_each(tipos) WHERE value=?1))";
+  const args = [tipo];
+  if (a) { sql += " AND discord_id IN (SELECT value FROM json_each(?2))"; args.push(JSON.stringify(a)); }
+  const { results } = await env.DB.prepare(sql).bind(...args).all();
+  let enviados = 0;
+  for (const sub of results) {
+    if (excepto && sub.discord_id === excepto) continue;
+    try {
+      const st = await pushEnvia(env, sub, { titulo, texto, url: url || "/", tag: tipo || "prueba" });
+      if (st === 404 || st === 410) await env.DB.prepare("DELETE FROM push_subs WHERE endpoint=?1").bind(sub.endpoint).run();
+      else if (st < 300) enviados++;
+    } catch (e) {}
+  }
+  return enviados;
+}
+
 // --- Recordatorios de la Gran Liga por mensaje privado (temporizador de Cloudflare, cada hora) ---
 // Al empezar cada ronda (domingo 22:00) se avisa a cada jugador de su partida; el jueves anterior al cierre
 // (20:00) a quien aún no tiene resultado. Solo jugadores con su cuenta de Discord vinculada. Cada aviso se
@@ -662,12 +736,18 @@ async function ligaRecordatorios(env, ahora = nowLocal()) {
               "Plazo: hasta el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Resultado en New Recruit: <" + enlace + ">\n" : "") + "Calendario y clasificación: <" + WEB + "/gran-liga.html>"
             : "⏰ **Gran Liga · " + nombreRonda + "**\nAún no está subido el resultado de tu partida contra **" + rival + "**.\n" +
               "El plazo termina el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Súbelo en New Recruit: <" + enlace + ">" : "");
-          if (await mensajePrivado(env, yoId, texto)) ok++; else sinAviso.push(yo + " (no acepta mensajes privados)");
+          const dm = await mensajePrivado(env, yoId, texto);
+          const app = await notifica(env, { tipo: "liga", a: [yoId],
+            titulo: tipo === "inicio" ? "Gran Liga · " + nombreRonda : "Gran Liga · falta tu resultado",
+            texto: tipo === "inicio" ? "Juegas contra " + rival + (aplazadas ? "" : " (mesa " + p.mesa + ")") + ". Plazo: " + fechaLarga(fin) + " a las 14:00."
+              : "Aún no está subido el resultado contra " + rival + ". Plazo: " + fechaLarga(fin) + " a las 14:00.",
+            url: "/gran-liga.html?fase=" + fase.id + "#ronda-" + n }).catch(() => 0);
+          if (dm || app) ok++; else sinAviso.push(yo + " (no acepta mensajes privados)");
         }
       }
       hechos.push({ n, tipo, enviados: ok, sin_aviso: sinAviso });
       await avisoCanal(env, CANAL_AVISOS, (tipo === "inicio" ? "📨 Gran Liga · " + nombreRonda + ": avisados " : "📨 Gran Liga · " + nombreRonda + ", recordatorio de resultados: avisados ") +
-        ok + (ok === 1 ? " jugador" : " jugadores") + " por mensaje privado." + (sinAviso.length ? "\nSin aviso (hacedlo a mano): " + sinAviso.join(", ") : ""));
+        ok + (ok === 1 ? " jugador" : " jugadores") + " (mensaje privado o notificación de la app)." + (sinAviso.length ? "\nSin aviso (hacedlo a mano): " + sinAviso.join(", ") : ""));
     }
   }
   return hechos;
@@ -1403,6 +1483,44 @@ export default {
       );
     }
 
+    // Notificaciones en el móvil: activar/desactivar por dispositivo y elegir los avisos.
+    if (path === "/api/push" || path.startsWith("/api/push/")) {
+      if (path === "/api/push" && request.method === "GET") return Response.json({ clave: VAPID_PUBLICA, tipos: PUSH_TIPOS, activo: !!env.VAPID_PRIVATE }, { headers: noStore });
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      const endpoint = String(b.endpoint || "");
+      const endpointOk = /^https:\/\/[^\s]{10,}$/.test(endpoint) && endpoint.length <= 1000;
+      if (path === "/api/push") {
+        const k = b.keys || {};
+        const tipos = Array.isArray(b.tipos) ? [...new Set(b.tipos.map(String))].filter((t) => PUSH_TIPOS.includes(t)) : PUSH_TIPOS;
+        if (!endpointOk || !/^[A-Za-z0-9_-]{80,100}$/.test(String(k.p256dh || "")) || !/^[A-Za-z0-9_-]{16,30}$/.test(String(k.auth || ""))) {
+          return Response.json({ error: "Suscripción no válida" }, { status: 400, headers: noStore });
+        }
+        await env.DB.prepare(
+          `INSERT INTO push_subs (endpoint, discord_id, p256dh, auth, tipos) VALUES (?1, ?2, ?3, ?4, ?5)
+           ON CONFLICT(endpoint) DO UPDATE SET discord_id=?2, p256dh=?3, auth=?4, tipos=?5`
+        ).bind(endpoint, s.id, k.p256dh, k.auth, JSON.stringify(tipos)).run();
+        return Response.json({ ok: true, tipos }, { headers: noStore });
+      }
+      if (path === "/api/push/estado") {
+        const r = endpointOk ? await env.DB.prepare("SELECT tipos FROM push_subs WHERE endpoint=?1 AND discord_id=?2").bind(endpoint, s.id).first() : null;
+        return Response.json({ suscrito: !!r, tipos: r ? JSON.parse(r.tipos) : PUSH_TIPOS }, { headers: noStore });
+      }
+      if (path === "/api/push/baja") {
+        await env.DB.prepare("DELETE FROM push_subs WHERE endpoint=?1 AND discord_id=?2").bind(endpoint, s.id).run();
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      if (path === "/api/push/prueba") {
+        const n = await notifica(env, { tipo: null, a: [s.id], titulo: "Adeptus Baeticus", texto: "Las notificaciones funcionan en este dispositivo. ¡Por el Emperador!", url: "/" });
+        return Response.json({ ok: n > 0, enviados: n, error: n ? undefined : "No se pudo enviar el aviso de prueba" }, { status: n ? 200 : 502, headers: noStore });
+      }
+      return new Response("No encontrado", { status: 404 });
+    }
+
     // Calendarios para el móvil: el del club (público) y el personal (enlace firmado, sin sesión para que
     // lo pueda leer Google Calendar o el iPhone).
     if (path === "/cal/club.ics" && request.method === "GET") {
@@ -2028,6 +2146,17 @@ export default {
           ).bind(pid),
         ]);
         if (!ins.meta.changes) return fail("Alguien ha ocupado el hueco antes. Vuelve a intentarlo.", 409);
+        // Aviso a los demás jugadores de la partida (y a todos si se ha completado).
+        ctx.waitUntil((async () => {
+          const q = await env.DB.prepare("SELECT status, starts_at, mesa FROM partidas WHERE id=?1").bind(pid).first();
+          const otros = js.map((j) => j.discord_id);
+          const modo = MODALIDAD[p.activity] || "partida";
+          const cuando = q && q.starts_at ? " · " + fechaCorta(q.starts_at) : "";
+          await notifica(env, { tipo: "partidas", a: otros, titulo: "Se han unido a tu partida", texto: s.name + " se ha unido a tu partida de " + modo + cuando, url: "/calendario.html?partida=" + pid });
+          if (q && q.status === "completa") {
+            await notifica(env, { tipo: "partidas", a: [...otros, s.id], titulo: "Partida completa", texto: "Tu partida de " + modo + cuando + (q.mesa ? " · mesa " + q.mesa : "") + " ya está completa", url: "/calendario.html?partida=" + pid });
+          }
+        })().catch(() => {}));
         return ok((await listPartidas(env, s.id, pid))[0]);
       }
 
@@ -2286,8 +2415,11 @@ export default {
           const r = await env.DB.prepare(
             "INSERT INTO events (type,title,starts_at,location,description,capacity,nr_tournament_id,status) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)"
           ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status).run();
+          if (ev.status === "publicado") ctx.waitUntil(avisoEvento(env, r.meta.last_row_id, ev, s.id).catch(() => {}));
           return Response.json({ ok: true, id: r.meta.last_row_id });
         }
+        const antes = await env.DB.prepare("SELECT status FROM events WHERE id=?1").bind(Number(idm[1])).first();
+        if (antes && antes.status !== "publicado" && ev.status === "publicado") ctx.waitUntil(avisoEvento(env, Number(idm[1]), ev, s.id).catch(() => {}));
         await env.DB.batch([
           env.DB.prepare(
             "UPDATE events SET type=?1,title=?2,starts_at=?3,location=?4,description=?5,capacity=?6,nr_tournament_id=?7,status=?8 WHERE id=?9"
@@ -2380,4 +2512,4 @@ export default {
 };
 
 // Solo para las pruebas automáticas (no es una ruta de la web).
-export const _test = { ligaRecordatorios, calendarioEventos, ics };
+export const _test = { ligaRecordatorios, calendarioEventos, ics, pushEnvia };

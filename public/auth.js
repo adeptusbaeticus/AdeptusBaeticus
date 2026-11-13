@@ -65,6 +65,120 @@
     norole: "No tienes ninguno de los roles del club en Discord.",
     error: "No se pudo iniciar sesión. Inténtalo de nuevo.",
   };
+  // --- Notificaciones en el móvil: activar en este dispositivo y elegir los avisos ---
+  const TIPOS_AVISO = [["eventos", "Nuevas quedadas y torneos"], ["partidas", "Mis partidas (alguien se une o se completa)"],
+    ["liga", "Gran Liga (tu partida de cada ronda y recordatorio)"], ["galeria", "Fotos nuevas en la galería"]];
+  const b64aBytes = (t) => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)), (c) => c.charCodeAt(0));
+  async function dialogoAvisos() {
+    const ov = document.createElement("div");
+    ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-labelledby", "av-t");
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;z-index:60";
+    const c = document.createElement("div");
+    c.style.cssText = "background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:22px;max-width:440px;width:100%;box-sizing:border-box;color:#ECE7DC;font:400 15px/1.5 Inter,system-ui,sans-serif;max-height:calc(100vh - 32px);overflow:auto";
+    const h = document.createElement("h3");
+    h.id = "av-t"; h.textContent = "Notificaciones";
+    h.style.cssText = "margin:0 0 6px;font:700 22px Cinzel,Georgia,serif;color:#F0CE82";
+    const p = document.createElement("p");
+    p.style.cssText = "margin:0 0 14px;color:#CFC9BA";
+    const lista = document.createElement("div");
+    lista.style.cssText = "display:grid;gap:6px;margin:0 0 16px";
+    const msg = document.createElement("p");
+    msg.setAttribute("role", "status");
+    msg.style.cssText = "margin:0 0 12px;font-size:14px;color:#A8A293;min-height:20px";
+    const acc = document.createElement("div");
+    acc.style.cssText = "display:flex;gap:8px;flex-wrap:wrap";
+    const boton = (txt, primario) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = txt;
+      b.style.cssText = "min-height:44px;padding:10px 16px;border-radius:8px;font:600 15px Inter,sans-serif;cursor:pointer;" +
+        (primario ? "background:#A3211B;color:#fff;border:1px solid #A3211B" : "background:#15171A;color:#ECE7DC;border:1px solid #6B6558");
+      return b;
+    };
+    const fuera = () => { ov.remove(); document.removeEventListener("keydown", esc); };
+    const esc = (e) => { if (e.key === "Escape") fuera(); };
+    document.addEventListener("keydown", esc);
+    ov.addEventListener("click", (e) => { if (e.target === ov) fuera(); });
+    const cerrar = boton("Cerrar", false); cerrar.onclick = fuera;
+    c.append(h, p, lista, msg, acc);
+    ov.appendChild(c); document.body.appendChild(ov);
+
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const instalada = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      p.textContent = ios && !instalada
+        ? "En iPhone y iPad las notificaciones solo funcionan con la web instalada como app: pulsa «Instalar app» al pie de la página y ábrela desde su icono."
+        : "Este navegador no permite notificaciones.";
+      acc.appendChild(cerrar); cerrar.focus();
+      return;
+    }
+    p.textContent = "Elige qué avisos quieres recibir en este dispositivo. Puedes cambiarlo o desactivarlo cuando quieras.";
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    let estado = { suscrito: false, tipos: TIPOS_AVISO.map((t) => t[0]) };
+    if (sub) { try { estado = await (await fetch("/api/push/estado", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) })).json(); } catch (e) {} }
+    const checks = TIPOS_AVISO.map(([v, txt]) => {
+      const l = document.createElement("label");
+      l.style.cssText = "display:flex;gap:10px;align-items:center;min-height:36px;cursor:pointer";
+      const i = document.createElement("input"); i.type = "checkbox"; i.value = v; i.checked = estado.tipos.includes(v);
+      i.style.cssText = "width:18px;height:18px;accent-color:#D9B25A";
+      l.append(i, txt); lista.appendChild(l);
+      return i;
+    });
+    const tiposElegidos = () => checks.filter((i) => i.checked).map((i) => i.value);
+    const guarda = async () => {
+      const j = sub.toJSON();
+      const r = await fetch("/api/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: j.endpoint, keys: j.keys, tipos: tiposElegidos() }) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "No se pudo guardar.");
+    };
+    const pinta = () => {
+      acc.textContent = "";
+      if (estado.suscrito) {
+        msg.textContent = "Activadas en este dispositivo.";
+        const prueba = boton("Enviar un aviso de prueba", false);
+        prueba.onclick = async () => {
+          prueba.disabled = true;
+          try { const r = await fetch("/api/push/prueba", { method: "POST" }); msg.textContent = r.ok ? "Aviso de prueba enviado." : "No se pudo enviar el aviso de prueba."; }
+          catch (e) { msg.textContent = "No se pudo enviar el aviso de prueba."; }
+          prueba.disabled = false;
+        };
+        const off = boton("Desactivar en este dispositivo", false);
+        off.onclick = async () => {
+          off.disabled = true;
+          try {
+            await fetch("/api/push/baja", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+            await sub.unsubscribe(); sub = null; estado.suscrito = false; msg.textContent = "Desactivadas en este dispositivo.";
+          } catch (e) { msg.textContent = "No se pudo desactivar."; }
+          pinta();
+        };
+        acc.append(prueba, off, cerrar);
+      } else {
+        if (Notification.permission === "denied") msg.textContent = "Has bloqueado las notificaciones de esta web: permítelas en los ajustes del navegador.";
+        else if (!estado.suscrito && !msg.textContent) msg.textContent = "Desactivadas en este dispositivo.";
+        const on = boton("Activar en este dispositivo", true);
+        on.disabled = Notification.permission === "denied";
+        on.onclick = async () => {
+          on.disabled = true; msg.textContent = "";
+          try {
+            if ((await Notification.requestPermission()) !== "granted") { msg.textContent = "Sin permiso para mostrar notificaciones."; on.disabled = false; return; }
+            const { clave } = await (await fetch("/api/push")).json();
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64aBytes(clave) });
+            await guarda();
+            estado.suscrito = true; msg.textContent = "";
+            pinta();
+          } catch (e) { msg.textContent = e && e.message && !/^[A-Z][a-z]+Error/.test(e.name || "") ? e.message : "No se pudieron activar las notificaciones."; on.disabled = false; }
+        };
+        acc.append(on, cerrar);
+      }
+    };
+    // Cambiar los avisos elegidos se guarda al momento (si ya están activadas).
+    checks.forEach((i) => i.addEventListener("change", async () => {
+      if (!estado.suscrito || !sub) return;
+      try { await guarda(); msg.textContent = "Guardado."; } catch (e) { msg.textContent = e.message; }
+    }));
+    pinta();
+    (acc.querySelector("button") || cerrar).focus();
+  }
+
   // Quien entra con Discord sin ser del club: aviso claro con cómo unirse (formulario de registro).
   const FORM_REGISTRO = "https://docs.google.com/forms/d/e/1FAIpQLSczIfv-On4CBaHXP3S-OxmiCbCmjOdVmkIADGmr1O2s3JJECQ/viewform";
   function avisoNoMiembro(tipo) {
@@ -267,6 +381,7 @@
       return a;
     };
     item("/miembros.html#yo", "Mi ficha");
+    item("#", "Notificaciones").addEventListener("click", (e) => { e.preventDefault(); abre(false); dialogoAvisos(); });
     item("/mis-inscripciones.html", "Mis inscripciones");
     if (me.role === "admin") item("/admin.html", "Admin");
     const recarga = () => { try { sessionStorage.removeItem(KEY); } catch (e) {} location.reload(); };
