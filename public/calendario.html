@@ -36,7 +36,7 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .nv{border-radius:8px;width:44px;padding:0;font-size:20px}
 .mes{font:600 18px Inter,sans-serif;min-width:140px;text-align:center}
 .lay{display:flex;gap:32px;flex-wrap:wrap;padding-bottom:64px}
-.a{flex:2 1 560px}.b{flex:1 1 320px}
+.a{flex:2 1 560px;min-width:0}.b{flex:1 1 320px;min-width:0} /* el calendario se desplaza dentro de su recuadro, no la página */
 .cal{overflow-x:auto}
 .g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;min-width:560px}
 .h{font-size:13px;color:#A8A293;text-align:center;padding:6px 0;font-weight:600}
@@ -312,7 +312,7 @@ function renderLista() {
     b.onclick = () => {
       box.querySelectorAll(".li").forEach((x) => x.classList.toggle("sel", x === b));
       show(e);
-      if (window.innerWidth < 900) $("det").scrollIntoView({ behavior: "smooth", block: "start" });
+      irAFicha();
     };
     box.appendChild(b);
   });
@@ -364,7 +364,7 @@ function render() {
         b.className = "e " + (e.type === "torneo" ? "t2" : "q") + (llena || e.starts_at <= now ? " x" : "");
         b.textContent = e.title;
         b.setAttribute("translate", "no");
-        b.onclick = () => show(e);
+        b.onclick = () => { show(e); irAFicha(); };
         cell.appendChild(b);
       });
     if (filtro === "todos" || filtro === "partida") {
@@ -376,13 +376,25 @@ function render() {
         const av = p.availability.find((x) => x.date === key);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
         b.textContent = (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza;
-        b.onclick = () => showPartida(p);
+        b.onclick = () => { showPartida(p); irAFicha(); };
         cell.appendChild(b);
       });
     }
     marcasLiga(cell, key, rondas);
     g.appendChild(cell);
   }
+}
+
+// En móvil la ficha queda debajo del calendario: al tocar un evento, la página baja hasta ella
+// (descontando la cabecera fija para que no la tape).
+function irAFicha() {
+  const det = $("det"), a = document.querySelector(".a");
+  if (det.getBoundingClientRect().top < a.getBoundingClientRect().bottom - 1) return; // ficha al lado: no hace falta
+  const nav = document.querySelector(".nav");
+  const alto = nav && getComputedStyle(nav).position === "sticky" ? nav.getBoundingClientRect().height : 0;
+  const y = det.getBoundingClientRect().top + window.scrollY - alto - 12;
+  const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({ top: Math.max(0, y), left: 0, behavior: suave ? "smooth" : "auto" });
 }
 
 function show(e) {
