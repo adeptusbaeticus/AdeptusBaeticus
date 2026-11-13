@@ -49,6 +49,19 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .lm{display:block;margin-top:6px;border:1px solid #9C84E0;color:#D9CCFA;background:rgba(110,86,184,.18);border-radius:6px;padding:2px 6px;font:700 11px Inter,sans-serif;text-decoration:none}
 .lm:hover,.lm:focus{background:rgba(110,86,184,.4);outline:none}
 .ley i.lg{background:linear-gradient(90deg,#6E56B8 50%,#463A7A 50%)}
+/* Filtro por quedadas o torneos: listado de los próximos 3 meses en lugar del calendario. */
+.lh{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
+.li{display:flex;gap:16px;align-items:center;width:100%;text-align:left;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #F0CE82;border-radius:10px;padding:12px 16px;margin-bottom:8px;color:#ECE7DC;font:inherit;cursor:pointer}
+.li.tor{border-left-color:#F08A82}
+.li:hover,.li:focus{border-color:#D9B25A;outline:none}
+.li.sel{background:#262A30;border-color:#D9B25A}
+.li .fe{min-width:64px;text-align:center;line-height:1.1}
+.li .fe b{display:block;font:700 26px Inter,sans-serif;color:#F0CE82}
+.li.tor .fe b{color:#F08A82}
+.li .fe small{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#A8A293}
+.li .tx{flex:1;min-width:0}
+.li .tx strong{display:block;font-size:16px}
+.li .tx span{display:block;font-size:13px;color:#A8A293}
 .e{display:block;width:100%;border:0;text-align:left;cursor:pointer;font:600 12px Inter,sans-serif;border-radius:6px;padding:3px 6px;margin-top:6px}
 /* Claro: abierto. Oscuro: completo o cerrado. */
 .q{background:#F0CE82;color:#15171A}.q.x{background:#8A6416;color:#fff}
@@ -125,15 +138,16 @@ select.chip{appearance:auto;padding:8px 12px}
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
       </button>
     </div>
-    <div class="row">
+    <div class="row" id="navmes">
       <button class="nv" id="prev" aria-label="Mes anterior">‹</button>
       <span class="mes" id="mes"></span>
       <button class="nv" id="next" aria-label="Mes siguiente">›</button>
     </div>
   </div>
   <div class="lay">
-    <div class="a"><div class="cal"><div class="g" id="g"></div></div>
-      <div class="ley" aria-label="Leyenda">
+    <div class="a"><div class="cal" id="cal"><div class="g" id="g"></div></div>
+      <div id="lista" hidden></div>
+      <div class="ley" id="ley" aria-label="Leyenda">
         <span><i class="q"></i>Quedada</span><span><i class="t2"></i>Torneo</span><span><i class="pt"></i>Partida</span>
         <span><i class="lg"></i>Ronda de la Gran Liga (pulsa para verla)</span>
         <span>Color claro: abierto · oscuro: completo o cerrado</span>
@@ -198,7 +212,69 @@ function marcasLiga(cell, key, rondas) {
   }
 }
 
+// Quedadas o torneos de los próximos 3 meses (cuando se filtra por uno de esos tipos).
+function renderLista() {
+  const box = $("lista");
+  box.textContent = "";
+  const now = localNow();
+  const h = new Date(); h.setMonth(h.getMonth() + 3);
+  h.setMinutes(h.getMinutes() - h.getTimezoneOffset());
+  const hasta = h.toISOString().slice(0, 16);
+  const tit = document.createElement("h2");
+  tit.className = "lh";
+  tit.textContent = filtro === "torneo" ? "Torneos de los próximos 3 meses" : "Quedadas de los próximos 3 meses";
+  box.appendChild(tit);
+  const es = ev.filter((e) => e.type === filtro && e.starts_at >= now.slice(0, 10) && e.starts_at <= hasta)
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  if (!es.length) {
+    const p = document.createElement("p");
+    p.className = "m";
+    p.textContent = filtro === "torneo" ? "No hay torneos en los próximos 3 meses." : "No hay quedadas en los próximos 3 meses.";
+    box.appendChild(p);
+    return;
+  }
+  es.forEach((e) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "li" + (e.type === "torneo" ? " tor" : "");
+    const d = new Date(e.starts_at);
+    const fe = document.createElement("span");
+    fe.className = "fe";
+    const n = document.createElement("b");
+    n.textContent = d.getDate();
+    const mm = document.createElement("small");
+    mm.textContent = d.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
+    fe.append(n, mm);
+    const tx = document.createElement("span");
+    tx.className = "tx";
+    const t = document.createElement("strong");
+    t.textContent = e.title;
+    t.setAttribute("translate", "no");
+    const cu = document.createElement("span");
+    cu.textContent = d.toLocaleDateString("es-ES", { weekday: "long" }) + " · " + e.starts_at.slice(11, 16);
+    tx.append(t, cu);
+    if (e.location) { const l = document.createElement("span"); l.textContent = e.location; l.setAttribute("translate", "no"); tx.appendChild(l); }
+    const ins = e.inscritos || 0;
+    const pl = document.createElement("span");
+    pl.textContent = e.capacity
+      ? (e.capacity - ins > 0 ? "Plazas libres: " + (e.capacity - ins) + " de " + e.capacity : "Sin plazas libres (" + ins + " de " + e.capacity + " ocupadas)")
+      : "Plazas libres: sin límite · " + ins + (ins === 1 ? " inscrito" : " inscritos");
+    tx.appendChild(pl);
+    b.append(fe, tx);
+    b.onclick = () => {
+      box.querySelectorAll(".li").forEach((x) => x.classList.toggle("sel", x === b));
+      show(e);
+      if (window.innerWidth < 900) $("det").scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    box.appendChild(b);
+  });
+}
+
 function render() {
+  const enLista = filtro === "quedada" || filtro === "torneo";
+  $("cal").hidden = $("navmes").hidden = $("ley").hidden = enLista;
+  $("lista").hidden = !enLista;
+  if (enLista) { renderLista(); return; }
   $("mes").textContent = MESES[m] + " " + y;
   const g = $("g");
   g.textContent = "";
