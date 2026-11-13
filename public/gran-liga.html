@@ -248,28 +248,11 @@ function pintaClasificacion() {
     const dif = x.pv - x.contra;
     const td = (txt, cls) => { const c = el("td", cls || "", txt); tr.appendChild(c); return c; };
     td(String(i + 1));
-    // Al pulsar el jugador se despliegan sus listas.
-    const bj = el("button", "jbtn");
-    bj.type = "button";
-    bj.setAttribute("aria-expanded", "false");
-    bj.appendChild(celdaJugador(x.j));
-    td("", "izq").appendChild(bj);
+    td("", "izq").appendChild(celdaJugador(x.j));
     const f = td(x.fac || "—", "izq"); f.setAttribute("translate", "no");
     td(String(x.pj)); td(String(x.v)); td(String(x.d)); td(String(x.pv));
     td((dif > 0 ? "+" : "") + dif, dif > 0 ? "pos" : dif < 0 ? "neg" : "");
     tb.appendChild(tr);
-    const fl = el("tr", "misl");
-    fl.hidden = true;
-    const celda = el("td");
-    celda.colSpan = 8;
-    fl.appendChild(celda);
-    tb.appendChild(fl);
-    bj.onclick = () => {
-      const abrir = fl.hidden;
-      fl.hidden = !abrir;
-      bj.setAttribute("aria-expanded", String(abrir));
-      if (abrir && !celda.childNodes.length) listasJugador(x.j, celda);
-    };
   });
 }
 

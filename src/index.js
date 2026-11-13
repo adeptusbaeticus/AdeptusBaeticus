@@ -715,7 +715,8 @@ function resumenNr(j) {
 }
 
 // ===== Gran Liga Adeptus =====
-const LIGA_AUTO_HORAS = 6; // como mucho una consulta automática a New Recruit cada 6 horas
+const LIGA_AUTO_HORAS = 6;
+const LIGA_LISTAS_PUBLICAS = false; // de momento no se muestran las listas (se siguen guardando) // como mucho una consulta automática a New Recruit cada 6 horas
 
 // Facción a partir de la lista exportada («FACTION KEYWORD: Imperium - Adeptus Astartes - Space Wolves»).
 function faccionDeLista(txt) {
@@ -909,7 +910,7 @@ export default {
       const jugadores = (await env.DB.prepare("SELECT id, discord, nombre FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
       const partidas = (await env.DB.prepare(
         `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada,
-           faccion_a, faccion_b, destac_a, destac_b, (lista_a IS NOT NULL OR lista_b IS NOT NULL) AS listas
+           faccion_a, faccion_b, destac_a, destac_b, ${LIGA_LISTAS_PUBLICAS ? "(lista_a IS NOT NULL OR lista_b IS NOT NULL)" : "0"} AS listas
          FROM liga_partidas WHERE fase_id=?1 ORDER BY ronda, mesa`
       ).bind(fase.id).all()).results;
       const sync = fase.nr_torneo
@@ -924,6 +925,7 @@ export default {
 
     // Listas distintas que ha usado un jugador en la fase (públicas), sin repetir las iguales.
     if (path === "/api/liga/listas" && request.method === "GET") {
+      if (!LIGA_LISTAS_PUBLICAS) return new Response("No disponible", { status: 404 });
       const id = Number(url.searchParams.get("jugador"));
       if (!id) return new Response("Datos no válidos", { status: 400 });
       const { results } = await env.DB.prepare(
@@ -945,6 +947,7 @@ export default {
 
     // Lista de ejército usada por un jugador en una partida de la liga (pública).
     if (path === "/api/liga/lista" && request.method === "GET") {
+      if (!LIGA_LISTAS_PUBLICAS) return new Response("No disponible", { status: 404 });
       const id = Number(url.searchParams.get("partida")), lado = url.searchParams.get("lado");
       if (!id || (lado !== "a" && lado !== "b")) return new Response("Datos no válidos", { status: 400 });
       const r = await env.DB.prepare(`SELECT lista_${lado} AS lista FROM liga_partidas WHERE id=?1`).bind(id).first();
