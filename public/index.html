@@ -63,14 +63,21 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .blog{margin-bottom:56px}
 .car-vp{overflow:hidden;border-radius:12px;transition:height .5s ease}
 .car-track{display:flex;align-items:flex-start;transition:transform .8s ease}
-.slide{flex:0 0 100%;box-sizing:border-box;margin:0;padding:32px 40px}
-.sl-body{max-width:860px;margin:0 auto}
+.slide{flex:0 0 100%;min-width:0;box-sizing:border-box;margin:0;padding:32px 40px}
+.sl-body{max-width:860px;min-width:0;margin:0 auto}
 .sl-body h3{font:700 30px/1.25 Cinzel,Georgia,serif;margin:8px 0 20px}
 .sl-body h3 a{color:#ECE7DC;text-decoration:none}.sl-body h3 a:hover{color:#F0CE82}
 .bc{color:#CFC9BA;font-size:16px;line-height:1.65;overflow-wrap:anywhere}
 .bc p,.bc div{margin:0 0 12px}
 .bc img{max-width:100%;height:auto;border-radius:6px;display:block;margin:12px auto}
 .bc a:has(img){display:block}
+.bc .tabla{overflow-x:auto;margin:12px 0 16px}
+.bc table{border-collapse:collapse;min-width:100%;font-size:14px;line-height:1.4;overflow-wrap:normal;word-break:normal}
+.bc th,.bc td{border:1px solid #2C3036;padding:6px 10px;vertical-align:middle;white-space:nowrap}
+.bc th{background:#2A2F36;color:#ECE7DC;font-weight:600}
+.bc tr:nth-child(even) td{background:#1B1F23}
+.bc caption{caption-side:top;text-align:left;font-weight:600;color:#ECE7DC;padding:0 0 6px}
+.bc td p,.bc th p,.bc td div,.bc th div{margin:0}
 @media (max-width:600px){.slide{padding:20px 16px}.sl-body h3{font-size:24px}}
 .bc h4,.bc h5,.bc h6{font:600 17px Inter,sans-serif;color:#ECE7DC;margin:12px 0 6px}
 .bc ul,.bc ol{margin:0 0 10px;padding-left:22px}
@@ -320,7 +327,9 @@ fetch("/api/posts")
 // --- HTML de Blogger: se reconstruye solo con etiquetas permitidas (sin innerHTML ni scripts) ---
 const IMG_OK = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|blogspot\.com|blogger\.com|ggpht\.com)\//i;
 const BLOQUES = { p: "p", h1: "h4", h2: "h4", h3: "h5", h4: "h6", h5: "h6", h6: "h6", ul: "ul", ol: "ol", li: "li",
-  blockquote: "blockquote", pre: "pre", hr: "hr", figure: "div", figcaption: "small", table: "div", tr: "div" };
+  blockquote: "blockquote", pre: "pre", hr: "hr", figure: "div", figcaption: "small" };
+// Tablas (p. ej. clasificaciones): se conservan como tablas, con celdas combinadas y alineación.
+const TABLA = { thead: "thead", tbody: "tbody", tfoot: "tfoot", tr: "tr", th: "th", td: "td", caption: "caption" };
 const INLINE = { b: "strong", strong: "strong", i: "em", em: "em", u: "u", s: "s", strike: "s", del: "s", code: "code", sub: "sub", sup: "sup", small: "small" };
 const FUERA = ["script", "style", "noscript", "form", "input", "button", "select", "textarea", "object", "embed", "svg", "template", "head", "link", "meta", "title"];
 
@@ -347,9 +356,29 @@ function copiaSegura(origen, destino) {
       else copiaSegura(n, destino);
       continue;
     }
+    if (t === "table") {
+      const w = document.createElement("div");
+      w.className = "tabla";
+      const tb = document.createElement("table");
+      copiaSegura(n, tb);
+      w.appendChild(tb);
+      destino.appendChild(w);
+      continue;
+    }
+    if (TABLA[t]) {
+      const e = document.createElement(TABLA[t]);
+      for (const a of ["colspan", "rowspan"]) {
+        const v = n.getAttribute(a);
+        if (v && /^\d{1,2}$/.test(v)) e.setAttribute(a, v);
+      }
+      alinea(n, e);
+      copiaSegura(n, e);
+      destino.appendChild(e);
+      continue;
+    }
     const tag = BLOQUES[t] || INLINE[t];
     if (tag) { const e = document.createElement(tag); alinea(n, e); if (tag !== "hr") copiaSegura(n, e); destino.appendChild(e); continue; }
-    if (["div", "section", "article", "center", "td", "th"].includes(t)) {
+    if (["div", "section", "article", "center"].includes(t)) {
       const e = document.createElement("div"); alinea(n, e); copiaSegura(n, e);
       if (e.childNodes.length) destino.appendChild(e);
       continue;
