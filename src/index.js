@@ -693,13 +693,14 @@ async function nrSync(env, tipo, idTorneo) {
     if (!res.ok) throw new Error("New Recruit respondió " + res.status + ": " + texto.slice(0, 200));
     const json = JSON.parse(texto);
     if (json && (json.error || json.message)) throw new Error("New Recruit: " + (json.error || json.message));
-    // Límite de tamaño de una fila de D1: si no cabe, se guarda sin las listas exportadas.
-    let guardar = texto;
-    if (guardar.length > 1800000) {
-      guardar = JSON.stringify(json, (k, v) => (k === "exported_list" ? undefined : v));
-    }
+    // Los resultados se asignan a las partidas de la liga (con sus listas); la copia se guarda sin listas.
+    let liga = null;
+    if (tipo === "reports" && Array.isArray(json)) liga = await ligaProcesa(env, idTorneo, json);
+    const guardar = tipo === "reports"
+      ? JSON.stringify(json, (k, v) => (k === "exported_list" || k === "report_list" || k === "scoring" ? undefined : v))
+      : texto;
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(clave, guardar).run();
-    return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json) };
+    return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json), liga };
   } catch (e) {
     await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(clave, String(e.message || e).slice(0, 500)).run();
     return { ok: false, estado, error: String(e.message || e).slice(0, 300) };
@@ -711,6 +712,92 @@ function resumenNr(j) {
   if (Array.isArray(j)) return { tipo: "lista", elementos: j.length, claves: j[0] && typeof j[0] === "object" ? Object.keys(j[0]) : [] };
   if (j && typeof j === "object") return { tipo: "objeto", claves: Object.keys(j) };
   return { tipo: typeof j };
+}
+
+// ===== Gran Liga Adeptus =====
+const LIGA_AUTO_HORAS = 6; // como mucho una consulta automática a New Recruit cada 6 horas
+
+// Facción a partir de la lista exportada («FACTION KEYWORD: Imperium - Adeptus Astartes - Space Wolves»).
+function faccionDeLista(txt) {
+  const m = /FACTION KEYWORD:\s*([^\n\r]+)/.exec(txt || "");
+  if (!m) return null;
+  const partes = m[1].split(" - ").map((x) => x.trim()).filter(Boolean);
+  return partes[partes.length - 1] || null;
+}
+
+// Asigna los informes de New Recruit a las partidas de la fase. En una liga todos contra todos
+// cada pareja se enfrenta una sola vez por fase, así que la pareja identifica la partida.
+async function ligaProcesa(env, nrTorneo, reports) {
+  const fase = await env.DB.prepare("SELECT id FROM liga_fases WHERE nr_torneo=?1").bind(nrTorneo).first();
+  if (!fase) return { asignados: 0, sin_asignar: reports.length };
+  const js = (await env.DB.prepare("SELECT id, nr_participante FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
+  const ps = (await env.DB.prepare("SELECT id, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1").bind(fase.id).all()).results;
+  const porPart = new Map(js.map((j) => [j.nr_participante, j.id]));
+  const clavePar = (a, b) => (a < b ? a + "-" + b : b + "-" + a);
+  const porPar = new Map(ps.map((p) => [clavePar(p.jugador_a, p.jugador_b), p]));
+  const upd = [], informes = [];
+  let sinAsignar = 0;
+  for (const r of reports) {
+    const pl = r.players || [];
+    if (r.id_tourny !== nrTorneo || pl.length !== 2) continue;
+    const j0 = porPart.get(pl[0].id_participant), j1 = porPart.get(pl[1].id_participant);
+    const p = j0 && j1 ? porPar.get(clavePar(j0, j1)) : null;
+    if (!p) { sinAsignar++; continue; }
+    const pv = (i) => { const v = ((r.score || [])[i] || {}).PV; return Number.isFinite(v) ? v : null; };
+    const dato = (i) => ({
+      pv: pv(i), faccion: faccionDeLista(pl[i].exported_list),
+      destac: (pl[i].report_list && pl[i].report_list.detachment) || null,
+      lista: pl[i].exported_list ? String(pl[i].exported_list).slice(0, 20000) : null,
+    });
+    const [a, b] = p.jugador_a === j0 ? [dato(0), dato(1)] : [dato(1), dato(0)];
+    informes.push(String(r._id));
+    upd.push(env.DB.prepare(
+      `UPDATE liga_partidas SET pv_a=?2, pv_b=?3, jugada=?4, nr_informe=?5, nr_partida=COALESCE(?6, nr_partida),
+         faccion_a=?7, faccion_b=?8, destac_a=?9, destac_b=?10, lista_a=?11, lista_b=?12 WHERE id=?1`
+    ).bind(p.id, a.pv, b.pv, String(r.date || "").slice(0, 10) || null, String(r._id), r.id_match || null,
+      a.faccion, b.faccion, a.destac, b.destac, a.lista, b.lista));
+  }
+  // Informes borrados en New Recruit: se quita su resultado.
+  upd.push(env.DB.prepare(
+    `UPDATE liga_partidas SET pv_a=NULL, pv_b=NULL, jugada=NULL, nr_informe=NULL, faccion_a=NULL, faccion_b=NULL,
+       destac_a=NULL, destac_b=NULL, lista_a=NULL, lista_b=NULL
+     WHERE fase_id=?1 AND nr_informe IS NOT NULL AND nr_informe NOT IN (SELECT value FROM json_each(?2))`
+  ).bind(fase.id, JSON.stringify(informes)));
+  for (let i = 0; i < upd.length; i += 50) await env.DB.batch(upd.slice(i, i + 50));
+  return { asignados: informes.length, sin_asignar: sinAsignar };
+}
+
+// Fecha y hora de Madrid ('YYYY-MM-DDTHH:MM') de un instante.
+function enMadrid(fecha) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(fecha).map((x) => [x.type, x.value])
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+// Día 'YYYY-MM-DD' desplazado n días.
+const masDias = (dia, n) => { const d = new Date(dia + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+// Actualización automática (la dispara una visita): solo durante la fase, como mucho cada 6 horas
+// y una vez tras cada cierre de ronda (domingo 14:00). Si New Recruit falló, no se reintenta antes de 1 hora.
+async function ligaAuto(env, fase) {
+  if (!fase || !fase.nr_torneo || !env.NR_LOGIN) return;
+  const ahora = nowLocal();
+  const dia0 = fase.inicio.slice(0, 10);
+  const fin = masDias(dia0, 14 * (fase.rondas + 1)) + "T14:00"; // cierre de la ronda de aplazadas
+  if (ahora < fase.inicio || ahora > masDias(fin.slice(0, 10), 1) + "T23:59") return;
+  let ultimoCierre = "";
+  for (let n = 1; n <= fase.rondas + 1; n++) {
+    const c = masDias(dia0, 14 * n) + "T14:00";
+    if (c <= ahora) ultimoCierre = c; else break;
+  }
+  const c = await env.DB.prepare("SELECT actualizado, intento, error FROM nr_cache WHERE clave=?1").bind("reports:" + fase.nr_torneo).first();
+  const madrid = (utc) => (utc ? enMadrid(new Date(utc.replace(" ", "T") + "Z")) : "");
+  const hace = (h) => enMadrid(new Date(Date.now() - h * 3600e3));
+  if (c && c.error && madrid(c.intento) > hace(1)) return;
+  const ultima = madrid(c && c.actualizado);
+  if (ultima && ultima > hace(LIGA_AUTO_HORAS) && ultima >= ultimoCierre) return;
+  await nrSync(env, "reports", fase.nr_torneo);
 }
 
 export default {
@@ -808,6 +895,40 @@ export default {
       });
       if (upd.length) await env.DB.batch(upd);
       return Response.json(results, { headers: noStore });
+    }
+
+    // Gran Liga (pública): fase, jugadores, calendario y resultados (sin las listas, que se piden aparte).
+    if (path === "/api/liga" && request.method === "GET") {
+      const fases = (await env.DB.prepare("SELECT id, nombre, edicion, fase FROM liga_fases ORDER BY edicion DESC, fase DESC").all()).results;
+      const pedida = Number(url.searchParams.get("fase")) || null;
+      const fase = await env.DB.prepare(
+        pedida ? "SELECT * FROM liga_fases WHERE id=?1" : "SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1"
+      ).bind(...(pedida ? [pedida] : [])).first();
+      if (!fase) return Response.json({ fases, fase: null }, { headers: { "cache-control": "public, max-age=120" } });
+      ctx.waitUntil(ligaAuto(env, fase).catch(() => {}));
+      const jugadores = (await env.DB.prepare("SELECT id, discord, nombre FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
+      const partidas = (await env.DB.prepare(
+        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada,
+           faccion_a, faccion_b, destac_a, destac_b, (lista_a IS NOT NULL OR lista_b IS NOT NULL) AS listas
+         FROM liga_partidas WHERE fase_id=?1 ORDER BY ronda, mesa`
+      ).bind(fase.id).all()).results;
+      const sync = fase.nr_torneo
+        ? await env.DB.prepare("SELECT actualizado FROM nr_cache WHERE clave=?1").bind("reports:" + fase.nr_torneo).first()
+        : null;
+      return Response.json(
+        { fases, fase: { id: fase.id, nombre: fase.nombre, edicion: fase.edicion, fase: fase.fase, nr_torneo: fase.nr_torneo, inicio: fase.inicio, rondas: fase.rondas },
+          jugadores, partidas, actualizado: sync ? sync.actualizado : null, ahora: nowLocal() },
+        { headers: { "cache-control": "public, max-age=120" } }
+      );
+    }
+
+    // Lista de ejército usada por un jugador en una partida de la liga (pública).
+    if (path === "/api/liga/lista" && request.method === "GET") {
+      const id = Number(url.searchParams.get("partida")), lado = url.searchParams.get("lado");
+      if (!id || (lado !== "a" && lado !== "b")) return new Response("Datos no válidos", { status: 400 });
+      const r = await env.DB.prepare(`SELECT lista_${lado} AS lista FROM liga_partidas WHERE id=?1`).bind(id).first();
+      if (!r || !r.lista) return new Response("No hay lista", { status: 404 });
+      return new Response(r.lista, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" } });
     }
 
     // Galería pública: las publicaciones, con los enlaces de imagen renovados si van a caducar.

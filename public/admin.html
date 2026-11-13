@@ -55,7 +55,7 @@ th{color:#D9B25A;font-weight:600}
 <div class="c">
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
-    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a></nav>
+    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a></nav>
     <span id="auth"></span>
   </div>
   <h1>Administración de eventos</h1>
@@ -283,7 +283,9 @@ async function nrSync(tipo, btn) {
   try {
     const r = await fetch("/api/admin/nr", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: $("nrid").value.trim(), tipo }) });
     const d = await r.json().catch(() => ({}));
-    $("nrmsg").textContent = d.ok ? "Sincronizado: " + d.bytes + " bytes." : d.error || "No se pudo sincronizar.";
+    $("nrmsg").textContent = d.ok
+      ? "Sincronizado: " + d.bytes + " bytes." + (d.liga ? " Resultados asignados a la liga: " + d.liga.asignados + (d.liga.sin_asignar ? " (sin asignar: " + d.liga.sin_asignar + ")" : "") + "." : "")
+      : d.error || "No se pudo sincronizar.";
   } catch (e) { $("nrmsg").textContent = "No se pudo sincronizar."; }
   btn.disabled = false;
   nrStatus();
