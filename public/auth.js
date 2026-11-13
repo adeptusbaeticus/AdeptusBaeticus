@@ -6,6 +6,9 @@
   const instalada = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   if (instalada) return;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  // Firefox para Android permite instalar desde su menú, pero no avisa a la página: se muestran los pasos.
+  const firefoxAndroid = /android/i.test(navigator.userAgent) && /firefox/i.test(navigator.userAgent);
+  const conPasos = ios || firefoxAndroid;
   let aviso = null; // evento de instalación del navegador (Chrome, Edge, Android)
   const enlace = () => {
     let a = document.getElementById("instalar-app");
@@ -19,12 +22,12 @@
     a.addEventListener("click", async (e) => {
       e.preventDefault();
       if (aviso) { aviso.prompt(); try { await aviso.userChoice; } catch (x) {} aviso = null; a.remove(); return; }
-      if (ios) instruccionesIos();
+      if (conPasos) instrucciones();
     });
     nav.prepend(a);
     return a;
   };
-  function instruccionesIos() {
+  function instrucciones() {
     const ov = document.createElement("div");
     ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-labelledby", "ia-t");
     ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;padding:16px;z-index:60";
@@ -35,7 +38,9 @@
     h.style.cssText = "margin:0 0 10px;font:700 20px Cinzel,Georgia,serif;color:#F0CE82";
     const ol = document.createElement("ol");
     ol.style.cssText = "margin:0 0 16px;padding-left:20px";
-    ["Pulsa el botón Compartir de Safari (el cuadrado con la flecha hacia arriba).", "Elige «Añadir a pantalla de inicio».", "Pulsa «Añadir»: el icono del club aparecerá con el resto de tus apps."]
+    (firefoxAndroid
+      ? ["Pulsa el menú de Firefox (los tres puntos ⋮).", "Elige «Instalar» o «Añadir a pantalla de inicio».", "Confirma: el icono del club aparecerá con el resto de tus apps."]
+      : ["Pulsa el botón Compartir de Safari (el cuadrado con la flecha hacia arriba).", "Elige «Añadir a pantalla de inicio».", "Pulsa «Añadir»: el icono del club aparecerá con el resto de tus apps."])
       .forEach((t) => { const li = document.createElement("li"); li.textContent = t; li.style.margin = "4px 0"; ol.appendChild(li); });
     const b = document.createElement("button");
     b.type = "button"; b.textContent = "Entendido";
@@ -47,7 +52,7 @@
   }
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); aviso = e; enlace(); });
   window.addEventListener("appinstalled", () => { const a = document.getElementById("instalar-app"); if (a) a.remove(); });
-  if (ios) {
+  if (conPasos) {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", enlace); else enlace();
   }
 })();
