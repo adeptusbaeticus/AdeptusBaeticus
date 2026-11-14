@@ -22,7 +22,7 @@ a{color:#D9B25A}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
 /* La cabecera se queda fija arriba al hacer scroll. */
 .nav{position:sticky;top:0;z-index:40;background:#15171A}
-/* El fondo de la cabecera ocupa todo el ancho: el fuego de las bendiciones nunca asoma junto al menú. */
+/* El fondo de la cabecera ocupa todo el ancho: los sellos de las bendiciones nunca asoman junto al menú. */
 .nav::before{content:"";position:absolute;top:0;bottom:-1px;left:-100vmax;right:-100vmax;background:#15171A;z-index:-1}
 html{scroll-padding-top:96px}
 .brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
@@ -103,34 +103,17 @@ dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
 .marco{position:relative;border-radius:12px;--es:0px;--eb:0px;--eo:0;--rs:0px;--rb:0px;--ro:0}
 .marco>.post{position:relative;z-index:1;height:100%;box-sizing:border-box}
 .marco::before,.marco::after{content:"";position:absolute;pointer-events:none;z-index:0;border-radius:18px;transition:opacity .4s,filter .4s}
-/* Fuego que sube desde abajo por los lados de la tarjeta: dorado y divino a la izquierda (Emperador) y con
-   los colores de los cuatro dioses del Caos a la derecha (Poderes Ruinosos). Sube más con cada bendición (1-10). */
-/* Las llamas suben por fuera de la tarjeta, pegadas a su borde, desde las esquinas de abajo. */
-.fuego{position:absolute;bottom:-4px;width:46px;z-index:0;pointer-events:none;overflow:visible;filter:blur(2.6px) saturate(1.25)}
-.fuego.izq{left:-44px}.fuego.der{right:-44px}
-/* Cada lengua de fuego: un brillo de núcleo claro a borde de color que nace, sube ondulando hacia fuera,
-   se encoge y se apaga. Se suman con «screen», como la luz del fuego real. */
-.fuego i{position:absolute;bottom:var(--y);width:var(--s);height:calc(var(--s) * 1.9);margin-left:calc(var(--s) / -2);
-  border-radius:50% 50% 45% 45% / 60% 60% 40% 40%;background:var(--g);mix-blend-mode:screen;opacity:0;
-  transform-origin:50% 100%;will-change:transform,opacity;animation:lengua var(--d) linear var(--r) infinite}
-.fuego.izq i{right:var(--x)}.fuego.der i{left:var(--x)}
-/* Fuera de la pantalla, quieto (no gasta). */
-.fuego.pausa i,.fuego.pausa b{animation-play-state:paused}
-/* Fuego negro del Caos: no suma luz (oscurece) y solo brilla el filo del color de su dios. */
-.fuego i.negra{mix-blend-mode:normal}
-@keyframes lengua{
-  0%{transform:translate(0,0) scale(1,1);opacity:0}
-  12%{opacity:var(--o)}
-  45%{transform:translate(calc(var(--dx) * .45),calc(var(--h) * -.45)) scale(.82,1.12)}
-  75%{opacity:calc(var(--o) * .7)}
-  100%{transform:translate(var(--dx),calc(var(--h) * -1)) scale(.25,.6);opacity:0}}
-/* Resplandor de la base, que respira. */
-.fuego b{position:absolute;bottom:-6px;width:70px;height:70%;border-radius:50%;background:var(--glow);filter:blur(12px);opacity:.55;
-  animation:brasa 2.4s ease-in-out infinite alternate}
-.fuego.izq b{right:-26px}.fuego.der b{left:-26px}
-@keyframes brasa{to{opacity:.85;transform:scaleY(1.06)}}
-@media (prefers-reduced-motion:reduce){.fuego i{animation:none;opacity:var(--o);transform:translateY(calc(var(--h) * -.3)) scale(.8)}.fuego b{animation:none}}
-@media (max-width:600px){.fuego{width:18px;filter:blur(1.6px) saturate(1.25)}.fuego.izq{left:-16px}.fuego.der{right:-16px}.fuego b{width:34px}.fuego.izq b{right:-14px}.fuego.der b{left:-14px}}
+/* Sellos de pureza (Emperador, a la izquierda) y símbolos del Caos (a la derecha), colgados del borde de la tarjeta:
+   uno más por cada bendición (1-10), de arriba abajo. Sus pergaminos se mecen ligeramente. */
+.sellos{position:absolute;top:0;bottom:0;width:40px;z-index:2;pointer-events:none}
+.sellos.izq{left:-20px}.sellos.der{right:-20px}
+.sellos svg{position:absolute;left:0;width:40px;height:80px;overflow:visible;filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))}
+.sellos .tiras{transform-box:view-box;transform-origin:20px 16px;animation:vaiven var(--d) ease-in-out var(--r) infinite alternate}
+@keyframes vaiven{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
+.sellos.pausa .tiras{animation-play-state:paused}
+.sellos .glifo{filter:drop-shadow(0 0 3px var(--g))}
+@media (prefers-reduced-motion:reduce){.sellos .tiras{animation:none}}
+@media (max-width:600px){.sellos{width:26px}.sellos.izq{left:-13px}.sellos.der{right:-13px}.sellos svg{width:26px;height:52px}}
 html,body{overflow-x:clip}
 .marco::before{left:calc(-1 * var(--es));top:calc(-1 * var(--es));bottom:calc(-1 * var(--es));right:50%;
   background:linear-gradient(180deg,#F0CE82,#D9B25A 50%,#F0CE82);filter:blur(var(--eb));opacity:calc(var(--eo) * .55)}
@@ -138,15 +121,19 @@ html,body{overflow-x:clip}
   background:linear-gradient(180deg,var(--c1,#9E1414) 0%,var(--c2,#5F6E17) 34%,var(--c3,#3438A3) 67%,var(--c4,#7E2179) 100%);filter:blur(var(--rb));opacity:calc(var(--ro) * .45)}
 /* 10 bendiciones de cada tipo: borde especial dorado y del Caos, con un pulso suave del aura. */
 /* Marco: aparece a plena fuerza cuando una facción llega a 5 bendiciones. Si solo una ha llegado, el marco
-   entero es suyo (dorado del Emperador o hierro negro del Caos, gris acero oscuro para que se vea); si las dos, se lo disputan: el dorado ocupa desde la
-   izquierda su porcentaje de las bendiciones (--mp) y el negro del Caos el resto. El negro lleva un filo gris. */
+   entero es suyo (dorado del Emperador o del Caos); si las dos, se lo disputan: el dorado ocupa desde la izquierda su
+   porcentaje de las bendiciones (--mp) y el Caos el resto. */
+@property --cc{syntax:"<color>";inherits:true;initial-value:#A3211B}
 .marco.con-marco>.post{border:3px solid transparent;background:linear-gradient(#1F2328,#1F2328) padding-box,
-  linear-gradient(90deg,#F0CE82 0%,#D9B25A max(0%, calc(var(--mp) - 4%)),#4A4A52 min(100%, calc(var(--mp) + 4%)),#2E2E34 100%) border-box;
+  linear-gradient(90deg,#F0CE82 0%,#D9B25A max(0%, calc(var(--mp) - 4%)),var(--cc) min(100%, calc(var(--mp) + 4%)),var(--cc) 100%) border-box;
   box-shadow:none}
-/* Filo exterior del Caos: los cuatro colores de los dioses muy oscuros (Khorne, Nurgle, Tzeentch, Slaanesh),
-   solo en la parte del marco que controla el Caos (desde --mp hasta la derecha). */
+/* Parte del Caos del marco: entera de un dios y va pasando por los cuatro (Khorne, Nurgle, Tzeentch y Slaanesh). */
+.marco.con-marco{animation:dioses 12s linear infinite}
+@keyframes dioses{0%,20%{--cc:#B01E1E}25%,45%{--cc:#6E8A1E}50%,70%{--cc:#3A48C8}75%,95%{--cc:#9A2A96}100%{--cc:#B01E1E}}
+@media (prefers-reduced-motion:reduce){.marco.con-marco{animation:none}}
+/* Filo exterior del Caos, del mismo color que va tocando pero más oscuro (solo en su parte del marco). */
 .marco.con-marco{padding:3px;border-radius:16px;background:linear-gradient(90deg,transparent 0%,transparent var(--mp),
-  #8A1414 var(--mp),#4A5A14 calc(var(--mp) + (100% - var(--mp)) / 3),#26338C calc(var(--mp) + (100% - var(--mp)) * 2 / 3),#701A7A 100%)}
+  color-mix(in srgb,var(--cc) 55%,#000) var(--mp),color-mix(in srgb,var(--cc) 55%,#000) 100%)}
 .marco.legendaria::before,.marco.legendaria::after{animation:aura 3s ease-in-out infinite}
 @keyframes aura{50%{opacity:.7}}
 @media (prefers-reduced-motion:reduce){.marco.legendaria::before,.marco.legendaria::after{animation:none}}
@@ -457,58 +444,79 @@ function tarjeta(p) {
 
 let data = { sesion: false, publicaciones: [] };
 
-// Colores [base oscura, llama, núcleo]: oro viejo y divino (Emperador) y los cuatro dioses del Caos, oscuros como
-// el fuego de la disformidad: Khorne (sangre), Nurgle (pútrido), Tzeentch (disformidad azul) y Slaanesh (magenta).
-const FUEGO_IMPERIAL = [["#5E3A0A", "#D9A63A", "#FFF1C4"], ["#6B2405", "#E8892A", "#FFE6A0"]];
-const FUEGO_CAOS = [["#2A0303", "#9E1414", "#FF5A1F"], ["#141A05", "#5F6E17", "#BFCB4A"], ["#0B0D33", "#3438A3", "#46D2E6"], ["#22062A", "#7E2179", "#E064C8"]];
+// Sellos de pureza (Emperador) y símbolos del Caos: uno por bendición (1-10), colgados del borde de la tarjeta de arriba
+// abajo, con pergaminos que se mecen. Dibujo propio (SVG con DOM).
+const NS_SVG = "http://www.w3.org/2000/svg";
+const svgEl = (tag, at, padre) => { const x = document.createElementNS(NS_SVG, tag); for (const k in at) x.setAttribute(k, at[k]); if (padre) padre.appendChild(x); return x; };
+// Colores de los cuatro dioses del Caos: Khorne, Nurgle, Tzeentch y Slaanesh.
+const DIOSES = ["#C42A2A", "#86A82A", "#4A5AE0", "#B23AAE"];
 // Mezcla un color «#rrggbb» con negro (k de 0 a 1).
 const oscurece = (hex, k) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k)).toString(16).padStart(2, "0")).join("");
-// Fuego de un lado de la tarjeta: muchas lenguas de fuego (partículas) repartidas a lo largo del borde, más grandes y
-// juntas abajo, que suben, se abren hacia fuera y se apagan. Con n bendiciones (1-10) sube más alto (con 10, hasta
-// arriba) y hay más lenguas. colores: [base oscura, llama, núcleo] por cada fuego (uno imperial, cuatro del Caos).
-const azarFuego = (semilla) => () => { semilla = (semilla * 9301 + 49297) % 233280; return semilla / 233280; };
-const rgba = (hex, a) => "rgba(" + [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",") + "," + a + ")";
-// Solo se animan las llamas que están en pantalla.
-const verFuego = "IntersectionObserver" in window
+const azarSello = (semilla) => () => { semilla = (semilla * 9301 + 49297) % 233280; return semilla / 233280; };
+// Tiras de pergamino que cuelgan del sello (con renglones de texto apenas visibles y el final rasgado).
+function tiras(g, az, papel, borde, tinta, chamuscado) {
+  [[13, 7, 44], [19, 7, 52], [25, 6, 40]].forEach(([x, w, l]) => {
+    l = l * (0.8 + az() * 0.35);
+    const x0 = x - w / 2, y0 = 16, ga = (k) => (az() - 0.5) * k;
+    const d = `M${x0} ${y0}L${x0 + w} ${y0}L${x0 + w + ga(1.5)} ${y0 + l}L${x0 + w * 0.7} ${y0 + l - 2 - az() * 3}L${x0 + w * 0.4} ${y0 + l + ga(2)}L${x0 + ga(1)} ${y0 + l - 1 - az() * 3}Z`;
+    svgEl("path", { d, fill: papel, stroke: borde, "stroke-width": "0.6" }, g);
+    for (let r = y0 + 7; r < y0 + l - 6; r += 4.2) svgEl("path", { d: `M${x0 + 1.2} ${r}h${w - 2.4 - az() * 2}`, stroke: tinta, "stroke-width": "0.7", opacity: ".55" }, g);
+    if (chamuscado) svgEl("path", { d: `M${x0} ${y0 + l - 6}L${x0 + w} ${y0 + l - 5}`, stroke: "#000", "stroke-width": "3", opacity: ".35", "stroke-linecap": "round" }, g);
+  });
+}
+// Sello de pureza: lacre rojo de borde irregular, con un anillo y una calavera en relieve, y sus pergaminos.
+function selloPureza(az) {
+  const sv = svgEl("svg", { viewBox: "0 0 40 80", "aria-hidden": "true" });
+  const id = "s" + Math.random().toString(36).slice(2, 8);
+  const defs = svgEl("defs", {}, sv);
+  const rg = svgEl("radialGradient", { id, cx: "38%", cy: "32%", r: "70%" }, defs);
+  svgEl("stop", { offset: "0", "stop-color": "#E0574C" }, rg); svgEl("stop", { offset: ".55", "stop-color": "#A3211B" }, rg); svgEl("stop", { offset: "1", "stop-color": "#5C1210" }, rg);
+  tiras(svgEl("g", { class: "tiras" }, sv), az, "#EADFC2", "#B8A57A", "#7A6440", false);
+  // Lacre: círculo con el borde ondulado.
+  let d = "";
+  for (let k = 0; k <= 24; k++) { const a = (k / 24) * Math.PI * 2, r = 13 + (k % 2 ? 1.2 : -0.4) + (az() - 0.5) * 1.4; d += (k ? "L" : "M") + (20 + r * Math.cos(a)).toFixed(1) + " " + (16 + r * Math.sin(a)).toFixed(1); }
+  svgEl("path", { d: d + "Z", fill: `url(#${id})`, stroke: "#4A0E0C", "stroke-width": "0.8" }, sv);
+  svgEl("circle", { cx: "20", cy: "16", r: "9", fill: "none", stroke: "#5C1210", "stroke-width": "1.2", opacity: ".8" }, sv);
+  svgEl("circle", { cx: "20", cy: "16", r: "9", fill: "none", stroke: "#F08A80", "stroke-width": "0.5", opacity: ".5", "stroke-dasharray": "2 1.5" }, sv);
+  // Calavera en relieve.
+  svgEl("path", { d: "M15.6 15.2c0-3 2-4.8 4.4-4.8s4.4 1.8 4.4 4.8c0 1.5-.6 2.4-1.4 3v1.6h-6v-1.6c-.8-.6-1.4-1.5-1.4-3z", fill: "#7A1712", stroke: "#F08A80", "stroke-width": "0.45", "stroke-opacity": ".6" }, sv);
+  svgEl("circle", { cx: "18.3", cy: "15.4", r: "1.1", fill: "#3D0A08" }, sv); svgEl("circle", { cx: "21.7", cy: "15.4", r: "1.1", fill: "#3D0A08" }, sv);
+  svgEl("path", { d: "M18.6 19.8v-1.4M20 19.8v-1.4M21.4 19.8v-1.4", stroke: "#3D0A08", "stroke-width": "0.5" }, sv);
+  return sv;
+}
+// Símbolo del Caos: estrella de ocho puntas (aro con ocho flechas) de hierro oscuro, con el brillo del color de su
+// dios, y pergaminos chamuscados. Con más bendiciones, el hierro y el pergamino se oscurecen hacia el negro.
+function simboloCaos(az, color, k) {
+  const sv = svgEl("svg", { viewBox: "0 0 40 80", "aria-hidden": "true" });
+  sv.style.setProperty("--g", color);
+  tiras(svgEl("g", { class: "tiras" }, sv), az, oscurece("#8A7458", 0.25 + k * 0.5), "#2A1F18", "#1A120C", true);
+  const g = svgEl("g", { class: "glifo" }, sv);
+  const hierro = oscurece("#5A5A64", 0.2 + k * 0.6);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 2, c = Math.cos(a), sn = Math.sin(a), px = -sn, py = c;
+    const P = (r, w) => (20 + c * r + px * w).toFixed(2) + " " + (16 + sn * r + py * w).toFixed(2);
+    // Flecha: asta desde el aro y punta triangular.
+    svgEl("path", { d: `M${P(4, -0.9)}L${P(10.5, -0.9)}L${P(10.5, -2.6)}L${P(15, 0)}L${P(10.5, 2.6)}L${P(10.5, 0.9)}L${P(4, 0.9)}Z`, fill: hierro, stroke: color, "stroke-width": "0.7", "stroke-linejoin": "round" }, g);
+  }
+  svgEl("circle", { cx: "20", cy: "16", r: "4.6", fill: hierro, stroke: color, "stroke-width": "0.9" }, g);
+  svgEl("circle", { cx: "20", cy: "16", r: "1.8", fill: color, opacity: ".9" }, g);
+  return sv;
+}
+// Solo se mecen los pergaminos que están en pantalla.
+const verSellos = "IntersectionObserver" in window
   ? new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("pausa", !e.isIntersecting)), { rootMargin: "200px" }) : null;
-function fuego(lado, n, colores, semilla) {
-  const f = el("div", "fuego " + lado + (verFuego ? " pausa" : ""));
-  if (verFuego) verFuego.observe(f);
+function sellos(lado, n, semilla, oscuridad) {
+  const f = el("div", "sellos " + lado + (verSellos ? " pausa" : ""));
   f.setAttribute("aria-hidden", "true");
-  const alto = 16 + 8.4 * n; // % de la altura de la tarjeta
-  f.style.height = "calc(" + alto + "% + 4px)";
-  const movil = matchMedia("(max-width:600px)").matches;
-  const az = azarFuego(semilla || 1);
-  const oscuro = colores.oscuridad || 0;
-  const glow = colores[0];
-  f.style.setProperty("--glow", "radial-gradient(ellipse at 50% 100%," + rgba(glow[1], 0.9) + "," + rgba(glow[0], 0.6) + " 45%,transparent 72%)");
-  f.appendChild(document.createElement("b"));
-  const total = Math.round((movil ? 7 : 14) + n * (movil ? 1.6 : 3.2));
-  for (let k = 0; k < total; k++) {
-    const t = Math.pow(az(), 1.6); // altura de nacimiento (0 = abajo): más lenguas abajo
-    const [os, c, nu] = colores[Math.floor(az() * colores.length)];
-    // Del Caos oscuro: núcleo negro y borde del color del dios (con «screen» el negro no suma luz: queda el filo).
-    // Abajo, núcleo casi blanco; arriba, la llama se enfría hacia el color (las puntas son naranjas o rojas).
-    const caliente = 1 - t;
-    const negra = oscuro > 0.3 && az() < oscuro * 0.85;
-    const nucleo = negra ? "rgba(8,8,10,.95)" : caliente > 0.55 ? rgba(nu, 0.95) : rgba(c, 0.9);
-    const p = document.createElement("i");
-    if (negra) p.className = "negra";
-    const tam = (movil ? 10 : 20) + (1 - t) * (movil ? 12 : 26) * (0.6 + az() * 0.6) + n * (movil ? 0.4 : 1);
-    p.style.cssText = [
-      "--y:" + (t * 82).toFixed(1) + "%",
-      "--x:" + (az() * (movil ? 4 : 9)).toFixed(1) + "px",
-      "--s:" + tam.toFixed(1) + "px",
-      "--h:" + ((movil ? 34 : 60) + az() * (movil ? 40 : 80) + n * 4).toFixed(0) + "px",
-      "--dx:" + ((lado === "izq" ? -1 : 1) * (2 + az() * (movil ? 6 : 14))).toFixed(1) + "px",
-      "--d:" + (0.9 + az() * 0.9).toFixed(2) + "s",
-      "--r:" + (-az() * 2).toFixed(2) + "s",
-      "--o:" + (0.4 + az() * 0.35).toFixed(2),
-      "--g:" + (negra
-        ? "radial-gradient(ellipse at 50% 72%,rgba(8,8,10,.92) 0%,rgba(20,20,24,.85) 34%," + rgba(c, 0.8) + " 52%," + rgba(nu, 0.35) + " 62%,transparent 72%)"
-        : "radial-gradient(ellipse at 50% 72%," + nucleo + " 0%," + (caliente > 0.55 ? rgba(nu, 0.8) : rgba(c, 0.85)) + " 16%," + rgba(c, 0.75) + " 38%," + rgba(os, 0.5) + " 60%,transparent 72%)"),
-    ].join(";");
-    f.appendChild(p);
+  if (verSellos) verSellos.observe(f);
+  const az = azarSello(semilla || 1);
+  for (let i = 0; i < n; i++) {
+    const sv = lado === "izq" ? selloPureza(az) : simboloCaos(az, DIOSES[i % 4], oscuridad);
+    sv.style.top = "calc(" + (2 + i * 9.4) + "% - 4px)";
+    const t = sv.querySelector(".tiras");
+    t.style.setProperty("--d", (2.2 + az() * 1.6).toFixed(2) + "s");
+    t.style.setProperty("--r", (-az() * 3).toFixed(2) + "s");
+    f.appendChild(sv);
   }
   return f;
 }
@@ -523,14 +531,12 @@ function aura(m, p) {
   };
   lado(p.emperador, "e");
   lado(p.ruinosos, "r");
-  m.querySelectorAll(".fuego").forEach((x) => x.remove());
-  if (p.emperador > 0) m.appendChild(fuego("izq", Math.min(10, p.emperador), FUEGO_IMPERIAL, p.id * 7 + 1));
-  // El Caos se oscurece hacia el negro (Chaos Undivided) según suben las bendiciones; las brasas siguen encendidas.
+  m.querySelectorAll(".sellos").forEach((x) => x.remove());
+  if (p.emperador > 0) m.appendChild(sellos("izq", Math.min(10, p.emperador), p.id * 7 + 1, 0));
+  // Los símbolos del Caos se oscurecen hacia el negro (Chaos Undivided) según suben las bendiciones.
   const nr = Math.min(10, p.ruinosos || 0), k = nr ? (nr - 1) / 9 : 0;
-  const caos = FUEGO_CAOS.map(([o, c, nu]) => [oscurece(o, k * 0.7), oscurece(c, k * 0.5), oscurece(nu, k * 0.2)]);
-  caos.oscuridad = k;
-  caos.forEach(([, c], i) => m.style.setProperty("--c" + (i + 1), c));
-  if (nr > 0) m.appendChild(fuego("der", nr, caos, p.id * 13 + 5));
+  DIOSES.forEach((c, i) => m.style.setProperty("--c" + (i + 1), oscurece(c, k * 0.5)));
+  if (nr > 0) m.appendChild(sellos("der", nr, p.id * 13 + 5, k));
   // Marco: desde 5 bendiciones de una facción, a plena fuerza; si las dos tienen 5 o más, se reparte según el
   // porcentaje de votos (con los votos reales, también por encima de 10).
   const ve = p.emperador || 0, vr = p.ruinosos || 0;

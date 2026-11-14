@@ -135,9 +135,10 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Ampliar fotos** con zoom: rueda del ratón, doble clic, pellizco en el móvil, arrastrar, botones −/+/Ajustar y
   teclas +, − y 0. Se pasa de una foto a otra con las flechas.
 - **Bendiciones** (aspirante, miembro, admin): del Emperador o de los Poderes Ruinosos, una de cada por publicación.
-  - Con los votos, la publicación gana un **aura de llamas** (doradas a la izquierda; del Caos a la derecha, que se
-    oscurecen).
-  - Desde 5 votos gana un **marco**, que se disputan las dos facciones según el porcentaje.
+  - Con cada voto, la publicación gana un **sello de pureza** (a la izquierda) o un **símbolo del Caos** (a la
+    derecha), colgados del borde y con pergaminos que se mecen.
+  - Desde 5 votos gana un **marco**: dorado del Emperador o del Caos (que va pasando por el color de los cuatro dioses),
+    y se lo disputan las dos facciones según el porcentaje.
 - **Subir fotos** (miembro, admin): hasta 10 fotos con una descripción. El navegador las reduce antes de enviarlas y
   el bot las publica en Discord. Desde Discord también se puede, con `/publicar`, `/editar` y `/borrar`.
 - **Borrar** una publicación (su autor o un admin). Se borra también en Discord.
