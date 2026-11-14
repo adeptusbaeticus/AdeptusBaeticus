@@ -14,6 +14,8 @@
 .abf{position:absolute;z-index:60;width:300px;max-width:calc(100vw - 24px);box-sizing:border-box;background:#1F2328;border:1px solid #6B5A2E;border-radius:12px;padding:14px;color:#ECE7DC;font:400 14px/1.4 Inter,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.5);text-align:left}
 .abf-cab{display:flex;gap:12px;align-items:center}
 .abf-lau{position:relative;display:inline-flex;flex:none;margin:8px}
+.abf-lau.sin{margin:0}
+.abf-lau .galones{display:block;line-height:0;position:absolute;right:-14px;bottom:-4px;padding:3px 3px 2px;border-radius:7px;background:#15171A;border:1px solid #6B5A2E;box-shadow:0 2px 4px rgba(0,0,0,.6)}
 .abf-lau .laurel{position:absolute;left:-17%;top:-17%;width:134%;height:134%;pointer-events:none;overflow:visible}
 .abf-cab>div:nth-child(2){flex:1;min-width:0}
 .abf-tro{display:flex;flex-wrap:wrap;gap:6px 12px;margin-left:auto;justify-content:flex-end;align-items:flex-end}
@@ -32,7 +34,8 @@
 .abf-dat b{color:#F0CE82}
 .abf a.abf-ver{display:inline-block;margin-top:12px;color:#D9B25A;font-weight:600;text-decoration:none}
 .abf a.abf-ver:hover{text-decoration:underline}
-.abf .abf-m{color:#A8A293}`;
+.abf .abf-m{color:#A8A293}
+.abf .abf-ant{margin:4px 0 0;font-size:12px}`;
   document.head.appendChild(css);
 
   async function carga() {
@@ -58,11 +61,13 @@
     else av = el("span", "abf-av", (m.name || "?").trim().charAt(0).toUpperCase());
     // Corona de laurel del rol (verde: miembro; roja: admin).
     const lau = window.abLaurel && window.abLaurel(m.role);
-    if (lau) { const w = el("span", "abf-lau"); w.append(av, lau); av = w; }
+    const gal = window.abGalones && window.abGalones(m.alta);
+    if (lau || gal) { const w = el("span", "abf-lau" + (lau ? "" : " sin")); w.appendChild(av); if (lau) w.appendChild(lau); if (gal) w.appendChild(gal); av = w; }
     const tx = el("div");
     const n = el("p", "abf-nom", m.name); n.setAttribute("translate", "no");
     tx.append(n, el("span", "abf-rol", ROL[m.role] || m.role));
     if (m.desconectado) tx.appendChild(el("span", "abf-rol off", "Desconectado"));
+    if (m.alta && window.abAntiguedad) tx.appendChild(el("p", "abf-m abf-ant", "En el club: " + window.abAntiguedad(m.alta)));
     cab.append(av, tx);
     c.appendChild(cab);
     const fac = m.facciones || [];

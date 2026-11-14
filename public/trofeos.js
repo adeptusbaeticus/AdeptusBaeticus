@@ -118,4 +118,61 @@ function copa(puesto, modalidad) {
     return sv;
   }
   window.abLaurel = laurel;
+
+  // Antigüedad en el club a partir de la fecha de registro («YYYY-MM-DD»): { anios, meses } hasta hoy.
+  function antiguedad(alta) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(alta || "");
+    if (!m) return null;
+    const hoy = new Date();
+    let meses = (hoy.getFullYear() - +m[1]) * 12 + (hoy.getMonth() + 1 - +m[2]);
+    if (hoy.getDate() < +m[3]) meses--;
+    meses = Math.max(0, meses);
+    return { anios: Math.floor(meses / 12), meses: meses % 12 };
+  }
+  // «1 año y 7 meses», «3 meses» o «menos de un mes».
+  function textoAntiguedad(alta) {
+    const a = antiguedad(alta);
+    if (!a) return "";
+    const y = a.anios ? a.anios + (a.anios === 1 ? " año" : " años") : "", mm = a.meses ? a.meses + (a.meses === 1 ? " mes" : " meses") : "";
+    return y && mm ? y + " y " + mm : y || mm || "menos de un mes";
+  }
+  // Galones: uno dorado por cada año completo en el club (hasta 5 dibujados, «×N» si hay más). null si no lleva.
+  function galones(alta, grande) {
+    const a = antiguedad(alta);
+    if (!a || !a.anios) return null;
+    const ns = "http://www.w3.org/2000/svg", n = Math.min(a.anios, 5), ancho = grande ? 26 : 20, paso = grande ? 7 : 5.5;
+    const sv = document.createElementNS(ns, "svg");
+    const alto = 8 + (n - 1) * paso * (20 / ancho);
+    sv.setAttribute("viewBox", "0 0 20 " + alto.toFixed(1));
+    sv.setAttribute("width", String(ancho));
+    sv.setAttribute("height", (alto * ancho / 20).toFixed(1));
+    sv.setAttribute("aria-hidden", "true");
+    // El texto va en un envoltorio (fuera del SVG) para que se traduzca.
+    const w = document.createElement("span");
+    w.className = "galones";
+    w.setAttribute("role", "img");
+    w.title = a.anios === 1 ? "1 año en el club" : a.anios + " años en el club";
+    w.setAttribute("aria-label", w.title);
+    w.appendChild(sv);
+    for (let i = 0; i < n; i++) {
+      const y = 1.5 + i * paso * (20 / ancho);
+      for (const [c, g] of [["#3A2A0E", 4.2], ["#E3B95A", 2.6]]) {
+        const p = document.createElementNS(ns, "path");
+        p.setAttribute("d", `M2 ${y.toFixed(1)}L10 ${(y + 4.5).toFixed(1)}L18 ${y.toFixed(1)}`);
+        p.setAttribute("fill", "none"); p.setAttribute("stroke", c); p.setAttribute("stroke-width", String(g));
+        p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round");
+        sv.appendChild(p);
+      }
+    }
+    if (a.anios > 5) {
+      const tx = document.createElementNS(ns, "text");
+      tx.setAttribute("x", "10"); tx.setAttribute("y", (alto + 6).toFixed(1)); tx.setAttribute("text-anchor", "middle");
+      tx.setAttribute("font-size", "7"); tx.setAttribute("font-weight", "700"); tx.setAttribute("fill", "#E3B95A");
+      tx.textContent = "×" + a.anios; sv.appendChild(tx);
+      sv.setAttribute("viewBox", "0 0 20 " + (alto + 8).toFixed(1)); sv.setAttribute("height", ((alto + 8) * ancho / 20).toFixed(1));
+    }
+    return w;
+  }
+  window.abAntiguedad = textoAntiguedad;
+  window.abGalones = galones;
 })();

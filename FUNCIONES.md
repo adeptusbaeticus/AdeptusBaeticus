@@ -57,6 +57,12 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   - trofeos en iconos;
   - enlace «Ver ficha completa».
 
+### Privacidad
+- Página **«Privacidad y aviso legal»** (enlace en el pie de todas las páginas): qué datos se guardan, para qué, quién
+  los ve, servicios usados, cuánto se conservan, derechos (ver, corregir y borrar desde «Mis datos»), cookies técnicas y
+  aviso de que es una web no oficial (las marcas son de Games Workshop).
+- Las solicitudes de inscripción rechazadas se borran de la web al rechazarlas.
+
 ### Otros
 - **Vista previa** de los enlaces al compartirlos (WhatsApp, Discord…) con imagen y título de cada página.
 - Cabecera fija al desplazarse y transiciones suaves entre páginas.
@@ -187,7 +193,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
     usadas);
   - ranking ELO;
   - **trofeos** (en cascada si se repiten);
-  - «En el club desde» la fecha de registro.
+  - **Antigüedad**: «En el club desde mayo de 2025 · 1 año y 6 meses», y un **galón** dorado por cada año en el club
+    junto a la foto (también en el listado y en la ficha rápida).
   - Para socios con sesión, además, sus **cuentas**: Discord, Instagram, Steam, New Recruit y BCP.
 - **Editar mi ficha:** lleva a «Mis datos».
 

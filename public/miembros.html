@@ -46,6 +46,9 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .av.g{width:104px;height:104px;font-size:40px}
 .lau{position:relative;display:inline-flex;flex:none;margin:10px}
 .lau.g{margin:18px}
+.lau.sin{margin:0}
+.lau .galones{display:block;line-height:0;position:absolute;right:-14px;bottom:-4px;padding:3px 3px 2px;border-radius:7px;background:#15171A;border:1px solid #6B5A2E;box-shadow:0 2px 4px rgba(0,0,0,.6)}
+.lau.g .galones{right:-16px;bottom:-2px}
 .lau .laurel{position:absolute;left:-16%;top:-16%;width:132%;height:132%;pointer-events:none;overflow:visible}
 .nm{font-weight:600;font-size:17px;overflow-wrap:anywhere}
 .rol.off{color:#A8A293;border-color:#4A4F57;margin-left:6px}
@@ -150,6 +153,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
   <footer class="ft">
     <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
     <nav class="ftl" aria-label="Enlaces">
+      <a href="/privacidad.html">Privacidad</a>
       <a href="https://adeptus-baeticus.blogspot.com" target="_blank" rel="noopener">Blog</a>
       <a href="https://www.instagram.com/adeptusbaeticus/" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a>
     </nav>
@@ -170,11 +174,14 @@ const GRUPOS = [
 ];
 
 // Foto con la corona de laurel del rol (verde: miembro; roja: admin), si la lleva.
+// Foto con la corona de laurel del rol y los galones de antigüedad (uno por año en el club), si los lleva.
 function avatar(m, grande) {
-  const f = foto(m, grande), l = window.abLaurel && window.abLaurel(m.role);
-  if (!l) return f;
-  const w = el("span", "lau" + (grande ? " g" : ""));
-  w.append(f, l);
+  const f = foto(m, grande), l = window.abLaurel && window.abLaurel(m.role), g = window.abGalones && window.abGalones(m.alta, grande);
+  if (!l && !g) return f;
+  const w = el("span", "lau" + (grande ? " g" : "") + (l ? "" : " sin"));
+  w.appendChild(f);
+  if (l) w.appendChild(l);
+  if (g) w.appendChild(g);
   return w;
 }
 function foto(m, grande) {
@@ -291,7 +298,8 @@ function ficha(m) {
   const h = el("h2", "", m.name); h.id = "fi-n"; h.setAttribute("translate", "no");
   tx.append(h, el("span", "rol", ROL[m.role] || m.role));
   if (m.desconectado) { tx.append(" ", el("span", "rol off", "Desconectado")); tx.appendChild(el("p", "sin", "Todavía no ha entrado en la web.")); }
-  if (m.alta) { const [y, mo, d] = m.alta.split("-"); tx.appendChild(el("p", "sin", "En el club desde " + d + "/" + mo + "/" + y)); }
+  // Antigüedad: «En el club desde abril de 2025 · 1 año y 7 meses».
+  if (m.alta) tx.appendChild(el("p", "sin", "En el club desde " + mesAnio(m.alta.slice(0, 7)) + " · " + window.abAntiguedad(m.alta)));
   cab.append(avatar(m, true), tx);
   fi.append(cab, el("h3", "", "Facciones"), m.facciones.length ? chips(m.facciones) : el("p", "sin", "Todavía no ha indicado sus facciones."));
   // Estadísticas en la Gran Liga (fase actual).

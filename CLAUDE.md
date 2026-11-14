@@ -37,6 +37,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   actualizarla.
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.
+  La política de privacidad y el aviso legal están en `privacidad.html` (enlazada en el pie de todas las páginas, en el
+  consentimiento de la inscripción y en «Mis datos»): si cambia qué datos se guardan, quién los ve, los servicios usados
+  o cuánto se conservan, actualizarla (y su traducción). Las solicitudes rechazadas se borran al rechazarlas.
 
 ## Avisos
 
@@ -122,8 +125,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   perfil» (con confirmación, `DELETE /api/admin/miembros/:id`). `borraPerfil` borra ficha, datos, solicitudes,
   inscripciones, partidas que creó, votos, bendiciones, trofeos y avisos, y quita su vínculo con la liga; las fotos de
   la galería y los posts se quedan. Si su sesión sigue abierta, `/api/me` la cierra.
-- Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos); en la ficha de
-  Miembros, «En el club desde».
+- Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos). Antigüedad en la
+  ficha de Miembros («En el club desde mayo de 2025 · 1 año y 6 meses») y en la ficha rápida, y un galón dorado por año
+  completo junto a la foto (`window.abAntiguedad` y `window.abGalones` en `public/trofeos.js`; solo con sesión).
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
   (migración 0030); en Miembros salen con la etiqueta «Desconectado» hasta su primer inicio de sesión, que lo pone a 1.
 

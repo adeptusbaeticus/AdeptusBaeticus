@@ -680,7 +680,8 @@ async function decideInscripcion(env, it, accion, id) {
   const miembro = `/guilds/${env.GUILD_ID}/members/${sol.discord_id}`;
   if (accion === "rechazar") {
     const k = await bot(env, miembro, { method: "DELETE" }); // fuera del servidor (404: ya no estaba)
-    await env.DB.prepare("UPDATE solicitudes SET estado='rechazada', token_cifrado=NULL, decidido_por=?2, decidido_at=datetime('now') WHERE id=?1").bind(id, admin).run();
+    // Solicitud rechazada: sus datos se borran de la web (política de privacidad).
+    await env.DB.prepare("DELETE FROM solicitudes WHERE id=?1").bind(id).run();
     return cierraMensaje(`❌ Rechazada por <@${admin}>` + (k.ok || k.status === 404 ? "; ya no está en el servidor." : `. No se le pudo sacar del servidor (error ${k.status}): hazlo a mano.`));
   }
   // Aprobar: rol de Aspirante (y fuera Externo). Si ya no estaba en el servidor, se le mete con el permiso guardado.

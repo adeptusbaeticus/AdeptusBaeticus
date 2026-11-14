@@ -110,6 +110,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
   <footer class="ft">
     <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
     <nav class="ftl" aria-label="Enlaces">
+      <a href="/privacidad.html">Privacidad</a>
       <a href="https://adeptus-baeticus.blogspot.com" target="_blank" rel="noopener">Blog</a>
       <a href="https://www.instagram.com/adeptusbaeticus/" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a>
     </nav>
@@ -219,6 +220,7 @@ function zonaBorrar() {
   const sec = el("section", "paso peligro");
   sec.append(el("h2", "", "Borrar mis datos"),
     el("p", "m", "Borra tu perfil de la web: tus datos de socio, tu ficha de Miembros, tus inscripciones, las partidas que creaste, tus votos y tus trofeos. Las fotos que subiste a la galería se quedan. No se puede deshacer."));
+  const pv = el("p", "m"); const pa = el("a", "", "Política de privacidad"); pa.href = "/privacidad.html"; pv.append("Qué datos guardamos y para qué: ", pa, "."); sec.appendChild(pv);
   const b = el("button", "btn borrar", "Borrar todos mis datos"); b.type = "button";
   const msg = el("p", "m"); msg.setAttribute("role", "status");
   b.onclick = async () => {
@@ -296,11 +298,11 @@ function formulario(cuenta) {
   const casilla = (texto, enlace) => {
     const l = el("label", "op"); const i = el("input"); i.type = "checkbox";
     const t = el("span", "", texto);
-    if (enlace) { t.append(" "); const a = el("a", "", "(leer los estatutos)"); a.href = "/estatutos-adeptus-baeticus.pdf"; a.target = "_blank"; a.rel = "noopener"; t.appendChild(a); }
+    if (enlace) { t.append(" "); const a = el("a", "", enlace[0]); a.href = enlace[1]; a.target = "_blank"; a.rel = "noopener"; t.appendChild(a); }
     l.append(i, t); return [l, i];
   };
-  const [lEst, cEst] = casilla("Acepto los estatutos y el reglamento interno del club.", true);
-  const [lDat, cDat] = casilla("Acepto que el club guarde estos datos para gestionar mi inscripción y contactar conmigo.");
+  const [lEst, cEst] = casilla("Acepto los estatutos y el reglamento interno del club.", ["(leer los estatutos)", "/estatutos-adeptus-baeticus.pdf"]);
+  const [lDat, cDat] = casilla("Acepto que el club guarde estos datos para gestionar mi inscripción y contactar conmigo.", ["(leer la política de privacidad)", "/privacidad.html"]);
   const fsAcepta = el("fieldset"); fsAcepta.append(el("legend", "", "Condiciones"), lEst, lDat);
   // Ficha de Miembros (al editar mis datos): facciones y cuentas, todo opcional.
   let ficha = null;
