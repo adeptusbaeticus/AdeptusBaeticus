@@ -28,6 +28,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Los colores de los tipos de evento están en `public/colores.css` (variables, con la paleta anterior para volver
   atrás): quedadas rojas, torneos verdes, partidas doradas; físico en hueso y online en grafito. Usar siempre esas
   variables, no colores sueltos.
+- **Direcciones:** Cloudflare sirve las páginas sin `.html` (`/inscripcion.html` → `/inscripcion`): al comparar
+  `location.pathname` aceptar las dos formas (`/^\/inscripcion(\.html)?$/`), o una redirección puede entrar en bucle.
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.
 
