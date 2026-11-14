@@ -524,6 +524,7 @@
       return a;
     };
     item("/miembros.html#yo", "Mi ficha");
+    item("/inscripcion.html?completar=1", "Mis datos");
     item("/encuestas.html", "Encuestas");
     item("#", "Notificaciones").addEventListener("click", (e) => { e.preventDefault(); abre(false); dialogoAvisos(); });
     item("/mis-inscripciones.html", "Mis inscripciones");

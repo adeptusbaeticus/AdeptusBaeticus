@@ -856,6 +856,24 @@ function cuentaLimpia(tipo, v) {
   return [null, null];
 }
 
+// Guarda la ficha de Miembros (facciones y cuentas) de un socio. Devuelve un error (texto) o null.
+async function guardaFicha(env, discordId, b) {
+  const u = await env.DB.prepare("SELECT discord_id, nr_username FROM users WHERE discord_id=?1").bind(discordId).first();
+  if (!u) return "Ese miembro no existe";
+  const fac = Array.isArray(b.facciones) ? [...new Set(b.facciones.map(String))] : [];
+  if (fac.some((f) => !FACCIONES.includes(f))) return "Facción no válida";
+  const v = {};
+  for (const [campo, tipo] of [["instagram", "instagram"], ["steam", "steam"], ["bcp", "bcp"], ["nr", "nr"]]) {
+    const [val, err] = cuentaLimpia(tipo, b[campo]);
+    if (err) return err;
+    v[campo] = val;
+  }
+  await env.DB.prepare("UPDATE users SET facciones=?2, instagram=?3, steam=?4, bcp=?5, nr_username=?6 WHERE discord_id=?1")
+    .bind(u.discord_id, fac.length ? JSON.stringify(fac) : null, v.instagram, v.steam, v.bcp, v.nr).run();
+  if ((v.nr || null) !== (u.nr_username || null)) { try { await ligaVincula(env, u.discord_id); } catch (e) {} }
+  return null;
+}
+
 // --- Avisos de mantenimiento en Discord (#inner-circle-general) ---
 // El bot escribe solo cuando algo empieza a fallar y cuando vuelve a funcionar (no en cada intento).
 const CANAL_AVISOS = "inner-circle-general";
@@ -2496,7 +2514,7 @@ export default {
       const st = ((request.headers.get("cookie") || "").match(/ab_steam_state=([^;]+)/) || [])[1];
       const paraFicha = !!st && st.startsWith("f.");
       const sale = (q, cookie) => { const h = new Headers({ location: url.origin + (paraFicha
-          ? "/miembros.html?steam=" + (q ? "error" : "ok") + "#yo" : "/inscripcion.html" + (q ? "?" + q : "")) });
+          ? "/inscripcion.html?completar=1&steam=" + (q ? "error" : "ok") : "/inscripcion.html" + (q ? "?" + q : "")) });
         h.append("set-cookie", "ab_steam_state=; Path=/; Max-Age=0"); if (cookie) h.append("set-cookie", cookie); return new Response(null, { status: 302, headers: h }); };
       const q = url.searchParams;
       const m = /^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/.exec(q.get("openid.claimed_id") || "");
@@ -2656,9 +2674,14 @@ export default {
       const s = await readSession(env, request);
       if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
       if (request.method === "GET") {
-        const d = await env.DB.prepare(`SELECT nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura, como_conocio,
-          acepta_estatutos, consentimiento, completado_at FROM socios_datos WHERE discord_id=?1`).bind(s.id).first();
-        const u = await env.DB.prepare("SELECT steam FROM users WHERE discord_id=?1").bind(s.id).first();
+        // Sus datos: los propios (Excel o ya completados) o, si se inscribió con la web, los de su solicitud aprobada.
+        const d = (await env.DB.prepare(`SELECT nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura, como_conocio,
+          acepta_estatutos, consentimiento, completado_at FROM socios_datos WHERE discord_id=?1`).bind(s.id).first())
+          || (await env.DB.prepare(`SELECT nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura, como_conocio,
+          acepta_estatutos, consentimiento, created_at AS completado_at FROM solicitudes WHERE discord_id=?1 AND estado='aprobada' ORDER BY id DESC LIMIT 1`).bind(s.id).first());
+        const u = await env.DB.prepare("SELECT facciones, instagram, steam, bcp, nr_username FROM users WHERE discord_id=?1").bind(s.id).first();
+        let fac = [];
+        try { fac = JSON.parse((u && u.facciones) || "[]"); } catch (e) {}
         let como = null, comoOtro = "";
         if (d && d.como_conocio) {
           if (d.como_conocio.startsWith("Otro: ")) { como = "otro"; comoOtro = d.como_conocio.slice(6); }
@@ -2669,7 +2692,8 @@ export default {
         return Response.json({ nombre: s.name, steam: u && u.steam, datos: d ? { nombre: d.nombre, email: d.email, telefono: d.telefono,
           mayor_edad: d.mayor_edad == null ? null : d.mayor_edad ? "si" : "no", juegos, experiencia_juego: d.experiencia_juego,
           experiencia_pintura: d.experiencia_pintura, como_conocio: como, como_otro: comoOtro, acepta_estatutos: d.acepta_estatutos === 1,
-          consentimiento: d.consentimiento === 1 } : null, completar: await faltanDatos(env, s) }, { headers: noStore });
+          consentimiento: d.consentimiento === 1 } : null, completar: await faltanDatos(env, s), facciones: FACCIONES,
+          ficha: u ? { facciones: fac, instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username } : null }, { headers: noStore });
       }
       if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
       if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
@@ -2677,6 +2701,11 @@ export default {
       try { b = await request.json(); } catch (e) {}
       const v = validaDatosSocio(b);
       if (v.error) return Response.json({ error: v.error }, { status: 400, headers: noStore });
+      // Ficha de Miembros (facciones y cuentas), en el mismo formulario.
+      if (b.ficha && typeof b.ficha === "object") {
+        const e = await guardaFicha(env, s.id, b.ficha);
+        if (e) return Response.json({ error: e }, { status: 400, headers: noStore });
+      }
       await env.DB.batch([
         env.DB.prepare(`INSERT INTO socios_datos (discord_id, nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura,
             como_conocio, acepta_estatutos, consentimiento, alta, origen, completado_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,1,1,date('now'),'web',datetime('now'))
@@ -3109,21 +3138,10 @@ export default {
       if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
       if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
       if (s.id !== mbm[1] && s.role !== "admin") return Response.json({ error: "Solo puedes editar tu propia ficha" }, { status: 403, headers: noStore });
-      const u = await env.DB.prepare("SELECT discord_id, nr_username FROM users WHERE discord_id=?1").bind(mbm[1]).first();
-      if (!u) return Response.json({ error: "Ese miembro no existe" }, { status: 404, headers: noStore });
       let b = {};
       try { b = await request.json(); } catch (e) {}
-      const fac = Array.isArray(b.facciones) ? [...new Set(b.facciones.map(String))] : [];
-      if (fac.some((f) => !FACCIONES.includes(f))) return Response.json({ error: "Facción no válida" }, { status: 400, headers: noStore });
-      const v = {};
-      for (const [campo, tipo] of [["instagram", "instagram"], ["steam", "steam"], ["bcp", "bcp"], ["nr", "nr"]]) {
-        const [val, err] = cuentaLimpia(tipo, b[campo]);
-        if (err) return Response.json({ error: err }, { status: 400, headers: noStore });
-        v[campo] = val;
-      }
-      await env.DB.prepare("UPDATE users SET facciones=?2, instagram=?3, steam=?4, bcp=?5, nr_username=?6 WHERE discord_id=?1")
-        .bind(u.discord_id, fac.length ? JSON.stringify(fac) : null, v.instagram, v.steam, v.bcp, v.nr).run();
-      if ((v.nr || null) !== (u.nr_username || null)) { try { await ligaVincula(env, u.discord_id); } catch (e) {} }
+      const e = await guardaFicha(env, mbm[1], b);
+      if (e) return Response.json({ error: e }, { status: e === "Ese miembro no existe" ? 404 : 400, headers: noStore });
       return Response.json({ ok: true }, { headers: noStore });
     }
 

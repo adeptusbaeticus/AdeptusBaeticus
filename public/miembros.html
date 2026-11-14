@@ -406,7 +406,9 @@ function ficha(m) {
   if (D.sesion) fi.appendChild(cuentas(m));
   else { const a = el("a", "", "Entra con Discord para ver sus cuentas"); a.href = "/auth/login"; fi.appendChild(a); }
   const acc = el("div", "acc");
-  if (m.editable) { const e = el("button", "btn", m.id === D.yo ? "Editar mi ficha" : "Editar ficha"); e.type = "button"; e.onclick = () => editar(m); acc.appendChild(e); }
+  // Tu ficha se edita en «Mis datos»; el admin edita las de los demás aquí.
+  if (m.editable && m.id === D.yo) { const e = el("a", "btn", "Editar mi ficha"); e.href = "/inscripcion.html?completar=1"; acc.appendChild(e); }
+  else if (m.editable) { const e = el("button", "btn", "Editar ficha"); e.type = "button"; e.onclick = () => editar(m); acc.appendChild(e); }
   const c = el("button", "btn alt", "Cerrar"); c.type = "button"; c.onclick = () => $("dlg").close();
   acc.appendChild(c);
   fi.appendChild(acc);

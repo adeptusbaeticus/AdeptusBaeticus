@@ -82,6 +82,11 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .exito{background:#1F2328;border:1px solid #2C3036;border-left:4px solid #9FD39B;border-radius:12px;padding:20px 22px}
 .exito h2{font:700 22px Cinzel,Georgia,serif;margin:0 0 8px;color:#9FD39B}
 .avisos{flex-basis:100%}.avisos:empty{display:none}
+.fm .ficha{display:grid;gap:10px;border-top:1px solid #2C3036;padding-top:16px}
+.fm .ficha .rejilla{grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:4px}
+.fm .ficha .op{padding:6px 8px;font-size:14px;align-items:center}
+.fm .ficha .gr{font-size:12px;color:#A8A293;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+.btn.alt{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
 </style>
 </head>
 <body>
@@ -175,27 +180,51 @@ async function carga() {
 }
 
 // Socio que entra por primera vez (o importado del Excel antiguo): revisa sus datos y completa lo que falte.
+// Facciones de la ficha de Miembros, por grupos (las mismas que en Miembros).
+const GRUPOS = [
+  ["Imperium", ["Adepta Sororitas", "Adeptus Custodes", "Adeptus Mechanicus", "Astra Militarum", "Black Templars", "Blood Angels", "Dark Angels", "Deathwatch", "Grey Knights", "Imperial Agents", "Imperial Knights", "Space Marines", "Space Wolves"]],
+  ["Caos", ["Chaos Daemons", "Chaos Knights", "Chaos Space Marines", "Death Guard", "Emperor's Children", "Thousand Sons", "World Eaters"]],
+  ["Xenos", ["Aeldari", "Drukhari", "Genestealer Cults", "Leagues of Votann", "Necrons", "Orks", "T'au Empire", "Tyranids"]],
+];
+
+// «Mis datos» (menú del usuario) y «Completa tus datos» (obligatorio la primera vez): los datos de socio y la ficha
+// de Miembros (facciones y cuentas), que es lo que ven los demás socios.
 async function completar(box) {
-  $("tit").textContent = "Completa tus datos";
-  const intro = $("intro"); intro.textContent = "";
-  intro.append(el("p", "", "Antes de seguir usando la web, revisa tus datos de socio y completa lo que falte. Solo tendrás que hacerlo una vez."));
+  const q = new URLSearchParams(location.search);
   let d = null;
   try { const r = await fetch("/api/socio/datos", { cache: "no-store" }); if (r.status === 401) { location.href = "/auth/login"; return; } d = await r.json(); } catch (e) {}
   box.textContent = "";
+  const intro = $("intro"); intro.textContent = "";
   if (!d) { box.appendChild(el("p", "m", "No se pudieron cargar tus datos. Recarga la página.")); return; }
-  if (d.datos && d.datos.nombre) intro.appendChild(el("p", "", "Hemos rellenado lo que ya teníamos de tu inscripción anterior."));
-  box.appendChild(formulario({ usuario: d.nombre, completar: true, datos: d.datos || {}, steamFicha: d.steam }));
+  document.title = (d.completar ? "Completa tus datos" : "Mis datos") + " · Adeptus Baeticus";
+  $("tit").textContent = d.completar ? "Completa tus datos" : "Mis datos";
+  if (d.completar) {
+    intro.append(el("p", "", "Antes de seguir usando la web, revisa tus datos de socio y completa lo que falte. Solo tendrás que hacerlo una vez."));
+    if (d.datos && d.datos.nombre) intro.appendChild(el("p", "", "Hemos rellenado lo que ya teníamos de tu inscripción anterior."));
+  } else {
+    intro.append(el("p", "", "Tus datos de socio y tu ficha de Miembros. Los datos personales solo los ven los admins; la ficha la ven los socios."));
+  }
+  if (q.get("steam")) {
+    const ok = q.get("steam") === "ok";
+    const a = el("div", ok ? "exito" : "resumen", ok ? "✓ Cuenta de Steam conectada." : "No se pudo conectar la cuenta de Steam. Inténtalo de nuevo.");
+    a.setAttribute("role", "status"); if (ok) a.style.padding = "10px 14px";
+    box.appendChild(a);
+    history.replaceState(null, "", location.pathname + "?completar=1");
+  }
+  box.appendChild(formulario({ usuario: d.nombre, completar: true, obligatorio: d.completar, datos: d.datos || {}, ficha: d.ficha || {} }));
 }
 
 function formulario(cuenta) {
   const comp = !!cuenta.completar, prev = cuenta.datos || {};
   const sec = el("section", "paso");
-  sec.appendChild(el("h2", "", comp ? "Tus datos" : "2. Tus datos"));
+  sec.appendChild(el("h2", "", comp ? "Tus datos de socio" : "2. Tus datos"));
   const f = el("form", "fm"); f.noValidate = true;
   const arriba = el("div", "arriba");
   const ok = el("button", "btn", comp ? "Guardar mis datos" : "Enviar inscripción"); ok.type = "submit";
+  let volver = null;
+  if (comp && !cuenta.obligatorio) { volver = el("a", "btn alt", "Volver"); volver.href = "/miembros.html#yo"; }
   const avisos = el("div", "avisos");
-  arriba.append(ok, avisos);
+  arriba.append(ok); if (volver) arriba.append(volver); arriba.append(avisos);
   const campo = (id, etiqueta, nodo, obligatorio, ayuda) => {
     const w = el("div");
     const l = el("label", "t", etiqueta); l.htmlFor = id;
@@ -227,8 +256,8 @@ function formulario(cuenta) {
   const disc = input("text", 60); disc.value = cuenta.usuario; disc.readOnly = true; disc.setAttribute("translate", "no");
   const wDisc = campo("i-discord", "Cuenta de Discord", disc, true, comp ? "La de tu sesión." : "La que has conectado arriba. Para usar otra, pulsa «Usar otra cuenta».");
   const steam = input("text", 80); steam.readOnly = true; steam.setAttribute("translate", "no");
-  steam.value = comp ? (cuenta.steamFicha || "Sin conectar") : cuenta.steam ? cuenta.steam.nombre : "Sin conectar";
-  const wSteam = campo("i-steam", "Cuenta de Steam (opcional)", steam, false, comp ? "Puedes conectarla desde tu ficha en Miembros." : cuenta.steam ? "La que has conectado arriba." : "Puedes conectarla arriba con «Conectar con Steam».");
+  steam.value = cuenta.steam ? cuenta.steam.nombre : "Sin conectar";
+  const wSteam = campo("i-steam", "Cuenta de Steam (opcional)", steam, false, cuenta.steam ? "La que has conectado arriba." : "Puedes conectarla arriba con «Conectar con Steam».");
   const fsEdad = grupo("¿Eres mayor de edad?", "edad", [["si", "Sí"], ["no", "No"]], "radio", true, true);
   const fsJuegos = grupo("¿Qué te interesa? (opcional)", "juegos", JUEGOS, "checkbox", false, true);
   const fsJuego = grupo("Experiencia de juego", "expj", EXP_JUEGO, "radio", true);
@@ -246,7 +275,37 @@ function formulario(cuenta) {
   const [lEst, cEst] = casilla("Acepto los estatutos y el reglamento interno del club.", true);
   const [lDat, cDat] = casilla("Acepto que el club guarde estos datos para gestionar mi inscripción y contactar conmigo.");
   const fsAcepta = el("fieldset"); fsAcepta.append(el("legend", "", "Condiciones"), lEst, lDat);
-  f.append(arriba, wNombre, wEmail, wTel, wDisc, wSteam, fsEdad, fsJuegos, fsJuego, fsPintura, wComo, fsAcepta);
+  // Ficha de Miembros (al editar mis datos): facciones y cuentas, todo opcional.
+  let ficha = null;
+  if (comp) {
+    const fi = cuenta.ficha || {};
+    const fsF = el("fieldset", "ficha");
+    fsF.appendChild(el("legend", "", "Tu ficha en Miembros (la ven los socios)"));
+    fsF.appendChild(el("p", "ay", "Todo opcional."));
+    const lf = el("p", "t", "Facciones que juegas"); lf.style.fontWeight = "600"; fsF.appendChild(lf);
+    GRUPOS.forEach(([g, lista]) => {
+      fsF.appendChild(el("div", "gr", g));
+      const w = el("div", "rejilla");
+      lista.forEach((fa) => {
+        const l = el("label", "op"); l.setAttribute("translate", "no");
+        const i = el("input"); i.type = "checkbox"; i.name = "fac"; i.value = fa; i.checked = (fi.facciones || []).includes(fa);
+        l.append(i, el("span", "", fa)); w.appendChild(l);
+      });
+      fsF.appendChild(w);
+    });
+    const cta = (id, et, valor, ayuda, ph) => { const i = input("text", 120); i.value = valor || ""; i.autocomplete = "off"; if (ph) i.placeholder = ph; i.setAttribute("translate", "no"); fsF.appendChild(campo(id, et, i, false, ayuda)); return i; };
+    const ig = cta("f-ig", "Instagram (opcional)", fi.instagram, "Tu usuario o el enlace a tu perfil.", "@usuario");
+    const st = cta("f-st", "Steam (opcional)", fi.steam, "Conéctala con Steam o escribe tu nombre de perfil o el enlace.");
+    const cs = el("button", "btn steam", "Conectar con Steam"); cs.type = "button"; cs.style.justifySelf = "start"; fsF.appendChild(cs);
+    const nr = cta("f-nr", "New Recruit (opcional)", fi.nr, "Tu usuario de New Recruit (se usa para la Gran Liga).");
+    const bc = cta("f-bc", "BCP (Best Coast Pairings) (opcional)", fi.bcp, "Tu nombre en BCP.");
+    ficha = { fsF, cs, valor: () => ({ facciones: [...fsF.querySelectorAll("input[name=fac]:checked")].map((x) => x.value), instagram: ig.value, steam: st.value, nr: nr.value, bcp: bc.value }) };
+  }
+  f.append(arriba, wNombre, wEmail, wTel, wDisc);
+  if (!comp) f.appendChild(wSteam);
+  f.append(fsEdad, fsJuegos, fsJuego, fsPintura, wComo);
+  if (ficha) f.appendChild(ficha.fsF);
+  f.appendChild(fsAcepta);
   sec.appendChild(f);
   // Datos que ya teníamos (al completar).
   if (comp) {
@@ -260,8 +319,12 @@ function formulario(cuenta) {
   const limpia = () => { avisos.textContent = ""; f.querySelectorAll(".falta").forEach((x) => x.remove()); f.querySelectorAll(".inval").forEach((x) => x.classList.remove("inval")); };
   f.addEventListener("change", () => { if (avisos.textContent) limpia(); });
   const val = (n) => (f.querySelector("input[name=" + n + "]:checked") || {}).value || "";
+  // Envío (también antes de «Conectar con Steam», para no perder lo cambiado). Devuelve true si se guardó.
+  let soloGuardar = false;
+  if (ficha) ficha.cs.onclick = async () => { soloGuardar = true; f.requestSubmit(); };
   f.onsubmit = async (ev) => {
     ev.preventDefault(); limpia();
+    const irSteam = soloGuardar; soloGuardar = false;
     const fallos = [];
     const telLimpio = tel.value.replace(/[\s.-]/g, "");
     if (nombre.value.trim().length < 3) fallos.push(["Escribe tu nombre y apellidos.", wNombre, nombre]);
@@ -287,15 +350,17 @@ function formulario(cuenta) {
         nombre: nombre.value, email: email.value, telefono: telLimpio, mayor_edad: val("edad"),
         juegos: [...f.querySelectorAll("input[name=juegos]:checked")].map((x) => x.value),
         experiencia_juego: val("expj"), experiencia_pintura: val("expp"), como_conocio: como.value || null,
-        como_otro: como.value === "otro" ? comoOtro.value : "", acepta_estatutos: cEst.checked, consentimiento: cDat.checked }) });
+        como_otro: como.value === "otro" ? comoOtro.value : "", acepta_estatutos: cEst.checked, consentimiento: cDat.checked,
+        ficha: ficha ? ficha.valor() : undefined }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { avisoArriba(avisos, d.error || (comp ? "No se pudieron guardar tus datos." : "No se pudo enviar la inscripción.")); ok.disabled = false; return; }
       if (comp) {
         try { sessionStorage.clear(); } catch (e) {}
+        if (irSteam) { location.href = "/auth/steam?para=ficha"; return; }
         const box = $("estado"); box.textContent = "";
         const h = el("div", "exito");
-        h.append(el("h2", "", "¡Datos guardados!"), el("p", "", "Gracias. Ya puedes usar la web con normalidad."));
-        const a = el("a", "btn", "Ir al inicio"); a.href = "/"; h.appendChild(a);
+        h.append(el("h2", "", "¡Datos guardados!"), el("p", "", cuenta.obligatorio ? "Gracias. Ya puedes usar la web con normalidad." : "Tus datos y tu ficha de Miembros están al día."));
+        const a = el("a", "btn", cuenta.obligatorio ? "Ir al inicio" : "Ver mi ficha"); a.href = cuenta.obligatorio ? "/" : "/miembros.html#yo"; h.appendChild(a);
         box.appendChild(h); box.scrollIntoView({ block: "start" });
         return;
       }

@@ -99,6 +99,11 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   (`/api/me`, `/api/socio/datos`, `/api/ver-como/salir`, `/api/push/baja`) y `/api/inscripcion*`.
   Además, a quien le falten (también al admin, `datos_pendientes` en `/api/me`), la servocalavera de las encuestas muestra
   el aviso «Completa tus datos de socio» (cuenta en el número y enlaza al formulario).
+- «Mis datos» (menú del usuario, `inscripcion.html?completar=1`): el socio revisa y edita cuando quiera sus datos (los
+  suyos en `socios_datos` o, si se inscribió con la web, los de su solicitud aprobada) y su ficha de Miembros
+  (facciones, Instagram, Steam con «Conectar con Steam», New Recruit y BCP), que es lo que muestra Miembros; se guarda
+  todo junto (`/api/socio/datos` con `ficha`, `guardaFicha`). «Editar mi ficha» en Miembros lleva aquí; el admin
+  edita las fichas de los demás desde Miembros.
 - Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos); en la ficha de
   Miembros, «En el club desde».
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
