@@ -116,10 +116,10 @@ html,body{overflow-x:clip}
   background:linear-gradient(180deg,var(--c1,#9E1414) 0%,var(--c2,#5F6E17) 34%,var(--c3,#3438A3) 67%,var(--c4,#7E2179) 100%);filter:blur(var(--rb));opacity:calc(var(--ro) * .45)}
 /* 10 bendiciones de cada tipo: borde especial dorado y del Caos, con un pulso suave del aura. */
 /* Marco: aparece a plena fuerza cuando una facción llega a 5 bendiciones. Si solo una ha llegado, el marco
-   entero es suyo (dorado del Emperador o negro del Caos); si las dos, se lo disputan: el dorado ocupa desde la
+   entero es suyo (dorado del Emperador o hierro negro del Caos, gris acero oscuro para que se vea); si las dos, se lo disputan: el dorado ocupa desde la
    izquierda su porcentaje de las bendiciones (--mp) y el negro del Caos el resto. El negro lleva un filo gris. */
 .marco.con-marco>.post{border:3px solid transparent;background:linear-gradient(#1F2328,#1F2328) padding-box,
-  linear-gradient(90deg,#F0CE82 0%,#D9B25A max(0%, calc(var(--mp) - 4%)),#0A0A0B min(100%, calc(var(--mp) + 4%)),#000 100%) border-box;
+  linear-gradient(90deg,#F0CE82 0%,#D9B25A max(0%, calc(var(--mp) - 4%)),#4A4A52 min(100%, calc(var(--mp) + 4%)),#2E2E34 100%) border-box;
   box-shadow:0 0 0 1px var(--mf,transparent)}
 .marco.legendaria::before,.marco.legendaria::after{animation:aura 3s ease-in-out infinite}
 @keyframes aura{50%{opacity:.7}}
@@ -438,7 +438,7 @@ function aura(m, p) {
   const pct = ve >= 5 && vr >= 5 ? Math.round((ve / (ve + vr)) * 100) : ve >= 5 ? 100 : 0;
   // Un solo color si el marco es de una sola facción (sin transición asomando por el borde).
   m.style.setProperty("--mp", (pct === 0 ? -10 : pct === 100 ? 110 : pct) + "%");
-  m.style.setProperty("--mf", conMarco && pct < 100 ? "#5A5A61" : "transparent");
+  m.style.setProperty("--mf", conMarco && pct < 100 ? "#7A7A84" : "transparent");
   const leg = p.emperador >= 10 && p.ruinosos >= 10;
   m.classList.toggle("legendaria", leg);
   m.title = leg ? "Bendecida por el Emperador y por los Poderes Ruinosos" : "";
