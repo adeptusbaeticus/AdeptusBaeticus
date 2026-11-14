@@ -53,6 +53,11 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Borrar en la web (autor o admin) borra también el mensaje de Discord. Lo común está en `pubCrear`, `pubAnadir` y
   `pubBorrar`.
 
+- Bendiciones (Emperador / Poderes Ruinosos): cada publicación gana un aura según sus votos (1-10): llamas que
+  suben por fuera de los lados desde las esquinas de abajo (doradas a la izquierda; del Caos a la derecha, que se
+  oscurecen hacia el negro) y, desde 5, un marco (dorado más intenso, y gris a negro del Caos). Botón «Probar
+  efectos» (o `galeria.html?prueba=1`): publicaciones de ejemplo solo en el navegador, sin guardar nada.
+
 ## Encuestas
 
 - Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí

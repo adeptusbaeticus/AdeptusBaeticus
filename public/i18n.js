@@ -249,7 +249,7 @@
     // Galería
     "Galería": "Gallery", "Ordenar": "Sort by",
     "Fotos de los miembros del club.": "Photos by club members.",
-    "Subir fotos": "Upload photos", "Publicar": "Post", "Modo de prueba: las publicaciones «Prueba» no son reales ni se guardan. Pulsa sus bendiciones para ver cómo cambia el aura (de 10 vuelve a 0).": "Test mode: the «Prueba» posts are not real and are not saved. Tap their blessings to see how the aura changes (after 10 it goes back to 0).", "Bendecida por el Emperador y por los Poderes Ruinosos": "Blessed by the Emperor and by the Ruinous Powers", "Fotos (hasta 10)": "Photos (up to 10)", "Pulsa para elegir fotos": "Tap to choose photos",
+    "Subir fotos": "Upload photos", "Publicar": "Post", "Probar efectos": "Try effects", "Salir de la prueba": "Exit test mode", "Modo de prueba: las publicaciones «Prueba» no son reales ni se guardan. Pulsa sus bendiciones para ver cómo cambia el aura (de 10 vuelve a 0).": "Test mode: the «Prueba» posts are not real and are not saved. Tap their blessings to see how the aura changes (after 10 it goes back to 0).", "Bendecida por el Emperador y por los Poderes Ruinosos": "Blessed by the Emperor and by the Ruinous Powers", "Fotos (hasta 10)": "Photos (up to 10)", "Pulsa para elegir fotos": "Tap to choose photos",
     "Por ejemplo: mis Marines Espaciales recién pintados": "For example: my freshly painted Space Marines",
     "Solo se pueden subir 10 fotos por publicación; las demás no se han añadido.": "Only 10 photos can be uploaded per post; the rest were not added.",
     "Elige al menos una foto.": "Choose at least one photo.",
