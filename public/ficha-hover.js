@@ -37,7 +37,7 @@
 
   async function carga() {
     if (datos) return datos;
-    try { const c = JSON.parse(sessionStorage.getItem(CLAVE) || "null"); if (c && Date.now() - c.t < 300000) return (datos = c.d); } catch (e) {}
+    try { const c = JSON.parse(sessionStorage.getItem(CLAVE) || "null"); if (c && Date.now() - c.t < 300000) return (datos = new Map(c.d)); } catch (e) {}
     if (!pidiendo) pidiendo = fetch("/api/miembros").then((r) => (r.ok ? r.json() : null)).then((d) => {
       if (!d) return null;
       datos = new Map(d.miembros.map((m) => [m.id, m]));
