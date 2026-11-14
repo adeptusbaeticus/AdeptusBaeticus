@@ -62,7 +62,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 
 - Bendiciones (Emperador / Poderes Ruinosos): sellos de lacre colgados de los bordes de la tarjeta, un puñado (3) por
   voto, de arriba abajo, en zigzag y algo girados: con 10 votos cubren el lateral entero (`sellos()`, `sello()`; dibujo
-  propio). Izquierda: **sellos de pureza** (lacre rojo con calavera en relieve y pergamino claro). Derecha: **sellos del
+  propio, con relieve de luz y sombra). Izquierda: **sellos de pureza** (lacre rojo con calavera en relieve y pergamino claro). Derecha: **sellos del
   Caos** (lacre del color de cada dios por turnos, con la estrella de ocho puntas en relieve y pergamino chamuscado, que
   se oscurecen hacia el negro con más votos). Los pergaminos se mecen ligeramente (pausados fuera de pantalla y con
   «reducir movimiento»). La rejilla deja hueco amplio entre publicaciones para que los sellos no se solapen. Marco: con

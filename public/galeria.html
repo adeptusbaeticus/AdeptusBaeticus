@@ -452,6 +452,8 @@ const svgEl = (tag, at, padre) => { const x = document.createElementNS(NS_SVG, t
 // Colores de los cuatro dioses del Caos: Khorne, Nurgle, Tzeentch y Slaanesh.
 const DIOSES = ["#C42A2A", "#86A82A", "#4A5AE0", "#B23AAE"];
 // Mezcla un color «#rrggbb» con negro (k de 0 a 1).
+// Mezcla un color «#rrggbb» con blanco (k de 0 a 1).
+const aclara = (hex, k) => "#" + [1, 3, 5].map((i) => { const v = parseInt(hex.slice(i, i + 2), 16); return Math.round(v + (255 - v) * k).toString(16).padStart(2, "0"); }).join("");
 const oscurece = (hex, k) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k)).toString(16).padStart(2, "0")).join("");
 const azarSello = (semilla) => () => { semilla = (semilla * 9301 + 49297) % 233280; return semilla / 233280; };
 // Tiras de pergamino que cuelgan del sello (con renglones de texto apenas visibles y el final rasgado).
@@ -482,22 +484,52 @@ function sello(az, caos, color, k) {
   let d = "";
   for (let q = 0; q <= 24; q++) { const a = (q / 24) * Math.PI * 2, r = 13 + (q % 2 ? 1.2 : -0.4) + (az() - 0.5) * 1.4; d += (q ? "L" : "M") + (20 + r * Math.cos(a)).toFixed(1) + " " + (16 + r * Math.sin(a)).toFixed(1); }
   svgEl("path", { d: d + "Z", fill: `url(#${id})`, stroke: oscurece(base, 0.7), "stroke-width": "0.8" }, sv);
-  svgEl("circle", { cx: "20", cy: "16", r: "9", fill: "none", stroke: hondo, "stroke-width": "1.2", opacity: ".8" }, sv);
-  svgEl("circle", { cx: "20", cy: "16", r: "9", fill: "none", stroke: filo, "stroke-width": "0.5", opacity: ".5", "stroke-dasharray": "2 1.5" }, sv);
+  // Reborde del cuño: un anillo hundido (sombra arriba a la izquierda y luz abajo a la derecha).
+  svgEl("circle", { cx: "19.6", cy: "15.6", r: "9.4", fill: "none", stroke: oscurece(base, 0.6), "stroke-width": "1.1", opacity: ".85" }, sv);
+  svgEl("circle", { cx: "20.4", cy: "16.4", r: "9.4", fill: "none", stroke: claro, "stroke-width": "0.7", opacity: ".6" }, sv);
+  svgEl("circle", { cx: "20", cy: "16", r: "9.4", fill: "none", stroke: base, "stroke-width": "0.8" }, sv);
+  // Relieve: cada pieza se pinta tres veces (sombra abajo-derecha, brillo arriba-izquierda y la pieza encima), como el
+  // lacre estampado; los huecos (ojos, nariz…) al revés, hundidos.
+  const sombra = oscurece(base, 0.65), brillo = claro, cuerpo = caos ? oscurece(color, k * 0.45 + 0.08) : "#B5302A";
+  const alto = (d, relleno) => {
+    svgEl("path", { d, fill: sombra, transform: "translate(.55 .65)", opacity: ".95" }, sv);
+    svgEl("path", { d, fill: brillo, transform: "translate(-.4 -.45)", opacity: ".85" }, sv);
+    svgEl("path", { d, fill: relleno || cuerpo }, sv);
+  };
+  const hondo2 = (d) => {
+    svgEl("path", { d, fill: brillo, transform: "translate(.35 .4)", opacity: ".7" }, sv);
+    svgEl("path", { d, fill: oscurece(base, 0.72) }, sv);
+  };
   if (caos) {
-    // Estrella de ocho puntas en relieve: ocho flechas desde un aro.
+    // Estrella de ocho puntas biselada: flechas desde un aro, cada una con la cara que mira a la luz (arriba a la
+    // izquierda) aclarada y la otra en sombra, y un aro central con su hueco.
+    const luzC = aclara(cuerpo, 0.32), sombraC = oscurece(cuerpo, 0.45);
     for (let q = 0; q < 8; q++) {
       const a = (q / 8) * Math.PI * 2 - Math.PI / 2, c = Math.cos(a), sn = Math.sin(a), px = -sn, py = c;
       const P = (r, w) => (20 + c * r + px * w).toFixed(2) + " " + (16 + sn * r + py * w).toFixed(2);
-      svgEl("path", { d: `M${P(2.4, -0.45)}L${P(5.6, -0.45)}L${P(5.6, -1.4)}L${P(8, 0)}L${P(5.6, 1.4)}L${P(5.6, 0.45)}L${P(2.4, 0.45)}Z`, fill: hondo, stroke: filo, "stroke-width": "0.35", "stroke-opacity": ".6" }, sv);
+      const media = (lado) => `M${P(2.8, 0)}L${P(2.8, 0.7 * lado)}L${P(6.1, 0.7 * lado)}L${P(5.9, 2.1 * lado)}L${P(8.9, 0)}Z`;
+      svgEl("path", { d: `M${P(2.8, -0.7)}L${P(6.1, -0.7)}L${P(5.9, -2.1)}L${P(8.9, 0)}L${P(5.9, 2.1)}L${P(6.1, 0.7)}L${P(2.8, 0.7)}Z`, fill: sombra, transform: "translate(.5 .6)" }, sv);
+      const negLuz = px * 0.7 + py * 0.7 > 0; // la mitad del lado negativo mira a la luz
+      svgEl("path", { d: media(-1), fill: negLuz ? luzC : sombraC }, sv);
+      svgEl("path", { d: media(1), fill: negLuz ? sombraC : luzC }, sv);
     }
-    svgEl("circle", { cx: "20", cy: "16", r: "2.5", fill: hondo, stroke: filo, "stroke-width": "0.4", "stroke-opacity": ".6" }, sv);
+    // Aro central en relieve con su hueco.
+    alto("M20 12.6a3.4 3.4 0 1 0 .01 0zM20 14.6a1.4 1.4 0 1 1-.01 0z");
+    hondo2("M20 14.6a1.4 1.4 0 1 0 .01 0z");
   } else {
-    // Calavera en relieve.
-    svgEl("path", { d: "M15.6 15.2c0-3 2-4.8 4.4-4.8s4.4 1.8 4.4 4.8c0 1.5-.6 2.4-1.4 3v1.6h-6v-1.6c-.8-.6-1.4-1.5-1.4-3z", fill: "#7A1712", stroke: filo, "stroke-width": "0.45", "stroke-opacity": ".6" }, sv);
-    svgEl("circle", { cx: "18.3", cy: "15.4", r: "1.1", fill: "#3D0A08" }, sv); svgEl("circle", { cx: "21.7", cy: "15.4", r: "1.1", fill: "#3D0A08" }, sv);
-    svgEl("path", { d: "M18.6 19.8v-1.4M20 19.8v-1.4M21.4 19.8v-1.4", stroke: "#3D0A08", "stroke-width": "0.5" }, sv);
+    // Calavera: cráneo con pómulos y mandíbula, cuencas, nariz y dentadura.
+    alto("M20 8.7c-3.8 0-6.3 2.5-6.3 6 0 1.9.7 3.2 1.7 4l.3 1.7c.1.6.5.9 1 .9h.6l.3 1.1h1l.2-1.1h2.4l.2 1.1h1l.3-1.1h.6c.5 0 .9-.3 1-.9l.3-1.7c1-.8 1.7-2.1 1.7-4 0-3.5-2.5-6-6.3-6z");
+    hondo2("M15.9 15.2c.2-1.2 1.2-1.8 2.2-1.7.9.1 1.4.8 1.3 1.7-.1 1-.9 1.8-2 1.8-1 0-1.7-.7-1.5-1.8z");
+    hondo2("M24.1 15.2c-.2-1.2-1.2-1.8-2.2-1.7-.9.1-1.4.8-1.3 1.7.1 1 .9 1.8 2 1.8 1 0 1.7-.7 1.5-1.8z");
+    hondo2("M20 17.5l-.95 1.75h1.9z");
+    // Dientes: separaciones hundidas.
+    svgEl("path", { d: "M17.9 20.2v1.3M19.3 20.3v1.4M20.7 20.3v1.4M22.1 20.2v1.3", stroke: oscurece(base, 0.72), "stroke-width": "0.45" }, sv);
+    // Brillo en la frente.
+    svgEl("path", { d: "M17.2 11.6c.8-.9 1.8-1.3 2.8-1.3", fill: "none", stroke: "#FFFFFF", "stroke-width": "0.6", opacity: ".35", "stroke-linecap": "round" }, sv);
   }
+  // Reflejo de luz en el lacre y una gota de cera en el borde.
+  svgEl("ellipse", { cx: "14.4", cy: "9.6", rx: "2.6", ry: "1.2", fill: "#FFFFFF", opacity: ".22", transform: "rotate(-35 14.4 9.6)" }, sv);
+  if (az() < 0.6) { const ang = (0.3 + az() * 0.4) * Math.PI; svgEl("circle", { cx: (20 + 14.2 * Math.cos(ang)).toFixed(1), cy: (16 + 14.2 * Math.sin(ang)).toFixed(1), r: (1.2 + az()).toFixed(1), fill: base, stroke: oscurece(base, 0.6), "stroke-width": "0.5" }, sv); }
   return sv;
 }
 // Solo se mecen los pergaminos que están en pantalla.
