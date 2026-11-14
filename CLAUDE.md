@@ -179,8 +179,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   toman el enlace de cada partida y los resultados, asignados **por la pareja de jugadores**
   (`id_participant`), que es única en cada fase.
 - Datos de New Recruit con su API oficial (secretos `NR_LOGIN`/`NR_PASSWORD`) y **el mínimo de
-  peticiones**: las visitas nunca consultan New Recruit; actualización automática como mucho cada 6 h
-  durante la fase y una tras cada cierre; manual con 15 min de espera mínima; sin reintentos en bucle.
+  peticiones**: las visitas nunca consultan New Recruit; actualización automática desde el temporizador
+  (`scheduled` → `ligaAuto`) como mucho cada hora durante la fase y una tras cada cierre (si falla, espera 1 h); manual con 15 min de espera mínima; sin reintentos en bucle.
 - **Los resultados solo vienen de New Recruit** (única fuente de verdad): la web no puede escribir allí, así
   que no se editan ni se ponen resultados desde la web (se probó y se quitó, migración 0017).
   Las sanciones no se reflejan en la web (ni en la clasificación ni en los avisos del bot).

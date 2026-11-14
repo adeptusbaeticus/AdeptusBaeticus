@@ -163,7 +163,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Aplazar una partida** a la ronda de aplazadas, o quitar el aplazamiento. «Subir resultado» solo sale en la ronda
   final.
 - **Listas** de cada jugador. Se guardan, pero de momento no se publican.
-- **Resultados de New Recruit:** se leen solos, como mucho cada 6 horas durante la fase y una vez tras cada cierre
+- **Resultados de New Recruit:** se leen solos (el servidor los consulta cada hora durante la fase, sin depender de las visitas) y una vez tras cada cierre
   de ronda. La web nunca escribe en New Recruit.
 - **Ranking ELO** de la liga de New Recruit, que se muestra en la ficha de Miembros.
 - **Calendario de la liga** para el móvil.

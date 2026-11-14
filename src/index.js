@@ -1725,8 +1725,8 @@ function resumenNr(j) {
 }
 
 // ===== Gran Liga Adeptus =====
-const LIGA_AUTO_HORAS = 6;
-const LIGA_LISTAS_PUBLICAS = false; // de momento no se muestran las listas (se siguen guardando) // como mucho una consulta automática a New Recruit cada 6 horas
+const LIGA_AUTO_HORAS = 1; // como mucho una consulta automática a New Recruit cada hora (la lanza el temporizador)
+const LIGA_LISTAS_PUBLICAS = false; // de momento no se muestran las listas (se siguen guardando)
 
 // Facción a partir de la lista exportada («FACTION KEYWORD: Imperium - Adeptus Astartes - Space Wolves»).
 function faccionDeLista(txt) {
@@ -1800,7 +1800,7 @@ function enMadrid(fecha) {
 // Día 'YYYY-MM-DD' desplazado n días.
 const masDias = (dia, n) => { const d = new Date(dia + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
-// Actualización automática (la dispara una visita): solo durante la fase, como mucho cada 6 horas
+// Actualización automática (la lanza el temporizador, nunca una visita): solo durante la fase, como mucho cada hora
 // y una vez tras cada cierre de ronda (domingo 14:00). Si New Recruit falló, no se reintenta antes de 1 hora.
 async function ligaAuto(env, fase) {
   if (!fase || !fase.nr_torneo || !env.NR_LOGIN) return;
@@ -1888,6 +1888,9 @@ export default {
       await ligaRecordatorios(env).catch(() => {});
       await procesaCola(env, 25).catch(() => {});
       await rolesSemanal(env).catch(() => {});
+      // Resultados de la Gran Liga desde New Recruit (fase en curso; `ligaAuto` decide si toca consultar).
+      const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first().catch(() => null);
+      if (fase) await ligaAuto(env, fase).catch(() => {});
     })());
   },
   async fetch(request, env, ctx) {
@@ -2030,7 +2033,6 @@ export default {
         pedida ? "SELECT * FROM liga_fases WHERE id=?1" : "SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1"
       ).bind(...(pedida ? [pedida] : [])).first();
       if (!fase) return Response.json({ fases, fase: null }, { headers: { "cache-control": "public, max-age=120" } });
-      ctx.waitUntil(ligaAuto(env, fase).catch(() => {}));
       const jugadores = (await env.DB.prepare("SELECT id, discord, nombre, discord_id FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
       const partidas = (await env.DB.prepare(
         `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada,
