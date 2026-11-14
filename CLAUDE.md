@@ -43,6 +43,16 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   y se envían por tandas (`procesaCola`, ~25 llamadas como máximo); el temporizador corre cada minuto y la
   vacía. No enviar en bucle a muchos destinatarios dentro de una misma petición.
 
+## Galería
+
+- Las fotos se guardan en Discord: cada publicación es un mensaje del bot en #publicaciones-web (hasta 10 fotos) y la
+  web solo guarda la referencia (`publicaciones`) y renueva los enlaces de Discord antes de que caduquen. Cada una tiene
+  su número (#N), el mismo en la web y en Discord (baja si se borra una anterior).
+- Se publica con `/publicar` en Discord o con «Subir fotos» en la web (solo miembros, veteranos y admin): el navegador
+  reduce cada foto y las envía de una en una (`/api/galeria/publicar`, `/api/galeria/:id/foto`, `/fin` para el aviso).
+  Borrar en la web (autor o admin) borra también el mensaje de Discord. Lo común está en `pubCrear`, `pubAnadir` y
+  `pubBorrar`.
+
 ## Encuestas
 
 - Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí

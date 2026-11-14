@@ -58,6 +58,34 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .ov p{max-width:720px;margin:0;color:#ECE7DC;text-align:center;white-space:pre-line}
 .ov button{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:8px;padding:10px 18px;font:600 15px Inter,sans-serif;cursor:pointer;min-height:44px}
 @media (max-width:600px){.c{padding:0 16px 48px}h1{font-size:32px}}
+.cab{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 20px;flex-wrap:wrap;margin:0 0 24px}
+.cab .lead{margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;background:#A3211B;color:#fff;border:1px solid #A3211B;border-radius:8px;padding:10px 18px;min-height:44px;box-sizing:border-box;font:600 15px Inter,sans-serif;cursor:pointer}
+.btn:hover{background:#B8291F}.btn:disabled{opacity:.6;cursor:default}
+.btn.alt{background:#1F2328;color:#ECE7DC;border-color:#6B6558}
+.post .borrar{background:none;border:0;color:#F0A39E;font:600 13px Inter,sans-serif;cursor:pointer;min-height:36px;padding:0 4px}
+.post .pie .der{display:flex;align-items:center;gap:6px}
+/* Formulario de subida */
+dialog#dsub{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:16px;padding:22px;width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-sizing:border-box}
+dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
+#dsub h2{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
+#dsub .arriba{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+#dsub .resumen{flex-basis:100%;padding:10px 12px;border-radius:8px;background:#2A1A1C;border:1px solid #7A1712;color:#F0A39E;font-size:14px}
+#dsub .resumen ul{margin:4px 0 0;padding-left:18px}
+#dsub .estado{flex-basis:100%;font-size:14px;color:#CFC9BA;min-height:20px}
+#dsub label.t{display:block;font-weight:600;font-size:14px;margin:12px 0 6px}
+#dsub textarea{width:100%;box-sizing:border-box;min-height:80px;padding:10px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;resize:vertical}
+#dsub .elegir{display:flex;align-items:center;justify-content:center;gap:8px;border:2px dashed #6B6558;border-radius:12px;min-height:72px;padding:12px;cursor:pointer;color:#CFC9BA;text-align:center}
+#dsub .elegir:hover,#dsub .elegir:focus-within{border-color:#D9B25A;color:#F0CE82}
+#dsub .elegir input{position:absolute;opacity:0;width:1px;height:1px}
+#dsub .miniaturas{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:10px}
+#dsub .mini{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#2A2F36}
+#dsub .mini img{width:100%;height:100%;object-fit:cover;display:block}
+#dsub .mini button{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:999px;border:0;background:rgba(21,23,26,.85);color:#F0A39E;font-size:16px;cursor:pointer}
+#dsub .mini .num{position:absolute;bottom:4px;left:6px;font:700 12px Inter,sans-serif;color:#fff;text-shadow:0 1px 3px #000}
+#dsub .ay{font-size:13px;color:#A8A293;margin:6px 0 0}
+#dsub .inval{border-color:#E0524A!important}
+.post.nueva{outline:3px solid #D9B25A;outline-offset:2px}
 .ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
 .ftl{display:flex;gap:20px;flex-wrap:wrap}
 .ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
@@ -82,7 +110,10 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
     <span id="auth"></span>
   </div>
   <h1>Galería</h1>
-  <p class="lead">Fotos de los miembros del club. Para publicar la tuya, usa <code>/publicar</code> en el canal #publicaciones-web de Discord.</p>
+  <div class="cab">
+    <p class="lead">Fotos de los miembros del club. Los miembros pueden subirlas desde aquí o con <code>/publicar</code> en el canal #publicaciones-web de Discord.</p>
+    <button class="btn" id="bsubir" type="button" hidden>Subir fotos</button>
+  </div>
   <div class="fil" id="fil" hidden>
     <div><label for="orden">Ordenar</label>
       <select id="orden">
@@ -102,6 +133,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
     </nav>
   </footer>
 </div>
+<dialog id="dsub" aria-labelledby="dsub-t"><div id="dsubc"></div></dialog>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -215,6 +247,7 @@ function bendicion(p, tipo, sesion) {
 
 function tarjeta(p) {
   const card = el("article", "post");
+  card.id = "p" + p.numero;
   const b = el("button", "foto");
   b.type = "button";
   const portada = p.imagenes[0] || {};
@@ -236,7 +269,24 @@ function tarjeta(p) {
   const pie = el("div", "pie");
   const bl = el("div", "bl");
   bl.append(bendicion(p, "emperador", data.sesion), bendicion(p, "ruinosos", data.sesion));
-  pie.append(bl, el("span", "m", "#" + p.numero));
+  const der = el("div", "der");
+  if (p.puedo_borrar) {
+    const bo = el("button", "borrar", "Borrar");
+    bo.type = "button";
+    bo.onclick = async () => {
+      if (!confirm("¿Borrar la publicación #" + p.numero + "? También se borrará su mensaje en Discord.")) return;
+      bo.disabled = true;
+      try {
+        const r = await fetch("/api/galeria/" + p.id, { method: "DELETE" });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { alert(d.error || "No se pudo borrar."); bo.disabled = false; return; }
+        await cargar();
+      } catch (e) { alert("No se pudo borrar."); bo.disabled = false; }
+    };
+    der.appendChild(bo);
+  }
+  der.appendChild(el("span", "m", "#" + p.numero));
+  pie.append(bl, der);
   tx.appendChild(pie);
   card.append(b, tx);
   return card;
@@ -259,18 +309,144 @@ function pintar() {
 $("orden").onchange = pintar;
 $("autor").onchange = pintar;
 
-fetch("/api/galeria").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
-  data = d;
-  data.publicaciones = (d.publicaciones || []).filter((p) => p.imagenes && p.imagenes.length);
-  const autores = [...new Set(data.publicaciones.map((p) => p.autor))].sort((a, b) => a.localeCompare(b, "es"));
-  autores.forEach((a) => {
-    const o = document.createElement("option");
-    o.value = a; o.textContent = a;
-    $("autor").appendChild(o);
-  });
-  $("fil").hidden = !data.publicaciones.length;
-  pintar();
-}).catch(() => { $("msg").textContent = "No se pudo cargar la galería."; });
+// Carga (o recarga) la galería; resalta la publicación «nueva» si se indica su número.
+function cargar(nueva) {
+  return fetch("/api/galeria", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
+    data = d;
+    data.publicaciones = (d.publicaciones || []).filter((p) => p.imagenes && p.imagenes.length);
+    const sel = $("autor"), antes = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    const autores = [...new Set(data.publicaciones.map((p) => p.autor))].sort((a, b) => a.localeCompare(b, "es"));
+    autores.forEach((a) => {
+      const o = document.createElement("option");
+      o.value = a; o.textContent = a; o.setAttribute("translate", "no");
+      sel.appendChild(o);
+    });
+    sel.value = autores.includes(antes) ? antes : "";
+    $("fil").hidden = !data.publicaciones.length;
+    $("bsubir").hidden = !d.puede_subir;
+    pintar();
+    if (nueva) {
+      const c = $("p" + nueva);
+      if (c) { c.classList.add("nueva"); c.scrollIntoView({ block: "center" }); setTimeout(() => c.classList.remove("nueva"), 4000); }
+    }
+  }).catch(() => { $("msg").textContent = "No se pudo cargar la galería."; });
+}
+cargar();
+
+// ===== Subir fotos desde la web (solo miembros) =====
+const MAX_FOTOS = 10;
+// Reduce la foto en el navegador (lado mayor 2000 px, JPEG) para que la subida sea ligera.
+// Los GIF se envían tal cual para no perder la animación.
+async function preparaFoto(file) {
+  if (file.type === "image/gif") return { blob: file, nombre: "foto.gif" };
+  const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => null);
+  if (!bmp) return null;
+  const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+  const cv = document.createElement("canvas");
+  cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+  cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+  let q = 0.86, blob = null;
+  for (let i = 0; i < 4; i++) {
+    blob = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", q));
+    if (blob && blob.size < 2.5 * 1024 * 1024) break;
+    q -= 0.12;
+  }
+  return blob ? { blob, nombre: "foto.jpg" } : null;
+}
+
+function formularioSubir() {
+  const dlg = $("dsub");
+  const c = $("dsubc");
+  c.textContent = "";
+  let fotos = []; // { file, url }
+  const h2 = el("h2", "", "Subir fotos"); h2.id = "dsub-t"; c.appendChild(h2);
+  const arriba = el("div", "arriba");
+  const ok = el("button", "btn", "Publicar"); ok.type = "button";
+  const no = el("button", "btn alt", "Cancelar"); no.type = "button";
+  const avisos = el("div"); avisos.setAttribute("role", "alert");
+  const estado = el("div", "estado"); estado.setAttribute("aria-live", "polite");
+  arriba.append(ok, no, avisos, estado);
+  c.appendChild(arriba);
+  // Elegir fotos
+  const lf = el("label", "t", "Fotos (hasta 10)");
+  lf.htmlFor = "dsub-fotos";
+  const elegir = el("label", "elegir");
+  const inp = el("input"); inp.type = "file"; inp.id = "dsub-fotos"; inp.multiple = true; inp.accept = "image/png,image/jpeg,image/gif,image/webp";
+  elegir.append(inp, el("span", "", "Pulsa para elegir fotos"));
+  const minis = el("div", "miniaturas");
+  const cuenta = el("p", "ay", "");
+  const pintaMinis = () => {
+    minis.textContent = "";
+    fotos.forEach((f, i) => {
+      const m = el("div", "mini");
+      const im = el("img"); im.src = f.url; im.alt = "";
+      const q = el("button", "", "×"); q.type = "button"; q.setAttribute("aria-label", "Quitar foto " + (i + 1));
+      q.onclick = () => { URL.revokeObjectURL(f.url); fotos.splice(i, 1); pintaMinis(); };
+      m.append(im, el("span", "num", String(i + 1)), q);
+      minis.appendChild(m);
+    });
+    cuenta.textContent = fotos.length ? (fotos.length === 1 ? "1 foto elegida" : fotos.length + " fotos elegidas") + " de " + MAX_FOTOS + " como máximo." : "";
+    elegir.hidden = fotos.length >= MAX_FOTOS;
+  };
+  inp.onchange = () => {
+    const nuevas = [...inp.files].filter((f) => /^image\/(png|jpeg|gif|webp)$/.test(f.type));
+    const sobra = fotos.length + nuevas.length - MAX_FOTOS;
+    nuevas.slice(0, MAX_FOTOS - fotos.length).forEach((f) => fotos.push({ file: f, url: URL.createObjectURL(f) }));
+    inp.value = "";
+    avisos.textContent = "";
+    elegir.classList.remove("inval");
+    pintaMinis();
+    if (sobra > 0) estado.textContent = "Solo se pueden subir 10 fotos por publicación; las demás no se han añadido.";
+  };
+  const lt = el("label", "t", "Descripción (opcional)"); lt.htmlFor = "dsub-texto";
+  const tx = el("textarea"); tx.id = "dsub-texto"; tx.maxLength = 500; tx.placeholder = "Por ejemplo: mis Marines Espaciales recién pintados";
+  c.append(lf, elegir, minis, cuenta, lt, tx, el("p", "ay", "Se publicará también en el canal #publicaciones-web de Discord. Si la borras, se borra de los dos sitios."));
+  pintaMinis();
+
+  let subiendo = false;
+  no.onclick = () => { if (!subiendo) dlg.close(); };
+  dlg.oncancel = (e) => { if (subiendo) e.preventDefault(); };
+  ok.onclick = async () => {
+    avisos.textContent = ""; estado.textContent = "";
+    if (!fotos.length) {
+      const r = el("div", "resumen", "Falta un dato:");
+      const ul = el("ul"); ul.appendChild(el("li", "", "Elige al menos una foto."));
+      r.appendChild(ul); avisos.appendChild(r);
+      elegir.classList.add("inval");
+      return;
+    }
+    subiendo = true; ok.disabled = true; no.disabled = true;
+    let id = null, numero = null, subidas = 0, error = null;
+    for (let i = 0; i < fotos.length; i++) {
+      estado.textContent = "Subiendo foto " + (i + 1) + " de " + fotos.length + "…";
+      const pf = await preparaFoto(fotos[i].file).catch(() => null);
+      if (!pf) { error = "No se pudo leer la foto " + (i + 1) + "."; break; }
+      const fd = new FormData();
+      fd.append("foto", pf.blob, pf.nombre);
+      if (!id) fd.append("texto", tx.value);
+      try {
+        const r = await fetch(id ? "/api/galeria/" + id + "/foto" : "/api/galeria/publicar", { method: "POST", body: fd });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { error = d.error || "No se pudo subir la foto " + (i + 1) + "."; break; }
+        if (!id) { id = d.id; numero = d.numero; }
+        subidas++;
+      } catch (e) { error = "No se pudo subir la foto " + (i + 1) + ". Revisa la conexión."; break; }
+    }
+    if (id) {
+      const f = await fetch("/api/galeria/" + id + "/fin", { method: "POST" }).then((r) => r.json()).catch(() => ({}));
+      if (f.numero) numero = f.numero;
+    }
+    subiendo = false; ok.disabled = false; no.disabled = false;
+    if (error && !id) { estado.textContent = error; return; }
+    fotos.forEach((f) => URL.revokeObjectURL(f.url));
+    dlg.close();
+    await cargar(numero);
+    if (error) alert("Publicación #" + numero + ": se han subido " + subidas + " de " + fotos.length + " fotos. " + error);
+  };
+  dlg.showModal();
+}
+$("bsubir").onclick = formularioSubir;
 </script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>

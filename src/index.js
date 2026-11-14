@@ -397,6 +397,106 @@ async function syncNumeros(env, limit) {
   }
 }
 
+// --- Publicaciones de la galería: lo común a los comandos de Discord y al formulario de la web. ---
+// Las fotos viven en el mensaje del bot en #publicaciones-web; aquí solo se guarda la referencia.
+const EXT_IMG = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
+
+// Crea la publicación con sus fotos (files: [{ blob, ext }]). Devuelve { id, numero, imgs } o { error, status }.
+async function pubCrear(env, { uid, name, texto, channelId, files }) {
+  // El número se asigna dentro del INSERT: el siguiente al mayor que exista.
+  const r = await env.DB.prepare(
+    `INSERT INTO publicaciones (discord_id, autor, texto, channel_id, numero)
+     VALUES (?1, ?2, ?3, ?4, (SELECT COALESCE(MAX(numero), 0) + 1 FROM publicaciones))`
+  ).bind(uid, name, texto, channelId).run();
+  const id = r.meta.last_row_id;
+  const num = (await env.DB.prepare("SELECT numero FROM publicaciones WHERE id=?1").bind(id).first()).numero;
+  const names = files.map((f, i) => `publicacion-${id}-${i + 1}.${f.ext}`);
+  const fd = new FormData();
+  fd.append("payload_json", JSON.stringify({
+    content: pubMensaje(num, uid, texto), allowed_mentions: { parse: [] },
+    attachments: names.map((filename, i) => ({ id: i, filename })),
+  }));
+  files.forEach((f, i) => fd.append(`files[${i}]`, f.blob, names[i]));
+  const pm = await bot(env, `/channels/${channelId}/messages`, { method: "POST", body: fd });
+  if (!pm.ok) {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM publicaciones WHERE id=?1").bind(id),
+      env.DB.prepare("UPDATE publicaciones SET numero=numero-1 WHERE numero>?1").bind(num),
+    ]);
+    return { error: pm.status === 413 ? "grande" : "discord", status: pm.status };
+  }
+  const msg = await pm.json();
+  // Mismo orden en que se adjuntaron.
+  const imgs = names.map((n) => (msg.attachments || []).find((a) => a.filename === n)).filter(Boolean)
+    .map((a) => ({ url: a.url, filename: a.filename, width: a.width || null, height: a.height || null }));
+  const first = imgs[0] || {};
+  await env.DB.prepare(
+    "UPDATE publicaciones SET message_id=?2, image_url=?3, width=?4, height=?5, imagenes=?6, status='publicada', numero_discord=?7 WHERE id=?1"
+  ).bind(id, msg.id, first.url || null, first.width || null, first.height || null, JSON.stringify(imgs), num).run();
+  // Por si el número cambió mientras se subía (alguien borró otra publicación).
+  await syncNumeros(env, 5);
+  const ahora = (await env.DB.prepare("SELECT numero FROM publicaciones WHERE id=?1").bind(id).first()).numero;
+  return { id, numero: ahora, imgs };
+}
+
+// Añade una foto al final de una publicación (p = fila de publicaciones). Devuelve { n } o { error, status }.
+async function pubAnadir(env, p, blob, ext) {
+  let imgs = [];
+  try { imgs = JSON.parse(p.imagenes || "[]"); } catch (e) {}
+  if (imgs.length >= 10) return { error: "llena" };
+  if (!p.message_id) return { error: "sin-mensaje" };
+  // Se conservan los adjuntos que ya tiene el mensaje (por su id) y se añade el nuevo al final.
+  const gm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`);
+  if (!gm.ok) return { error: "leer", status: gm.status };
+  const antes = (await gm.json()).attachments || [];
+  const filename = `publicacion-${p.id}-${Date.now()}.${ext}`;
+  const fd = new FormData();
+  fd.append("payload_json", JSON.stringify({ attachments: antes.map((a) => ({ id: a.id })).concat([{ id: 0, filename }]) }));
+  fd.append("files[0]", blob, filename);
+  const pm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "PATCH", body: fd });
+  if (!pm.ok) return { error: pm.status === 413 ? "grande" : "discord", status: pm.status };
+  const despues = (await pm.json()).attachments || [];
+  // El orden lo marca la web (no Discord): cada foto se localiza por su nombre de archivo y la nueva va al final.
+  const nombre = (u) => decodeURIComponent((String(u || "").split("?")[0].split("/").pop()) || "");
+  const usados = new Set();
+  const orden = imgs.map((im) => despues.find((d) => d.filename === (im.filename || nombre(im.url)) && !usados.has(d.id)))
+    .filter((d) => d && usados.add(d.id))
+    .concat(despues.filter((d) => !usados.has(d.id) && d.filename !== filename))
+    .concat(despues.filter((d) => d.filename === filename));
+  const nuevas = orden.map((a) => ({ url: a.url, filename: a.filename, width: a.width || null, height: a.height || null }));
+  const first = nuevas[0] || {};
+  await env.DB.prepare(
+    "UPDATE publicaciones SET imagenes=?2, image_url=?3, width=?4, height=?5, updated_at=datetime('now') WHERE id=?1"
+  ).bind(p.id, JSON.stringify(nuevas), first.url || null, first.width || null, first.height || null).run();
+  return { n: nuevas.length };
+}
+
+// Borra la publicación de la web y su mensaje de Discord; las siguientes bajan un número. Devuelve { ok } o { error, status }.
+async function pubBorrar(env, p) {
+  if (p.message_id) {
+    const r = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "DELETE" });
+    if (!r.ok && r.status !== 404) return { error: "discord", status: r.status };
+  }
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM bendiciones WHERE publicacion_id=?1").bind(p.id),
+    env.DB.prepare("DELETE FROM publicaciones WHERE id=?1").bind(p.id),
+    // Las siguientes bajan un número para que no haya saltos.
+    env.DB.prepare("UPDATE publicaciones SET numero=numero-1 WHERE numero>?1").bind(p.numero),
+  ]);
+  await syncNumeros(env, 20);
+  return { ok: true };
+}
+
+// Canal #publicaciones-web: el de las publicaciones existentes o, si no hay, se busca por su nombre.
+async function canalPublicaciones(env) {
+  const u = await env.DB.prepare("SELECT channel_id FROM publicaciones WHERE channel_id IS NOT NULL ORDER BY id DESC LIMIT 1").first();
+  if (u && u.channel_id) return u.channel_id;
+  const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
+  if (!rc.ok) return null;
+  const c = (await rc.json()).find((x) => (x.type === 0 || x.type === 5) && normalCanal(x.name).includes(CANAL_PUBLICACIONES));
+  return c ? c.id : null;
+}
+
 // Ejecuta un comando y devuelve el texto de la respuesta privada para quien lo usa.
 async function runCommand(env, it, uid, name, role) {
   const opt = Object.fromEntries((it.data.options || []).map((o) => [o.name, o.value]));
@@ -419,42 +519,15 @@ async function runCommand(env, it, uid, name, role) {
       return r.ok ? r.blob() : null;
     }));
     if (blobs.some((b) => !b)) return "No se pudo leer alguna de las imágenes. Inténtalo de nuevo.";
-    // El número se asigna dentro del INSERT: el siguiente al mayor que exista.
-    const r = await env.DB.prepare(
-      `INSERT INTO publicaciones (discord_id, autor, texto, channel_id, numero)
-       VALUES (?1, ?2, ?3, ?4, (SELECT COALESCE(MAX(numero), 0) + 1 FROM publicaciones))`
-    ).bind(uid, name, texto, it.channel_id).run();
-    const id = r.meta.last_row_id;
-    const num = (await env.DB.prepare("SELECT numero FROM publicaciones WHERE id=?1").bind(id).first()).numero;
-    const names = atts.map((a, i) => `publicacion-${id}-${i + 1}.${EXT[(a.content_type || "").split(";")[0]]}`);
-    const fd = new FormData();
-    fd.append("payload_json", JSON.stringify({
-      content: pubMensaje(num, uid, texto), allowed_mentions: { parse: [] },
-      attachments: names.map((filename, i) => ({ id: i, filename })),
-    }));
-    blobs.forEach((b, i) => fd.append(`files[${i}]`, b, names[i]));
-    const pm = await bot(env, `/channels/${it.channel_id}/messages`, { method: "POST", body: fd });
-    if (!pm.ok) {
-      await env.DB.batch([
-        env.DB.prepare("DELETE FROM publicaciones WHERE id=?1").bind(id),
-        env.DB.prepare("UPDATE publicaciones SET numero=numero-1 WHERE numero>?1").bind(num),
-      ]);
-      return pm.status === 413
+    const res = await pubCrear(env, { uid, name, texto, channelId: it.channel_id,
+      files: blobs.map((b, i) => ({ blob: b, ext: EXT[(atts[i].content_type || "").split(";")[0]] })) });
+    if (res.error) {
+      return res.error === "grande"
         ? "Las fotos ocupan demasiado para Discord. Prueba con menos fotos o más ligeras."
-        : `No se pudo publicar (error ${pm.status}). Revisa que el bot pueda escribir y adjuntar archivos en #${CANAL_PUBLICACIONES}.`;
+        : `No se pudo publicar (error ${res.status}). Revisa que el bot pueda escribir y adjuntar archivos en #${CANAL_PUBLICACIONES}.`;
     }
-    const msg = await pm.json();
-    // Mismo orden en que se adjuntaron.
-    const imgs = names.map((n) => (msg.attachments || []).find((a) => a.filename === n)).filter(Boolean)
-      .map((a) => ({ url: a.url, filename: a.filename, width: a.width || null, height: a.height || null }));
-    const first = imgs[0] || {};
-    await env.DB.prepare(
-      "UPDATE publicaciones SET message_id=?2, image_url=?3, width=?4, height=?5, imagenes=?6, status='publicada', numero_discord=?7 WHERE id=?1"
-    ).bind(id, msg.id, first.url || null, first.width || null, first.height || null, JSON.stringify(imgs), num).run();
+    const imgs = res.imgs, ahora = res.numero;
     const n = imgs.length;
-    // Por si el número cambió mientras se subía (alguien borró otra publicación).
-    await syncNumeros(env, 5);
-    const ahora = (await env.DB.prepare("SELECT numero FROM publicaciones WHERE id=?1").bind(id).first()).numero;
     await notifica(env, { tipo: "galeria", excepto: uid, titulo: "Fotos nuevas en la galería",
       texto: name + " ha publicado " + (n > 1 ? n + " fotos" : "una foto") + (texto ? ": " + texto.slice(0, 80) : ""), url: "/galeria.html" }).catch(() => 0);
     return `✅ Publicada en la web con el número **${ahora}**` + (n > 1 ? ` (${n} fotos)` : "") +
@@ -491,49 +564,17 @@ async function runCommand(env, it, uid, name, role) {
     if (!p.message_id) return "No se encuentra el mensaje de esta publicación en Discord.";
     const img = await fetch(att.url);
     if (!img.ok) return "No se pudo leer la imagen. Inténtalo de nuevo.";
-    const blob = await img.blob();
-    // Se conservan los adjuntos que ya tiene el mensaje (por su id) y se añade el nuevo al final.
-    const gm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`);
-    if (!gm.ok) return `No se pudo leer el mensaje de la publicación en Discord (error ${gm.status}).`;
-    const antes = (await gm.json()).attachments || [];
-    const filename = `publicacion-${p.id}-${Date.now()}.${EXT[tipo]}`;
-    const fd = new FormData();
-    fd.append("payload_json", JSON.stringify({
-      attachments: antes.map((a) => ({ id: a.id })).concat([{ id: 0, filename }]),
-    }));
-    fd.append("files[0]", blob, filename);
-    const pm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "PATCH", body: fd });
-    if (!pm.ok) {
-      return pm.status === 413 ? "La foto ocupa demasiado para Discord." : `No se pudo añadir la foto en Discord (error ${pm.status}).`;
-    }
-    const despues = (await pm.json()).attachments || [];
-    // El orden lo marca la web (no Discord): cada foto se localiza por su nombre de archivo y la nueva va al final.
-    const nombre = (u) => decodeURIComponent((String(u || "").split("?")[0].split("/").pop()) || "");
-    const usados = new Set();
-    const orden = imgs.map((im) => despues.find((d) => d.filename === (im.filename || nombre(im.url)) && !usados.has(d.id)))
-      .filter((d) => d && usados.add(d.id))
-      .concat(despues.filter((d) => !usados.has(d.id) && d.filename !== filename))
-      .concat(despues.filter((d) => d.filename === filename));
-    const nuevas = orden.map((a) => ({ url: a.url, filename: a.filename, width: a.width || null, height: a.height || null }));
-    const first = nuevas[0] || {};
-    await env.DB.prepare(
-      "UPDATE publicaciones SET imagenes=?2, image_url=?3, width=?4, height=?5, updated_at=datetime('now') WHERE id=?1"
-    ).bind(p.id, JSON.stringify(nuevas), first.url || null, first.width || null, first.height || null).run();
+    const res = await pubAnadir(env, p, await img.blob(), EXT[tipo]);
+    if (res.error === "leer") return `No se pudo leer el mensaje de la publicación en Discord (error ${res.status}).`;
+    if (res.error) return res.error === "grande" ? "La foto ocupa demasiado para Discord." : `No se pudo añadir la foto en Discord (error ${res.status}).`;
+    const nuevas = { length: res.n };
     return `➕ Foto añadida al final de la publicación ${p.numero}. Ahora tiene ${nuevas.length} fotos.`;
   }
 
   if (cmd === "borrar") {
     if (p.discord_id !== uid && role !== "admin") return "Solo puedes borrar tus propias publicaciones.";
-    if (p.message_id) {
-      const r = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "DELETE" });
-      if (!r.ok && r.status !== 404) return `No se pudo borrar el mensaje en Discord (error ${r.status}).`;
-    }
-    await env.DB.batch([
-      env.DB.prepare("DELETE FROM publicaciones WHERE id=?1").bind(p.id),
-      // Las siguientes bajan un número para que no haya saltos.
-      env.DB.prepare("UPDATE publicaciones SET numero=numero-1 WHERE numero>?1").bind(p.numero),
-    ]);
-    await syncNumeros(env, 20);
+    const res = await pubBorrar(env, p);
+    if (res.error) return `No se pudo borrar el mensaje en Discord (error ${res.status}).`;
     const sig = await env.DB.prepare("SELECT COUNT(*) AS n FROM publicaciones WHERE numero>=?1").bind(p.numero).first();
     return `🗑️ Publicación ${p.numero} borrada de la web y del canal.` +
       (sig.n ? ` Las siguientes han bajado un número (la ${p.numero + 1} ahora es la ${p.numero}, etc.).` : "");
@@ -1927,7 +1968,7 @@ export default {
       const s = await readSession(env, request);
       // autor: el nombre más reciente de cada socio, para que el filtro por miembro no se parta si cambia de apodo.
       const { results } = await env.DB.prepare(
-        `SELECT p.id, p.numero, p.texto, p.imagenes, p.image_url, p.width, p.height, p.created_at, p.updated_at,
+        `SELECT p.id, p.numero, p.texto, p.imagenes, p.image_url, p.width, p.height, p.created_at, p.updated_at, (p.discord_id=?1) AS es_mia,
            (SELECT q.autor FROM publicaciones q WHERE q.discord_id=p.discord_id ORDER BY q.id DESC LIMIT 1) AS autor,
            (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id AND b.tipo='emperador') AS emperador,
            (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id AND b.tipo='ruinosos') AS ruinosos,
@@ -1973,12 +2014,83 @@ export default {
       }
       // Si algún mensaje de Discord muestra un número antiguo, se corrige en segundo plano.
       if (env.DISCORD_BOT_TOKEN) ctx.waitUntil(syncNumeros(env, 10).catch(() => {}));
+      const admin = !!s && s.role === "admin";
       results.forEach((r) => {
         r.mias = { emperador: !!r.mi_emperador, ruinosos: !!r.mi_ruinosos };
-        delete r.mi_emperador; delete r.mi_ruinosos;
+        // Puede borrarla quien la publicó o un admin.
+        r.puedo_borrar = admin || !!r.es_mia;
+        delete r.mi_emperador; delete r.mi_ruinosos; delete r.es_mia;
       });
+      // Pueden subir fotos desde la web los miembros (también veteranos y admin), no los aspirantes.
+      const puedeSubir = !!s && ["miembro", "veterano", "admin"].includes(s.role);
       // Sin caché: las fotos nuevas, editadas o borradas tienen que verse al momento.
-      return Response.json({ sesion: !!s, publicaciones: results }, { headers: noStore });
+      return Response.json({ sesion: !!s, puede_subir: puedeSubir, publicaciones: results }, { headers: noStore });
+    }
+
+    // Subir fotos desde la web (solo miembros). La primera foto crea la publicación y su mensaje en Discord;
+    // las demás se añaden de una en una (una foto por petición, para no pasar los límites del plan gratuito).
+    // Al acabar, /fin manda el aviso «Fotos nuevas» una sola vez. DELETE borra la publicación y su mensaje.
+    const gw = path.match(/^\/api\/galeria\/(?:publicar|(\d+)(\/foto|\/fin)?)$/);
+    if (gw && (request.method === "POST" || (request.method === "DELETE" && gw[1] && !gw[2]))) {
+      const s = await readSession(env, request);
+      const err = (t, st = 400) => Response.json({ error: t }, { status: st, headers: noStore });
+      if (!s) return err("Entra con Discord para subir fotos", 401);
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      if (!env.DISCORD_BOT_TOKEN) return err("El bot aún no está configurado. Avisa a un admin.", 503);
+      const esMiembro = ["miembro", "veterano", "admin"].includes(s.role);
+      // Lee la foto de la petición (una por petición; el navegador ya la ha reducido).
+      const leeFoto = async () => {
+        if (Number(request.headers.get("content-length") || 0) > MAX_FOTO + 64 * 1024) return { error: "Cada foto puede ocupar como máximo 10 MB." };
+        let fd;
+        try { fd = await request.formData(); } catch (e) { return { error: "No se pudo leer la foto." }; }
+        const f = fd.get("foto");
+        const tipo = f && typeof f === "object" ? String(f.type || "").split(";")[0] : "";
+        if (!f || typeof f !== "object" || !EXT_IMG[tipo]) return { error: "La foto debe ser PNG, JPG, GIF o WEBP." };
+        if (f.size > MAX_FOTO) return { error: "Cada foto puede ocupar como máximo 10 MB." };
+        return { fd, blob: f, ext: EXT_IMG[tipo] };
+      };
+      if (!gw[1]) {
+        if (!esMiembro) return err("Solo los miembros pueden subir fotos a la galería.", 403);
+        // Límite de uso: como mucho 10 publicaciones por socio en 24 horas.
+        const hoy = await env.DB.prepare("SELECT COUNT(*) AS n FROM publicaciones WHERE discord_id=?1 AND created_at > datetime('now','-1 day')").bind(s.id).first();
+        if (hoy.n >= 10) return err("Has llegado al máximo de 10 publicaciones al día. Prueba mañana.", 429);
+        const f = await leeFoto();
+        if (f.error) return err(f.error);
+        const texto = String(f.fd.get("texto") || "").trim().slice(0, 500) || null;
+        const canal = await canalPublicaciones(env);
+        if (!canal) return err("No se encuentra el canal #" + CANAL_PUBLICACIONES + " en Discord. Avisa a un admin.", 503);
+        const nombre = s.name || ((await env.DB.prepare("SELECT name FROM users WHERE discord_id=?1").bind(s.id).first()) || {}).name || "Socio";
+        const res = await pubCrear(env, { uid: s.id, name: nombre, texto, channelId: canal, files: [{ blob: f.blob, ext: f.ext }] });
+        if (res.error) return err(res.error === "grande" ? "La foto ocupa demasiado para Discord." : "No se pudo publicar en Discord (error " + res.status + ").", 502);
+        return Response.json({ ok: true, id: res.id, numero: res.numero }, { headers: noStore });
+      }
+      const p = await env.DB.prepare("SELECT * FROM publicaciones WHERE id=?1 AND status='publicada'").bind(Number(gw[1])).first();
+      if (!p) return err("Esa publicación ya no existe.", 404);
+      if (request.method === "DELETE") {
+        if (p.discord_id !== s.id && s.role !== "admin") return err("Solo puedes borrar tus propias publicaciones.", 403);
+        const res = await pubBorrar(env, p);
+        if (res.error) return err("No se pudo borrar el mensaje en Discord (error " + res.status + ").", 502);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      if (p.discord_id !== s.id) return err("Solo puedes añadir fotos a tus propias publicaciones.", 403);
+      if (gw[2] === "/foto") {
+        if (!esMiembro) return err("Solo los miembros pueden subir fotos a la galería.", 403);
+        const f = await leeFoto();
+        if (f.error) return err(f.error);
+        const res = await pubAnadir(env, p, f.blob, f.ext);
+        if (res.error === "llena") return err("La publicación ya tiene 10 fotos, que es el máximo.", 409);
+        if (res.error) return err(res.error === "grande" ? "La foto ocupa demasiado para Discord." : "No se pudo añadir la foto en Discord.", 502);
+        return Response.json({ ok: true, fotos: res.n }, { headers: noStore });
+      }
+      // /fin: aviso a los socios (una sola vez por publicación y solo recién creada).
+      const marca = await env.DB.prepare("INSERT OR IGNORE INTO nr_cache (clave, actualizado) VALUES (?1, datetime('now'))").bind("galeria-aviso:" + p.id).run();
+      if (marca.meta.changes && p.created_at > new Date(Date.now() - 3600e3).toISOString().replace("T", " ").slice(0, 19)) {
+        let n = 1;
+        try { n = JSON.parse(p.imagenes || "[]").length || 1; } catch (e) {}
+        ctx.waitUntil(notifica(env, { tipo: "galeria", excepto: s.id, titulo: "Fotos nuevas en la galería",
+          texto: p.autor + " ha publicado " + (n > 1 ? n + " fotos" : "una foto") + (p.texto ? ": " + p.texto.slice(0, 80) : ""), url: "/galeria.html" }).catch(() => {}));
+      }
+      return Response.json({ ok: true, numero: p.numero }, { headers: noStore });
     }
 
     // Bendiciones (?tipo=emperador|ruinosos): POST la da, DELETE la quita. Una de cada tipo por socio y publicación.
