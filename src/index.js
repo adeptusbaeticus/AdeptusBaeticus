@@ -268,7 +268,10 @@ function parsePartida(b, now) {
   }
   if (!availability.length) return { error: "Marca al menos un día con sus horas" };
   availability.sort((x, y) => (x.date < y.date ? -1 : 1));
-  return { ...plan, team_a: ta, team_b: tb, availability };
+  // Físico (en el club si no se indica lugar) u online (Tabletop Simulator).
+  const modo = b.modo === "online" ? "online" : "fisico";
+  const lugar = modo === "fisico" ? String(b.lugar || "").trim().slice(0, 120) || null : null;
+  return { ...plan, team_a: ta, team_b: tb, availability, modo, lugar };
 }
 
 const MAX_PARTIDAS = 14; // partidas abiertas por socio
@@ -301,7 +304,7 @@ async function listPartidas(env, uid, id) {
     return {
       id: p.id, activity: p.activity, format: p.format, players: p.players, plan: planText(p),
       organiza: p.organiza, availability: JSON.parse(p.availability), starts_at: p.starts_at,
-      last_day: p.last_day, mesa: p.mesa, status: p.status, team_a: p.team_a, team_b: p.team_b,
+      last_day: p.last_day, mesa: p.mesa, status: p.status, team_a: p.team_a, team_b: p.team_b, modo: p.modo, lugar: p.lugar,
       jugadores: jug.map((j) => ({ name: j.name, side: j.side, yo: j.discord_id === uid })),
       faltan: Math.max(0, p.team_a + p.team_b - jug.length),
       mia: p.created_by === uid,
@@ -697,8 +700,8 @@ async function pushEnvia(env, sub, mensaje) {
 // Avisos concretos de cada tipo.
 const fechaCorta = (t) => new Date(t.slice(0, 10) + "T12:00:00Z").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) + (t.length > 10 ? " · " + t.slice(11, 16) : "");
 function avisoEvento(env, id, ev, autor) {
-  return notifica(env, { tipo: "eventos", excepto: autor, titulo: ev.type === "torneo" ? "Nuevo torneo" : "Nueva quedada",
-    texto: ev.title + " · " + fechaCorta(ev.starts_at), url: "/calendario.html?evento=" + id });
+  return notifica(env, { tipo: "eventos", excepto: autor, titulo: ev.type === "torneo" ? (ev.modo === "online" ? "Nuevo torneo online" : "Nuevo torneo") : "Nueva quedada",
+    texto: ev.title + " · " + fechaCorta(ev.starts_at) + (ev.modo === "online" ? " · Online (TTS)" : ""), url: "/calendario.html?evento=" + id });
 }
 // Pone en la cola un aviso para los dispositivos que lo quieren (tipo) de unos socios (o de todos), menos a
 // «excepto», y envía enseguida una primera tanda; el resto lo envía el temporizador al minuto siguiente.
@@ -932,7 +935,7 @@ function ics(nombre, eventos) {
 const sumaHoras = (t, h) => { const d = new Date(t + ":00Z"); d.setUTCMinutes(d.getUTCMinutes() + h * 60); return d.toISOString().slice(0, 16); };
 async function calendarioEventos(env, uid) {
   const ev = [];
-  const { results: es } = await env.DB.prepare("SELECT id, type, title, starts_at, location, description FROM events WHERE status='publicado' AND starts_at >= ?1 ORDER BY starts_at")
+  const { results: es } = await env.DB.prepare("SELECT id, type, title, starts_at, location, description, modo FROM events WHERE status='publicado' AND starts_at >= ?1 ORDER BY starts_at")
     .bind(masDias(nowLocal().slice(0, 10), -60)).all();
   let mias = new Map();
   if (uid) mias = new Map((await env.DB.prepare("SELECT event_id, status FROM registrations WHERE discord_id=?1").bind(uid).all()).results.map((r) => [r.event_id, r.status]));
@@ -940,12 +943,12 @@ async function calendarioEventos(env, uid) {
     const st = mias.get(e.id);
     ev.push({ uid: "evento-" + e.id, inicio: e.starts_at, fin: sumaHoras(e.starts_at, e.type === "torneo" ? 8 : 4),
       titulo: (e.type === "torneo" ? "🏆 " : "🎲 ") + e.title + (st === "inscrito" ? " (apuntado)" : st === "espera" ? " (lista de espera)" : ""),
-      lugar: e.location, desc: e.description, url: WEB + "/calendario.html?evento=" + e.id });
+      lugar: e.modo === "online" ? "Online (TTS)" + (e.location ? " · " + e.location : "") : e.location, desc: e.description, url: WEB + "/calendario.html?evento=" + e.id });
   }
   if (!uid) return ev;
   // Tus partidas con hora fijada.
   const { results: ps } = await env.DB.prepare(
-    `SELECT p.id, p.activity, p.starts_at, p.availability, p.mesa,
+    `SELECT p.id, p.activity, p.starts_at, p.availability, p.mesa, p.modo, p.lugar,
        (SELECT GROUP_CONCAT(u.name, ', ') FROM partida_players q JOIN users u ON u.discord_id=q.discord_id WHERE q.partida_id=p.id AND q.discord_id<>?1) AS rivales
      FROM partidas p JOIN partida_players me ON me.partida_id=p.id AND me.discord_id=?1
      WHERE p.status<>'cancelada' AND p.starts_at IS NOT NULL`
@@ -954,7 +957,7 @@ async function calendarioEventos(env, uid) {
     let fin = sumaHoras(p.starts_at, 3);
     try { const av = JSON.parse(p.availability).find((x) => x.date === p.starts_at.slice(0, 10)); if (av && av.to > p.starts_at.slice(11, 16)) fin = p.starts_at.slice(0, 11) + av.to; } catch (e) {}
     ev.push({ uid: "partida-" + p.id, inicio: p.starts_at, fin, titulo: "⚔️ " + (MODALIDAD[p.activity] || "Partida") + (p.rivales ? " · " + p.rivales : ""),
-      lugar: p.mesa ? "Mesa " + p.mesa : null, url: WEB + "/calendario.html?partida=" + p.id });
+      lugar: p.modo === "online" ? "Online (TTS)" : p.lugar || (p.mesa ? "Mesa " + p.mesa : null), url: WEB + "/calendario.html?partida=" + p.id });
   }
   // Tu partida de cada ronda de la Gran Liga (todo el periodo de la ronda) y su cierre.
   const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
@@ -2374,9 +2377,9 @@ export default {
         const ids = [];
         for (const av of p.availability) {
           const r = await env.DB.prepare(
-            `INSERT INTO partidas (created_by,activity,format,players,team_a,team_b,availability,last_day)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)`
-          ).bind(s.id, p.activity, p.format, p.players, p.team_a, p.team_b, JSON.stringify([av]), av.date).run();
+            `INSERT INTO partidas (created_by,activity,format,players,team_a,team_b,availability,last_day,modo,lugar)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)`
+          ).bind(s.id, p.activity, p.format, p.players, p.team_a, p.team_b, JSON.stringify([av]), av.date, p.modo, p.lugar).run();
           ids.push(r.meta.last_row_id);
           await env.DB.prepare("INSERT INTO partida_players (partida_id,discord_id,side) VALUES (?1,?2,'A')").bind(r.meta.last_row_id, s.id).run();
         }
@@ -2424,7 +2427,7 @@ export default {
                AND EXISTS (SELECT 1 FROM partida_players WHERE partida_id=?1 AND discord_id=?3)`
           ).bind(pid, slot, s.id),
           env.DB.prepare(
-            `UPDATE partidas SET status='completa', mesa=${MESA_SQL}
+            `UPDATE partidas SET status='completa', mesa=CASE WHEN modo='fisico' AND lugar IS NULL THEN ${MESA_SQL} END
              WHERE id=?1 AND status='abierta' AND (SELECT COUNT(*) FROM partida_players WHERE partida_id=?1) >= team_a + team_b`
           ).bind(pid),
         ]);
@@ -2748,6 +2751,8 @@ export default {
           capacity: b.capacity === "" || b.capacity == null ? null : parseInt(b.capacity, 10),
           nr: clean(b.nr_tournament_id, 80),
           status: b.status || "publicado",
+          // Las quedadas son siempre físicas; los torneos, físicos u online (TTS).
+          modo: b.type === "torneo" && b.modo === "online" ? "online" : "fisico",
         };
         const okCap = ev.capacity === null || (ev.capacity > 0 && ev.capacity <= 1000);
         if (
@@ -2759,8 +2764,8 @@ export default {
         }
         if (isCreate) {
           const r = await env.DB.prepare(
-            "INSERT INTO events (type,title,starts_at,location,description,capacity,nr_tournament_id,status) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)"
-          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status).run();
+            "INSERT INTO events (type,title,starts_at,location,description,capacity,nr_tournament_id,status,modo) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)"
+          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, ev.modo).run();
           if (ev.status === "publicado") ctx.waitUntil(avisoEvento(env, r.meta.last_row_id, ev, s.id).catch(() => {}));
           return Response.json({ ok: true, id: r.meta.last_row_id });
         }
@@ -2768,8 +2773,8 @@ export default {
         if (antes && antes.status !== "publicado" && ev.status === "publicado") ctx.waitUntil(avisoEvento(env, Number(idm[1]), ev, s.id).catch(() => {}));
         await env.DB.batch([
           env.DB.prepare(
-            "UPDATE events SET type=?1,title=?2,starts_at=?3,location=?4,description=?5,capacity=?6,nr_tournament_id=?7,status=?8 WHERE id=?9"
-          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, Number(idm[1])),
+            "UPDATE events SET type=?1,title=?2,starts_at=?3,location=?4,description=?5,capacity=?6,nr_tournament_id=?7,status=?8,modo=?10 WHERE id=?9"
+          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, Number(idm[1]), ev.modo),
           // Si se han ampliado las plazas, entra gente de la lista de espera.
           env.DB.prepare(PROMOTE_SQL).bind(Number(idm[1])),
         ]);
@@ -2811,7 +2816,7 @@ export default {
     
     if (path === "/api/events") {
       const { results } = await env.DB.prepare(
-        `SELECT e.id,e.type,e.title,e.starts_at,e.location,e.description,e.capacity,
+        `SELECT e.id,e.type,e.title,e.starts_at,e.location,e.description,e.capacity,e.modo,
            (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='inscrito') AS inscritos,
            (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='espera') AS en_espera
          FROM events e WHERE e.status='publicado' ORDER BY e.starts_at`

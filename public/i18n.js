@@ -55,6 +55,10 @@
     "Entra con Discord para ver y votar las encuestas del club.": "Log in with Discord to see and vote in the club's polls.",
     "Aspirantes y miembros": "Aspirants and members", "Solo miembros": "Members only", "Sin fecha de cierre": "No closing date",
     "Voto público": "Public vote", "Voto secreto": "Secret vote", "Cerrar ya": "Close now", "Voto público: los socios verán qué has votado.": "Public vote: members will see what you voted.",
+    "Físico": "In person", "Online (TTS)": "Online (TTS)", "En el club": "At the club", "¿Dónde se juega?": "Where will you play?",
+    "Lugar (opcional)": "Place (optional)", "En el club (2d6 Store)": "At the club (2d6 Store)",
+    "Si lo dejas vacío, se juega en el club y se asigna mesa.": "If you leave it empty, you play at the club and get a table assigned.",
+    "Completa": "Full",
     "Pendiente de votar": "Not voted yet", "Ya has votado": "You've voted", "Ver todas las encuestas": "See all polls",
     "¿Para quién?": "Who is it for?",
     "«Miembros» incluye a veteranos y admin.": "“Members” includes veterans and admins.",
@@ -317,7 +321,7 @@
   // Textos con datos variables (números, nombres): patrón completo → traducción.
   const RULES = [
     [/^(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre) (\d{4})$/, (m, mes, y) => MESES[mes.toLowerCase()] + " " + y],
-    [/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}) · (Quedada|Torneo) · (publicado|borrador|cancelado)$/, (m, f, t, e) => f + " · " + EXACT[t] + " · " + EXACT[e]],
+    [/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}) · (Quedada|Torneo)( online \(TTS\))? · (publicado|borrador|cancelado)$/, (m, f, t, o, e) => f + " · " + (o ? "Online tournament (TTS)" : EXACT[t]) + " · " + EXACT[e]],
     [/^Plazas: (\d+) de (\d+)$/, "Spots: $1 of $2"],
     [/^Plazas: (\d+)$/, "Spots: $1"],
     [/^Entrada (\d+): ([\s\S]*)$/, "Post $1: $2"],

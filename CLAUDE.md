@@ -49,6 +49,13 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   de las que faltan por votar; al pulsarla se despliega la lista. En Inicio y Encuestas usa los datos de la
   propia página (evento `ab-encuestas`); en las demás, los guarda 2 minutos en `sessionStorage`.
 
+## Calendario: físico u online
+
+- Eventos y partidas tienen `modo` `fisico` u `online` (Tabletop Simulator), migración 0026, con su icono (mesa u
+  ordenador, `iconoModo()` en `calendario.html`). Las quedadas son siempre físicas (lo fuerza el servidor); los
+  torneos los elige el admin. En las partidas físicas se puede indicar `lugar`: vacío = en el club, con mesa
+  asignada; con lugar u online no se asigna mesa.
+
 ## Gran Liga Adeptus
 
 - Edición = Fase I (ida) + Fase II (vuelta, cruces sorteados de nuevo); campeón de cada fase y global.

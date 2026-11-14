@@ -121,6 +121,14 @@ select.chip{appearance:auto;padding:8px 12px}
 select.chip option{background:#1F2328;color:#ECE7DC}
 .fld input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
 .card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
+/* Iconos de modalidad: mesa (físico) y ordenador (online, Tabletop Simulator) */
+.mo{display:inline-flex;vertical-align:-2px;margin-right:4px}
+.mo svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ag-i .hh .mo{display:flex;margin:3px 0 0;color:#A8A293}
+.ag-i .hh .mo svg{width:15px;height:15px}
+.modo{display:flex;align-items:center;gap:6px;color:#CFC9BA;margin:4px 0 8px}
+.modo .mo{margin:0}.modo .mo svg{width:16px;height:16px}
+.fld label.rad .mo{margin:0 2px}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
 .card h3{font:700 22px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
 .card p{margin:0 0 8px}
@@ -134,7 +142,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .fld{margin:0 0 12px;border:0;padding:0}
 .fld label,.fld legend{display:block;font-weight:600;font-size:14px;margin-bottom:4px;padding:0}
 .fld label.rad{display:flex;align-items:center;gap:8px;font-weight:400;font-size:15px;min-height:36px;margin:0}
-.fld select{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;min-height:44px}
+.fld select,.fld input#bp-lugar{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;min-height:44px}
 .fld input[type=radio]{width:18px;height:18px;accent-color:#D9B25A}
 .fz .row{gap:8px}
 .ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
@@ -281,6 +289,39 @@ function marcasLiga(cell, key, rondas) {
 }
 
 // Quedadas o torneos de los próximos 3 meses (cuando se filtra por uno de esos tipos).
+// Icono de la modalidad (con su texto para lectores de pantalla y al pasar el ratón).
+const MODOS = {
+  fisico: ["Físico", "M1.5 7h13v2h-13zM3.5 9v5M12.5 9v5M6.5 7V3.5h3V7"],
+  online: ["Online (TTS)", "M2.6 2.8h10.8a1.1 1.1 0 0 1 1.1 1.1v6.5a1.1 1.1 0 0 1-1.1 1.1H2.6a1.1 1.1 0 0 1-1.1-1.1V3.9a1.1 1.1 0 0 1 1.1-1.1zM5.5 14.2h5M8 11.5v2.7"],
+};
+function iconoModo(modo) {
+  const [txt, d] = MODOS[modo === "online" ? "online" : "fisico"];
+  const w = document.createElement("span");
+  w.className = "mo";
+  w.setAttribute("role", "img");
+  w.setAttribute("aria-label", txt);
+  w.title = txt;
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  const p = document.createElementNS(NS, "path");
+  p.setAttribute("d", d);
+  svg.appendChild(p);
+  w.appendChild(svg);
+  return w;
+}
+// Línea de la ficha: icono y «Físico · lugar» u «Online (TTS)».
+function lineaModo(modo, lugar) {
+  const p = document.createElement("p");
+  p.className = "modo";
+  const t = document.createElement("span");
+  t.textContent = modo === "online" ? "Online (TTS)" : "Físico";
+  p.append(iconoModo(modo), t);
+  if (lugar) { const l = document.createElement("span"); l.textContent = "· " + lugar; if (lugar !== "En el club") l.setAttribute("translate", "no"); p.appendChild(l); }
+  return p;
+}
+
 function renderLista() {
   const box = $("lista");
   box.textContent = "";
@@ -320,7 +361,7 @@ function renderLista() {
     t.textContent = e.title;
     t.setAttribute("translate", "no");
     const cu = document.createElement("span");
-    cu.textContent = d.toLocaleDateString("es-ES", { weekday: "long" }) + " · " + e.starts_at.slice(11, 16);
+    cu.append(iconoModo(e.modo), d.toLocaleDateString("es-ES", { weekday: "long" }) + " · " + e.starts_at.slice(11, 16));
     tx.append(t, cu);
     if (e.location) { const l = document.createElement("span"); l.textContent = e.location; l.setAttribute("translate", "no"); tx.appendChild(l); }
     const ins = e.inscritos || 0;
@@ -358,7 +399,7 @@ function renderAgenda() {
   const hasta = (() => { const d = new Date(hoy + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 60); return d.toISOString().slice(0, 10); })();
   const porDia = new Map();
   const mete = (dia, orden, nodo) => { if (dia < hoy || dia > hasta) return; if (!porDia.has(dia)) porDia.set(dia, []); porDia.get(dia).push([orden, nodo]); };
-  const fila = (cls, hora, titulo, sub, noTraducir) => {
+  const fila = (cls, hora, titulo, sub, noTraducir, modo) => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "ag-i " + cls;
     const h = document.createElement("span"); h.className = "hh"; h.textContent = hora || "";
@@ -366,6 +407,7 @@ function renderAgenda() {
     const st = document.createElement("strong"); st.textContent = titulo; if (noTraducir) st.setAttribute("translate", "no");
     t.appendChild(st);
     if (sub) { const sp = document.createElement("span"); sp.textContent = sub; t.appendChild(sp); }
+    if (modo) h.appendChild(iconoModo(modo));
     b.append(h, t);
     return b;
   };
@@ -373,7 +415,7 @@ function renderAgenda() {
   if (filtro === "todos") {
     ev.forEach((e) => {
       const llena = e.type === "quedada" && e.capacity && (e.inscritos || 0) >= e.capacity;
-      const b = fila((e.type === "torneo" ? "ag-t" : "ag-q") + (llena || e.starts_at <= now ? " ag-x" : ""), e.starts_at.slice(11, 16), e.title, e.type === "torneo" ? "Torneo" : "Quedada", true);
+      const b = fila((e.type === "torneo" ? "ag-t" : "ag-q") + (llena || e.starts_at <= now ? " ag-x" : ""), e.starts_at.slice(11, 16), e.title, e.type === "torneo" ? "Torneo" : "Quedada", true, e.modo);
       b.onclick = () => { marca(b); show(e); irAFicha(); };
       mete(e.starts_at.slice(0, 10), e.starts_at.slice(11, 16), b);
     });
@@ -385,7 +427,7 @@ function renderAgenda() {
         const av = p.availability.find((x) => x.date === dia);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from : "";
         const sub = p.starts_at ? "Partida" : av ? "Partida · disponible " + av.from + "–" + av.to : "Partida";
-        const b = fila("ag-p" + (p.status === "completa" || partidaCerrada(p) ? " ag-x" : ""), hora, CORTO[p.activity] + " · " + p.organiza, sub, false);
+        const b = fila("ag-p" + (p.status === "completa" || partidaCerrada(p) ? " ag-x" : ""), hora, CORTO[p.activity] + " · " + p.organiza, sub, false, p.modo);
         b.onclick = () => { marca(b); showPartida(p); irAFicha(); };
         mete(dia, hora || "99", b);
       });
@@ -463,8 +505,10 @@ function render() {
         const b = document.createElement("button");
         const llena = e.type === "quedada" && e.capacity && (e.inscritos || 0) >= e.capacity;
         b.className = "e " + (e.type === "torneo" ? "t2" : "q") + (llena || e.starts_at <= now ? " x" : "");
-        b.textContent = e.title;
-        b.setAttribute("translate", "no");
+        const tt = document.createElement("span");
+        tt.textContent = e.title;
+        tt.setAttribute("translate", "no");
+        b.append(iconoModo(e.modo), tt);
         b.onclick = () => { show(e); irAFicha(); };
         cell.appendChild(b);
       });
@@ -476,7 +520,7 @@ function render() {
         // Hora fijada o, si aún no la hay, la franja ofrecida ese día.
         const av = p.availability.find((x) => x.date === key);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
-        b.textContent = (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza;
+        b.append(iconoModo(p.modo), (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza);
         b.onclick = () => { showPartida(p); irAFicha(); };
         cell.appendChild(b);
       });
@@ -510,6 +554,7 @@ function show(e) {
   };
   add("span", "lb", e.type === "torneo" ? "Torneo" : "Quedada");
   add("h3", "", e.title).setAttribute("translate", "no");
+  box.appendChild(lineaModo(e.modo));
   const f = new Date(e.starts_at).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
   add("p", "", f + " · " + e.starts_at.slice(11, 16));
   if (e.location) add("p", "m", e.location).setAttribute("translate", "no");
@@ -847,6 +892,7 @@ function showPartida(p) {
   };
   add("span", "lb", "Partida");
   add("h3", "", partidaTitulo(p));
+  box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || "En el club"));
   add("p", "m", "Organiza: " + p.organiza);
   if (p.starts_at) add("p", "", fechaLarga(p.starts_at.slice(0, 10)) + " · " + p.starts_at.slice(11, 16));
   else {
@@ -871,7 +917,7 @@ function showPartida(p) {
   else add("p", "", names("A", p.team_a).join(" y ") + " contra " + names("B", p.team_b).join(" y "));
 
   const cerrada = partidaCerrada(p);
-  if (p.status === "completa") add("p", "ok", "Completa · " + (p.mesa ? "Mesa " + p.mesa : "sin mesa libre: avisa a un admin"));
+  if (p.status === "completa") add("p", "ok", p.modo === "online" || p.lugar ? "Completa" : "Completa · " + (p.mesa ? "Mesa " + p.mesa : "sin mesa libre: avisa a un admin"));
   else if (!cerrada) add("p", "m", "Abierta · falta" + (p.faltan > 1 ? "n " : " ") + p.faltan + " jugador" + (p.faltan > 1 ? "es" : ""));
   if (cerrada) { add("p", "m", "La partida está cerrada."); return; }
 
@@ -985,6 +1031,32 @@ function openPartidaForm() {
   const wSide = mkField("¿Cómo vas en el 1vs2?", side);
   const wNp = mkField("Número de participantes (contándote a ti)", np);
 
+  // Físico (en el club o donde se indique) u online (Tabletop Simulator).
+  const fsModo = document.createElement("fieldset");
+  fsModo.className = "fld";
+  const lgModo = document.createElement("legend");
+  lgModo.textContent = "¿Dónde se juega?";
+  fsModo.appendChild(lgModo);
+  [["fisico", "Físico"], ["online", "Online (TTS)"]].forEach(([v, txt], i) => {
+    const l = document.createElement("label");
+    l.className = "rad";
+    const r = document.createElement("input");
+    r.type = "radio"; r.name = "bp-modo"; r.value = v; r.checked = i === 0;
+    const t = document.createElement("span"); t.textContent = txt;
+    l.append(r, " ", iconoModo(v), t);
+    fsModo.appendChild(l);
+  });
+  const lugar = document.createElement("input");
+  lugar.id = "bp-lugar"; lugar.maxLength = 120; lugar.placeholder = "En el club (2d6 Store)";
+  const wLugar = mkField("Lugar (opcional)", lugar);
+  const ayLugar = document.createElement("p");
+  ayLugar.className = "m";
+  ayLugar.textContent = "Si lo dejas vacío, se juega en el club y se asigna mesa.";
+  wLugar.appendChild(ayLugar);
+  fsModo.appendChild(wLugar);
+  const modoSel = () => fsModo.querySelector("input[name=bp-modo]:checked").value;
+  fsModo.addEventListener("change", () => { wLugar.hidden = modoSel() !== "fisico"; });
+
   // Hoy y los 6 días siguientes, cada uno con su franja horaria.
   const days = document.createElement("fieldset");
   days.className = "fld";
@@ -1033,7 +1105,7 @@ function openPartidaForm() {
   nota.className = "m";
   nota.textContent = "Se publica una partida independiente por cada día que marques, cada una con sus propios rivales.";
   days.appendChild(nota);
-  f.append(mkField("Modalidad", act), wFmt, wSide, wNp, days, err, acts);
+  f.append(mkField("Modalidad", act), wFmt, wSide, wNp, fsModo, days, err, acts);
   box.appendChild(f);
 
   const update = () => {
@@ -1058,7 +1130,7 @@ function openPartidaForm() {
       const r = await fetch("/api/partidas", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ activity: act.value, format: fmt.value, side: side.value, players: Number(np.value), availability }),
+        body: JSON.stringify({ activity: act.value, format: fmt.value, side: side.value, players: Number(np.value), availability, modo: modoSel(), lugar: modoSel() === "fisico" ? lugar.value : "" }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { err.textContent = d.error || "No se pudo publicar. Inténtalo de nuevo."; ok.disabled = false; return; }

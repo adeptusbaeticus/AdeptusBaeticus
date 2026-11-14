@@ -80,6 +80,7 @@ table.lj select{min-width:220px}
     <form id="f" class="card">
       <div class="fg">
         <div><label for="type">Tipo</label><select id="type"><option value="quedada">Quedada</option><option value="torneo">Torneo</option></select></div>
+        <div id="wmodo"><label for="modo">¿Dónde se juega?</label><select id="modo"><option value="fisico">Físico</option><option value="online">Online (TTS)</option></select></div>
         <div><label for="title">Título</label><input id="title" required maxlength="120"></div>
         <div><label for="starts">Fecha y hora</label><input id="starts" type="datetime-local" required></div>
         <div><label for="loc">Lugar</label><input id="loc" maxlength="160"></div>
@@ -168,7 +169,7 @@ function renderList() {
     t.setAttribute("translate", "no");
     const m = document.createElement("div");
     m.className = "m";
-    m.textContent = e.starts_at.replace("T", " ") + " · " + (e.type === "torneo" ? "Torneo" : "Quedada") + " · " + e.status;
+    m.textContent = e.starts_at.replace("T", " ") + " · " + (e.type === "torneo" ? "Torneo" + (e.modo === "online" ? " online (TTS)" : "") : "Quedada") + " · " + e.status;
     info.append(t, m);
     const acts = document.createElement("div");
     acts.className = "acts";
@@ -238,15 +239,26 @@ async function load() {
   renderList();
 }
 
+// Las quedadas son siempre físicas: el selector de modalidad solo sale en los torneos.
+function syncModo() {
+  $("wmodo").hidden = $("type").value !== "torneo";
+  if ($("type").value !== "torneo") $("modo").value = "fisico";
+}
+$("type").addEventListener("change", syncModo);
+syncModo();
+
 function resetForm() {
   editing = null;
   $("f").reset();
+  syncModo();
   $("save").textContent = "Crear evento";
 }
 
 function edit(e) {
   editing = e.id;
   $("type").value = e.type;
+  $("modo").value = e.modo || "fisico";
+  syncModo();
   $("title").value = e.title;
   $("starts").value = e.starts_at;
   $("loc").value = e.location || "";
@@ -278,7 +290,7 @@ async function setStatus(e, status, q) {
 $("f").onsubmit = async (ev) => {
   ev.preventDefault();
   const ok = await send(editing, {
-    type: $("type").value, title: $("title").value, starts_at: $("starts").value,
+    type: $("type").value, modo: $("modo").value, title: $("title").value, starts_at: $("starts").value,
     location: $("loc").value, description: $("desc").value, capacity: $("cap").value,
     nr_tournament_id: $("nr").value, status: $("status").value,
   });
