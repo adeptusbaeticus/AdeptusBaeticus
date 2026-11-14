@@ -346,6 +346,7 @@ function ficha(m) {
   const h = el("h2", "", m.name); h.id = "fi-n"; h.setAttribute("translate", "no");
   tx.append(h, el("span", "rol", ROL[m.role] || m.role));
   if (m.desconectado) { tx.append(" ", el("span", "rol off", "Desconectado")); tx.appendChild(el("p", "sin", "Todavía no ha entrado en la web.")); }
+  if (m.alta) { const [y, mo, d] = m.alta.split("-"); tx.appendChild(el("p", "sin", "En el club desde " + d + "/" + mo + "/" + y)); }
   cab.append(avatar(m, true), tx);
   fi.append(cab, el("h3", "", "Facciones"), m.facciones.length ? chips(m.facciones) : el("p", "sin", "Todavía no ha indicado sus facciones."));
   // Estadísticas en la Gran Liga (fase actual).

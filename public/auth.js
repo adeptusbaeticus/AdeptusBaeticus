@@ -602,7 +602,9 @@
       // Se quita ?login= de la dirección para que el aviso no vuelva a salir al recargar.
       try { const u = new URL(location.href); u.searchParams.delete("login"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
     }
-    if (me && !me.nr_username && !me.ver_como) askNr();
+    // Socio sin sus datos de inscripción completos: tiene que rellenarlos antes de seguir.
+    if (me && me.completar && !me.ver_como && !(location.pathname === "/inscripcion.html" && /[?&]completar/.test(location.search))) { location.replace("/inscripcion.html?completar=1"); return; }
+    if (me && !me.nr_username && !me.ver_como && !me.completar) askNr();
     cargaEncuestas(me);
   });
 })();

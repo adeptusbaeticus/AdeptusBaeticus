@@ -441,6 +441,69 @@ const INSC_EXP_PINTURA = {
 const INSC_COMO = { instagram: "Instagram", discord: "Discord", amigo: "Un amigo o conocido", tienda: "En la tienda (2d6 Store)",
   evento: "En un torneo o evento", blog: "El blog del club", otro: "Otro" };
 
+// Valida los datos del formulario de inscripción (también los que completa un socio al entrar).
+// Devuelve { error } o { nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura, como }.
+function validaDatosSocio(b) {
+  const t = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+  const nombre = t(b.nombre, 100), email = t(b.email, 120).toLowerCase(), telefono = t(b.telefono, 25).replace(/[\s.-]/g, "");
+  const juegos = Array.isArray(b.juegos) ? [...new Set(b.juegos.filter((x) => INSC_JUEGOS[x]))] : [];
+  const como = INSC_COMO[b.como_conocio] ? b.como_conocio : null, comoOtro = t(b.como_otro, 100);
+  if (nombre.length < 3) return { error: "Escribe tu nombre y apellidos." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { error: "Escribe un correo electrónico válido." };
+  if (!/^\+?\d{9,15}$/.test(telefono)) return { error: "Escribe un teléfono válido (con prefijo si no es de España)." };
+  if (b.mayor_edad !== "si" && b.mayor_edad !== "no") return { error: "Indica si eres mayor de edad." };
+  if (!INSC_EXP_JUEGO[b.experiencia_juego]) return { error: "Elige tu experiencia de juego." };
+  if (!INSC_EXP_PINTURA[b.experiencia_pintura]) return { error: "Elige tu experiencia de pintura." };
+  if (b.acepta_estatutos !== true) return { error: "Tienes que aceptar los estatutos y el reglamento interno." };
+  if (b.consentimiento !== true) return { error: "Tienes que aceptar el tratamiento de tus datos." };
+  return { nombre, email, telefono, mayor_edad: b.mayor_edad === "si" ? 1 : 0, juegos: juegos.length ? JSON.stringify(juegos) : null,
+    experiencia_juego: b.experiencia_juego, experiencia_pintura: b.experiencia_pintura,
+    como: como ? (como === "otro" && comoOtro ? "Otro: " + comoOtro : INSC_COMO[como]) : null, juegosLista: juegos };
+}
+
+// --- Socios importados del Excel antiguo (`socios_datos`, origen 'excel') ---
+// Alias de Discord del Excel → nombres a comparar: sin @ delante, sin #1234 y en minúsculas. Puede traer varios
+// separados por «/»; si alguien puso su correo, vale la parte de antes de la @.
+function aliasDiscord(txt) {
+  return String(txt || "").split("/").map((a) => a.trim().replace(/^@/, "").replace(/#\d{4}$/, "").replace(/@[^@\s]+\.[a-z]{2,}$/i, "").trim().toLowerCase())
+    .filter((a) => a.length >= 2);
+}
+// Vincula filas del Excel con cuentas de Discord y crea su ficha en Miembros (sin conectar) si tienen rol del club.
+// lista: [{ s: id de la fila, d: discord_id, n: nombre, a: avatar, r: rol o null }]. Dos consultas para toda la lista.
+async function vinculaSocios(env, lista) {
+  if (!lista.length) return;
+  const j = JSON.stringify(lista);
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE socios_datos SET discord_id=(SELECT json_extract(value,'$.d') FROM json_each(?1) WHERE json_extract(value,'$.s')=socios_datos.id)
+      WHERE discord_id IS NULL AND id IN (SELECT json_extract(value,'$.s') FROM json_each(?1))`).bind(j),
+    env.DB.prepare(`INSERT INTO users (discord_id, name, avatar, role, conectado, alta, instagram)
+      SELECT json_extract(j.value,'$.d'), json_extract(j.value,'$.n'), json_extract(j.value,'$.a'), json_extract(j.value,'$.r'), 0, s.alta, s.instagram
+      FROM json_each(?1) j JOIN socios_datos s ON s.id=json_extract(j.value,'$.s') WHERE json_extract(j.value,'$.r') IS NOT NULL
+      ON CONFLICT(discord_id) DO UPDATE SET alta=COALESCE(users.alta, excluded.alta), instagram=COALESCE(users.instagram, excluded.instagram)`).bind(j),
+  ]);
+}
+// Al iniciar sesión: si aún no está vinculado, se busca su fila del Excel por su nombre de usuario, nombre visible o
+// apodo (solo si hay una única coincidencia). Después pasan a su ficha la fecha de registro y el Instagram (si faltan).
+async function vinculaAlEntrar(env, u, nick) {
+  if (!(await env.DB.prepare("SELECT 1 FROM socios_datos WHERE discord_id=?1").bind(u.id).first())) {
+    const nombres = new Set([u.username, u.global_name, nick].filter(Boolean).map((x) => String(x).toLowerCase()));
+    const filas = (await env.DB.prepare("SELECT id, discord_alias FROM socios_datos WHERE discord_id IS NULL AND discord_alias IS NOT NULL").all()).results;
+    const hits = filas.filter((f) => aliasDiscord(f.discord_alias).some((a) => nombres.has(a)));
+    if (hits.length === 1) await env.DB.prepare("UPDATE socios_datos SET discord_id=?2 WHERE id=?1 AND discord_id IS NULL").bind(hits[0].id, u.id).run();
+  }
+  await env.DB.prepare(`UPDATE users SET
+      alta=COALESCE(alta, (SELECT alta FROM socios_datos WHERE discord_id=?1),
+        (SELECT date(created_at) FROM solicitudes WHERE discord_id=?1 AND estado='aprobada' ORDER BY id DESC LIMIT 1)),
+      instagram=COALESCE(instagram, (SELECT instagram FROM socios_datos WHERE discord_id=?1)) WHERE discord_id=?1`).bind(u.id).run();
+}
+// ¿Tiene que completar sus datos? Todos los socios menos el admin, hasta que los completen (o si se inscribieron con la web).
+async function faltanDatos(env, s) {
+  if (!s || s.role === "admin") return false;
+  const r = await env.DB.prepare(`SELECT EXISTS (SELECT 1 FROM socios_datos WHERE discord_id=?1 AND completado_at IS NOT NULL)
+    OR EXISTS (SELECT 1 FROM solicitudes WHERE discord_id=?1 AND estado='aprobada') AS ok`).bind(s.id).first();
+  return !(r && r.ok);
+}
+
 // Rol «Externo» del servidor (se busca por su nombre; se guarda 1 día). Quien solo tiene ese rol no ve nada en
 // Discord y en la web es invitado (no es un rol del club).
 async function rolExterno(env) {
@@ -1998,21 +2061,11 @@ export default {
       if (!reg) return err("Conecta tu cuenta de Discord para enviar la inscripción.", 401);
       let b = {};
       try { b = await request.json(); } catch (e) { return err("Datos no válidos."); }
-      const t = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
-      const nombre = t(b.nombre, 100), email = t(b.email, 120).toLowerCase(), telefono = t(b.telefono, 25).replace(/[\s.-]/g, "");
-      const juegos = Array.isArray(b.juegos) ? [...new Set(b.juegos.filter((x) => INSC_JUEGOS[x]))] : [];
-      const como = INSC_COMO[b.como_conocio] ? b.como_conocio : null, comoOtro = t(b.como_otro, 100);
+      const v = validaDatosSocio(b);
+      if (v.error) return err(v.error);
+      const { nombre, email, telefono } = v, juegos = v.juegosLista, comoTexto = v.como;
       // Steam: solo la cuenta conectada con «Conectar con Steam» (verificada), nunca escrita a mano.
       const steam = stm ? stm.id : null;
-      if (nombre.length < 3) return err("Escribe tu nombre y apellidos.");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return err("Escribe un correo electrónico válido.");
-      if (!/^\+?\d{9,15}$/.test(telefono)) return err("Escribe un teléfono válido (con prefijo si no es de España).");
-      if (b.mayor_edad !== "si" && b.mayor_edad !== "no") return err("Indica si eres mayor de edad.");
-      if (!INSC_EXP_JUEGO[b.experiencia_juego]) return err("Elige tu experiencia de juego.");
-      if (!INSC_EXP_PINTURA[b.experiencia_pintura]) return err("Elige tu experiencia de pintura.");
-      if (b.acepta_estatutos !== true) return err("Tienes que aceptar los estatutos y el reglamento interno.");
-      if (b.consentimiento !== true) return err("Tienes que aceptar el tratamiento de tus datos.");
-      const comoTexto = como ? (como === "otro" && comoOtro ? "Otro: " + comoOtro : INSC_COMO[como]) : null;
       let id;
       try {
         const r = await env.DB.prepare(
@@ -2461,6 +2514,7 @@ export default {
         "INSERT INTO users (discord_id,name,avatar,role) VALUES (?1,?2,?3,?4) ON CONFLICT(discord_id) DO UPDATE SET name=excluded.name, avatar=excluded.avatar, role=excluded.role, conectado=1"
       ).bind(u.id, name, u.avatar, role).run();
       try { await ligaVincula(env, u.id); } catch (e) {}
+      try { await vinculaAlEntrar(env, u, mem.nick); } catch (e) {}
       // Si entró por la inscripción y dio su Steam, pasa a su ficha de Miembros (si aún no tiene uno).
       try {
         await env.DB.prepare(`UPDATE users SET steam=(SELECT steam FROM solicitudes WHERE discord_id=?1 AND estado='aprobada' AND steam IS NOT NULL ORDER BY id DESC LIMIT 1)
@@ -2511,7 +2565,8 @@ export default {
         let nr = null;
         const row = await env.DB.prepare("SELECT nr_username FROM users WHERE discord_id=?1").bind(renovada.id).first();
         if (row) nr = row.nr_username;
-        return Response.json({ id: renovada.id, name: renovada.name, avatar: renovada.avatar, role: renovada.role, nr_username: nr, ver_como: null },
+        return Response.json({ id: renovada.id, name: renovada.name, avatar: renovada.avatar, role: renovada.role, nr_username: nr, ver_como: null,
+          completar: (await faltanDatos(env, renovada)) || undefined },
           { headers: { "cache-control": "no-store", "set-cookie": `${COOKIE}=${ck}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${MAX_AGE}` } });
       }
       if (raw && raw.invitado && raw.admin) {
@@ -2524,9 +2579,49 @@ export default {
         nr = row ? row.nr_username : null;
       }
       return Response.json(
-        s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role, nr_username: nr, ver_como: s.admin ? String(s.admin.name || s.admin.id) : null } : null,
+        s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role, nr_username: nr, ver_como: s.admin ? String(s.admin.name || s.admin.id) : null,
+          completar: (!s.admin && (await faltanDatos(env, s))) || undefined } : null,
         { headers: { "cache-control": "no-store" } }
       );
+    }
+
+    // Datos de inscripción del socio con sesión: los importados del Excel (o vacíos) para revisarlos y completar lo que
+    // falte. Se piden al entrar hasta que los completa (`faltanDatos`).
+    if (path === "/api/socio/datos") {
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (request.method === "GET") {
+        const d = await env.DB.prepare(`SELECT nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura, como_conocio,
+          acepta_estatutos, consentimiento, completado_at FROM socios_datos WHERE discord_id=?1`).bind(s.id).first();
+        const u = await env.DB.prepare("SELECT steam FROM users WHERE discord_id=?1").bind(s.id).first();
+        let como = null, comoOtro = "";
+        if (d && d.como_conocio) {
+          if (d.como_conocio.startsWith("Otro: ")) { como = "otro"; comoOtro = d.como_conocio.slice(6); }
+          else como = Object.keys(INSC_COMO).find((k) => INSC_COMO[k] === d.como_conocio) || null;
+        }
+        let juegos = [];
+        try { juegos = JSON.parse((d && d.juegos) || "[]"); } catch (e) {}
+        return Response.json({ nombre: s.name, steam: u && u.steam, datos: d ? { nombre: d.nombre, email: d.email, telefono: d.telefono,
+          mayor_edad: d.mayor_edad == null ? null : d.mayor_edad ? "si" : "no", juegos, experiencia_juego: d.experiencia_juego,
+          experiencia_pintura: d.experiencia_pintura, como_conocio: como, como_otro: comoOtro, acepta_estatutos: d.acepta_estatutos === 1,
+          consentimiento: d.consentimiento === 1 } : null, completar: await faltanDatos(env, s) }, { headers: noStore });
+      }
+      if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      const v = validaDatosSocio(b);
+      if (v.error) return Response.json({ error: v.error }, { status: 400, headers: noStore });
+      await env.DB.batch([
+        env.DB.prepare(`INSERT INTO socios_datos (discord_id, nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura,
+            como_conocio, acepta_estatutos, consentimiento, alta, origen, completado_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,1,1,date('now'),'web',datetime('now'))
+          ON CONFLICT(discord_id) DO UPDATE SET nombre=excluded.nombre, email=excluded.email, telefono=excluded.telefono, mayor_edad=excluded.mayor_edad,
+            juegos=excluded.juegos, experiencia_juego=excluded.experiencia_juego, experiencia_pintura=excluded.experiencia_pintura,
+            como_conocio=excluded.como_conocio, acepta_estatutos=1, consentimiento=1, completado_at=excluded.completado_at`)
+          .bind(s.id, v.nombre, v.email, v.telefono, v.mayor_edad, v.juegos, v.experiencia_juego, v.experiencia_pintura, v.como),
+        env.DB.prepare("UPDATE users SET alta=COALESCE(alta, (SELECT alta FROM socios_datos WHERE discord_id=?1)) WHERE discord_id=?1").bind(s.id),
+      ]);
+      return Response.json({ ok: true }, { headers: noStore });
     }
 
     if (path === "/api/profile" && request.method === "POST") {
@@ -2883,7 +2978,7 @@ export default {
     if (path === "/api/miembros" && request.method === "GET") {
       const s = await readSession(env, request);
       const { results } = await env.DB.prepare(
-        "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username, conectado FROM users ORDER BY name COLLATE NOCASE"
+        "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username, conectado, alta FROM users ORDER BY name COLLATE NOCASE"
       ).all();
       // ELO de la liga: por usuario de New Recruit (el de la ficha o el del jugador de la liga vinculado).
       let elo = [];
@@ -2934,7 +3029,7 @@ export default {
         const x = eloDe(u);
         const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
         if (!u.conectado) m.desconectado = true; // creado desde la web y aún sin iniciar sesión
-        if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username });
+        if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username, alta: u.alta || null });
         m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
         return m;
       });
@@ -2998,6 +3093,44 @@ export default {
         const tipo = b.tipo === "tournament" ? "tournament" : b.tipo === "reports" ? "reports" : null;
         if (!/^[a-f0-9]{24}$/.test(id) || !tipo) return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
         return Response.json(await nrSync(env, tipo, id), { headers: noStore });
+      }
+
+      // Socios importados del Excel: estado (GET) y vinculación con sus cuentas de Discord con el bot (POST).
+      if (path === "/api/admin/socios") {
+        const filas = (await env.DB.prepare("SELECT id, discord_id, discord_alias, nombre, completado_at FROM socios_datos WHERE origen='excel' ORDER BY nombre COLLATE NOCASE").all()).results;
+        const informe = (extra) => Response.json({ total: filas.length, vinculados: filas.filter((f) => f.discord_id).length,
+          completados: filas.filter((f) => f.completado_at).length,
+          sin: filas.filter((f) => !f.discord_id).map((f) => ({ nombre: f.nombre, alias: f.discord_alias })), ...extra }, { headers: noStore });
+        if (request.method === "GET") return informe({});
+        if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        // Lista de miembros del servidor (una llamada; necesita «Server Members Intent» activado en el bot).
+        const rm = await bot(env, `/guilds/${env.GUILD_ID}/members?limit=1000`);
+        if (rm.status === 403) return Response.json({ error: "El bot no puede leer la lista de miembros: activa «Server Members Intent» en el portal de desarrolladores de Discord (Bot → Privileged Gateway Intents)." }, { status: 502, headers: noStore });
+        if (!rm.ok) return Response.json({ error: "No se pudo leer la lista de miembros de Discord." }, { status: 502, headers: noStore });
+        const miembros = (await rm.json()).filter((m) => m.user && !m.user.bot);
+        const usados = new Set(filas.filter((f) => f.discord_id).map((f) => f.discord_id));
+        const idx = new Map();
+        const pon = (k, m) => { if (!k) return; k = String(k).toLowerCase(); if (!idx.has(k)) idx.set(k, new Set()); idx.get(k).add(m); };
+        miembros.forEach((m) => { pon(m.user.username, m); pon(m.user.global_name, m); pon(m.nick, m); });
+        const lista = [], dudosos = [];
+        for (const f of filas) {
+          if (f.discord_id) continue;
+          const cands = new Set();
+          aliasDiscord(f.discord_alias).forEach((a) => (idx.get(a) || []).forEach((m) => cands.add(m)));
+          const libres = [...cands].filter((m) => !usados.has(m.user.id));
+          if (libres.length === 1) {
+            const m = libres[0]; usados.add(m.user.id);
+            lista.push({ s: f.id, d: m.user.id, n: m.nick || m.user.global_name || m.user.username, a: m.user.avatar || null, r: roleOf(env, m.roles || []) });
+            f.discord_id = m.user.id;
+          } else if (libres.length > 1) dudosos.push({ nombre: f.nombre, alias: f.discord_alias, opciones: libres.map((m) => m.user.username) });
+        }
+        await vinculaSocios(env, lista);
+        // Con rol del club en Discord, pero sin datos (ni en el Excel ni inscritos con la web): tendrán que rellenarlos al entrar.
+        const conDatos = new Set((await env.DB.prepare("SELECT discord_id FROM solicitudes WHERE estado='aprobada' UNION SELECT discord_id FROM socios_datos WHERE discord_id IS NOT NULL").all()).results.map((x) => x.discord_id));
+        const fuera = miembros.filter((m) => roleOf(env, m.roles || []) && !conDatos.has(m.user.id)).map((m) => ({ nombre: m.nick || m.user.global_name || m.user.username, usuario: m.user.username }));
+        const sinRol = lista.filter((x) => !x.r).length;
+        return informe({ nuevos: lista.length, sin_rol: sinRol, dudosos, fuera });
       }
 
       // Usuarios de la web (para «ver como»).

@@ -80,6 +80,17 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   `SESSION_SECRET`) y se borra en cuanto entra en el servidor (o al decidir). El bot necesita «Gestionar roles»,
   «Crear invitación» y «Expulsar miembros», y su rol por encima de Externo y Aspirante.
 
+- Socios del Excel antiguo (formulario de Google; sin los eliminados): tabla `socios_datos` (migración 0031, origen
+  `excel`) con nombre, correo, teléfono, estatutos, Instagram, fecha de registro y el alias de Discord. No se importaron
+  municipio, facción, nivel, Steam, correo de BCP ni comentarios. En Admin, «Vincular con Discord» cruza los alias con
+  la lista de miembros del servidor (una llamada; el bot necesita «Server Members Intent») y crea su ficha sin conectar;
+  al iniciar sesión también se vincula por su usuario, nombre visible o apodo (solo con una coincidencia única).
+- Datos obligatorios al entrar: todo socio menos el admin que no se inscribió con la web y aún no ha completado sus datos
+  (`faltanDatos`, `completar` en `/api/me`) va a `inscripcion.html?completar=1` (`auth.js`) hasta guardarlos
+  (`/api/socio/datos`, misma validación que la inscripción, `validaDatosSocio`); vienen rellenos con lo del Excel.
+  Los que no están en el Excel son nuevos y lo rellenan entero.
+- Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos); en la ficha de
+  Miembros, «En el club desde».
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
   (migración 0030); en Miembros salen con la etiqueta «Desconectado» hasta su primer inicio de sesión, que lo pone a 1.
 

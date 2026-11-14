@@ -91,9 +91,9 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
     <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
     <span id="auth"></span>
   </div>
-  <h1>Inscripción</h1>
+  <h1 id="tit">Inscripción</h1>
   <div class="wrap">
-    <div class="intro">
+    <div class="intro" id="intro">
       <p>Únete a Adeptus Baeticus, el club de Warhammer de Málaga. Al enviar la inscripción entrarás en el servidor de Discord del club como «Externo» y, cuando un admin la apruebe, pasarás a Aspirante y podrás ver los canales y usar la web.</p>
       <p>Primero conecta tu cuenta de Discord (así sabemos a quién dar acceso) y después rellena tus datos.</p>
     </div>
@@ -127,6 +127,7 @@ function avisoArriba(caja, texto) {
 async function carga() {
   const box = $("estado");
   const q = new URLSearchParams(location.search);
+  if (q.has("completar")) return completar(box);
   let d = { conectado: false };
   try { d = await (await fetch("/api/inscripcion", { cache: "no-store" })).json(); } catch (e) {}
   box.textContent = "";
@@ -173,12 +174,26 @@ async function carga() {
   box.appendChild(formulario(d));
 }
 
+// Socio que entra por primera vez (o importado del Excel antiguo): revisa sus datos y completa lo que falte.
+async function completar(box) {
+  $("tit").textContent = "Completa tus datos";
+  const intro = $("intro"); intro.textContent = "";
+  intro.append(el("p", "", "Antes de seguir usando la web, revisa tus datos de socio y completa lo que falte. Solo tendrás que hacerlo una vez."));
+  let d = null;
+  try { const r = await fetch("/api/socio/datos", { cache: "no-store" }); if (r.status === 401) { location.href = "/auth/login"; return; } d = await r.json(); } catch (e) {}
+  box.textContent = "";
+  if (!d) { box.appendChild(el("p", "m", "No se pudieron cargar tus datos. Recarga la página.")); return; }
+  if (d.datos && d.datos.nombre) intro.appendChild(el("p", "", "Hemos rellenado lo que ya teníamos de tu inscripción anterior."));
+  box.appendChild(formulario({ usuario: d.nombre, completar: true, datos: d.datos || {}, steamFicha: d.steam }));
+}
+
 function formulario(cuenta) {
+  const comp = !!cuenta.completar, prev = cuenta.datos || {};
   const sec = el("section", "paso");
-  sec.appendChild(el("h2", "", "2. Tus datos"));
+  sec.appendChild(el("h2", "", comp ? "Tus datos" : "2. Tus datos"));
   const f = el("form", "fm"); f.noValidate = true;
   const arriba = el("div", "arriba");
-  const ok = el("button", "btn", "Enviar inscripción"); ok.type = "submit";
+  const ok = el("button", "btn", comp ? "Guardar mis datos" : "Enviar inscripción"); ok.type = "submit";
   const avisos = el("div", "avisos");
   arriba.append(ok, avisos);
   const campo = (id, etiqueta, nodo, obligatorio, ayuda) => {
@@ -210,10 +225,10 @@ function formulario(cuenta) {
   const wTel = campo("i-tel", "Teléfono", tel, true, "Para añadirte al canal de WhatsApp del club.");
   // Cuenta de Discord: la conectada en el paso 1 (no se puede cambiar aquí).
   const disc = input("text", 60); disc.value = cuenta.usuario; disc.readOnly = true; disc.setAttribute("translate", "no");
-  const wDisc = campo("i-discord", "Cuenta de Discord", disc, true, "La que has conectado arriba. Para usar otra, pulsa «Usar otra cuenta».");
+  const wDisc = campo("i-discord", "Cuenta de Discord", disc, true, comp ? "La de tu sesión." : "La que has conectado arriba. Para usar otra, pulsa «Usar otra cuenta».");
   const steam = input("text", 80); steam.readOnly = true; steam.setAttribute("translate", "no");
-  steam.value = cuenta.steam ? cuenta.steam.nombre : "Sin conectar";
-  const wSteam = campo("i-steam", "Cuenta de Steam (opcional)", steam, false, cuenta.steam ? "La que has conectado arriba." : "Puedes conectarla arriba con «Conectar con Steam».");
+  steam.value = comp ? (cuenta.steamFicha || "Sin conectar") : cuenta.steam ? cuenta.steam.nombre : "Sin conectar";
+  const wSteam = campo("i-steam", "Cuenta de Steam (opcional)", steam, false, comp ? "Puedes conectarla desde tu ficha en Miembros." : cuenta.steam ? "La que has conectado arriba." : "Puedes conectarla arriba con «Conectar con Steam».");
   const fsEdad = grupo("¿Eres mayor de edad?", "edad", [["si", "Sí"], ["no", "No"]], "radio", true, true);
   const fsJuegos = grupo("¿Qué te interesa? (opcional)", "juegos", JUEGOS, "checkbox", false, true);
   const fsJuego = grupo("Experiencia de juego", "expj", EXP_JUEGO, "radio", true);
@@ -233,6 +248,14 @@ function formulario(cuenta) {
   const fsAcepta = el("fieldset"); fsAcepta.append(el("legend", "", "Condiciones"), lEst, lDat);
   f.append(arriba, wNombre, wEmail, wTel, wDisc, wSteam, fsEdad, fsJuegos, fsJuego, fsPintura, wComo, fsAcepta);
   sec.appendChild(f);
+  // Datos que ya teníamos (al completar).
+  if (comp) {
+    nombre.value = prev.nombre || ""; email.value = prev.email || ""; tel.value = prev.telefono || "";
+    const marca = (n, v) => f.querySelectorAll("input[name=" + n + "]").forEach((i) => { if (Array.isArray(v) ? v.includes(i.value) : i.value === v) i.checked = true; });
+    marca("edad", prev.mayor_edad); marca("juegos", prev.juegos || []); marca("expj", prev.experiencia_juego); marca("expp", prev.experiencia_pintura);
+    if (prev.como_conocio) { como.value = prev.como_conocio; comoOtro.value = prev.como_otro || ""; comoOtro.hidden = como.value !== "otro"; }
+    cEst.checked = !!prev.acepta_estatutos; cDat.checked = !!prev.consentimiento;
+  }
 
   const limpia = () => { avisos.textContent = ""; f.querySelectorAll(".falta").forEach((x) => x.remove()); f.querySelectorAll(".inval").forEach((x) => x.classList.remove("inval")); };
   f.addEventListener("change", () => { if (avisos.textContent) limpia(); });
@@ -260,13 +283,22 @@ function formulario(cuenta) {
     }
     ok.disabled = true;
     try {
-      const r = await fetch("/api/inscripcion", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      const r = await fetch(comp ? "/api/socio/datos" : "/api/inscripcion", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
         nombre: nombre.value, email: email.value, telefono: telLimpio, mayor_edad: val("edad"),
         juegos: [...f.querySelectorAll("input[name=juegos]:checked")].map((x) => x.value),
         experiencia_juego: val("expj"), experiencia_pintura: val("expp"), como_conocio: como.value || null,
         como_otro: como.value === "otro" ? comoOtro.value : "", acepta_estatutos: cEst.checked, consentimiento: cDat.checked }) });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) { avisoArriba(avisos, d.error || "No se pudo enviar la inscripción."); ok.disabled = false; return; }
+      if (!r.ok) { avisoArriba(avisos, d.error || (comp ? "No se pudieron guardar tus datos." : "No se pudo enviar la inscripción.")); ok.disabled = false; return; }
+      if (comp) {
+        try { sessionStorage.clear(); } catch (e) {}
+        const box = $("estado"); box.textContent = "";
+        const h = el("div", "exito");
+        h.append(el("h2", "", "¡Datos guardados!"), el("p", "", "Gracias. Ya puedes usar la web con normalidad."));
+        const a = el("a", "btn", "Ir al inicio"); a.href = "/"; h.appendChild(a);
+        box.appendChild(h); box.scrollIntoView({ block: "start" });
+        return;
+      }
       const box = $("estado"); box.textContent = "";
       const h = el("div", "exito");
       h.append(el("h2", "", "¡Inscripción enviada!"), el("p", "", "Gracias. Ya estás en el servidor de Discord del club con el rol de Externo. Cuando un admin apruebe tu solicitud, pasarás a Aspirante y podrás ver los canales y entrar en la web."));
