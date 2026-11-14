@@ -306,7 +306,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
       sale la lista de quién ya no tiene rol o no está en el servidor.
   - Avisos de que los eventos se administran en el Calendario y los jugadores de la liga en Gran Liga.
 - **«Ver la web como»** otro socio o como invitado: solo lectura, como mucho 2 horas, con una franja para volver.
-- Botones de administración dentro de Calendario («Administrar eventos»), Gran Liga («Administrar jugadores») y
+- Botones de administración dentro de Calendario («Administrar eventos»), Gran Liga («Administrar liga») y
   Miembros («Editar datos y ficha», «Borrar perfil» y «Asignar trofeos»).
 
 ---

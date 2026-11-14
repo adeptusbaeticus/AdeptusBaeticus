@@ -229,7 +229,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Las listas se guardan pero de momento no se publican (`LIGA_LISTAS_PUBLICAS = false`).
 - **Ligas pasadas** (`liga_fases.terminada = 1` y `fin`, migración 0034): temporadas cerradas en las mismas tablas,
   que la web nunca vuelve a consultar en New Recruit. La «fase en curso» es siempre la última **no terminada**
-  (`WHERE terminada=0`): todo lo automático (`ligaAuto`, recordatorios, ELO, calendario, Administrar jugadores,
+  (`WHERE terminada=0`): todo lo automático (`ligaAuto`, recordatorios, ELO, calendario, Administrar liga,
   aplazar) la usa solo a ella, y el servidor rechaza aplazar o reemplazar en una liga terminada. En Gran Liga (título
   «Gran Liga Adeptus Baeticus»), el desplegable de arriba tiene las fases en curso y el grupo «Ligas pasadas»; cada liga
   en `gran-liga.html?fase=ID` (podio, clasificación final, rondas sin fechas). Clasificación final de una liga pasada:
