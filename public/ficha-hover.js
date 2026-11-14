@@ -11,8 +11,14 @@
   css.textContent = `
 .abf-n{cursor:pointer;text-decoration:underline dotted rgba(217,178,90,.6);text-underline-offset:3px}
 .abf-n:focus-visible{outline:2px solid #D9B25A;outline-offset:2px;border-radius:3px}
-.abf{position:absolute;z-index:60;width:280px;max-width:calc(100vw - 24px);box-sizing:border-box;background:#1F2328;border:1px solid #6B5A2E;border-radius:12px;padding:14px;color:#ECE7DC;font:400 14px/1.4 Inter,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.5);text-align:left}
+.abf{position:absolute;z-index:60;width:300px;max-width:calc(100vw - 24px);box-sizing:border-box;background:#1F2328;border:1px solid #6B5A2E;border-radius:12px;padding:14px;color:#ECE7DC;font:400 14px/1.4 Inter,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.5);text-align:left}
 .abf-cab{display:flex;gap:12px;align-items:center}
+.abf-cab>div:nth-child(2){flex:1;min-width:0}
+.abf-tro{display:grid;grid-template-columns:repeat(2,auto);gap:8px 12px;align-self:flex-start;justify-items:center;flex:none}
+.abf-tro span{position:relative;display:inline-flex}
+.abf-tro .copa{width:28px;height:32px}
+.abf-tro .copa.p1{color:#E8C25A}.abf-tro .copa.p2{color:#C9CED6}.abf-tro .copa.p3{color:#C98A4B}
+.abf-tro b{position:absolute;right:-9px;bottom:-5px;font:700 10px Inter,sans-serif;color:#ECE7DC;background:#15171A;border:1px solid #2C3036;border-radius:999px;padding:0 3px}
 .abf-av{width:52px;height:52px;border-radius:999px;object-fit:cover;background:#2A2F36;display:flex;align-items:center;justify-content:center;font:700 22px Cinzel,serif;color:#D9B25A;flex:none}
 .abf-nom{font:700 17px Cinzel,Georgia,serif;margin:0 0 4px;word-break:break-word}
 .abf-rol{display:inline-block;font:600 10px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#D9B25A;border:1px solid #6B5A2E;border-radius:999px;padding:1px 8px;margin-right:4px}
@@ -52,6 +58,25 @@
     tx.append(n, el("span", "abf-rol", ROL[m.role] || m.role));
     if (m.desconectado) tx.appendChild(el("span", "abf-rol off", "Desconectado"));
     cab.append(av, tx);
+    // Trofeos a la derecha, en iconos (iguales que en Miembros): uno por puesto y tipo, con «×N» si se repite.
+    if (m.trofeos && m.trofeos.length && window.abCopa) {
+      const PUESTO = { 1: "1.º puesto", 2: "2.º puesto", 3: "3.º puesto" };
+      const MOD = { individual: "Individual", parejas: "Parejas", equipo: "Equipo", pintura: "Pintura" };
+      const ORD = { individual: 0, parejas: 1, equipo: 2, pintura: 3 };
+      const grupos = new Map();
+      [...m.trofeos].sort((a, b) => a.puesto - b.puesto || ORD[a.modalidad] - ORD[b.modalidad]).forEach((t) => {
+        const k = t.puesto + "-" + t.modalidad; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(t);
+      });
+      const w = el("div", "abf-tro");
+      [...grupos.values()].slice(0, 6).forEach((l) => {
+        const t = l[0], s = el("span");
+        s.title = PUESTO[t.puesto] + " · " + MOD[t.modalidad] + " · " + l.map((x) => x.nombre).join(", ");
+        s.appendChild(window.abCopa(t.puesto, t.modalidad));
+        if (l.length > 1) s.appendChild(el("b", "", "×" + l.length));
+        w.appendChild(s);
+      });
+      cab.appendChild(w);
+    }
     c.appendChild(cab);
     const fac = m.facciones || [];
     if (fac.length) {
@@ -64,7 +89,6 @@
     const dato = (b, t) => { const s = el("span"); s.append(el("b", "", b), " " + t); dat.appendChild(s); };
     if (m.liga) dato("#" + m.liga.pos, "Liga");
     if (m.elo) dato(String(m.elo.elo), "ELO");
-    if (m.trofeos && m.trofeos.length) dato(String(m.trofeos.length), m.trofeos.length === 1 ? "trofeo" : "trofeos");
     if (dat.childNodes.length) c.appendChild(dat);
     const ver = el("a", "abf-ver", "Ver ficha completa →"); ver.href = "/miembros.html#m" + m.id;
     c.appendChild(ver);
