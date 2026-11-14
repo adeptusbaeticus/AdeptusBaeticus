@@ -136,12 +136,16 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .mq.online{background:#7FB3E0;color:#15171A}
 .mq .mo{margin:0}.mq .mo svg{width:14px;height:14px;stroke-width:1.8}
 .d.hoy .mq{box-shadow:0 0 0 2px #262A30}
-/* En el ordenador se montan sobre la esquina del día, como un aviso; en el móvil van dentro. */
+/* En el ordenador, cada evento lleva su cuadrado montado sobre su esquina, como un aviso;
+   en el móvil (etiquetas muy estrechas) van en la esquina del día, uno por modalidad. */
+.e>.mq{display:none}
 @media (min-width:601px){
-  .mods{top:-7px;right:-7px;z-index:3}
-  .mq{box-shadow:0 0 0 2px #15171A,0 2px 6px rgba(0,0,0,.5)}
-  .d.hoy .mq{box-shadow:0 0 0 2px #15171A,0 2px 6px rgba(0,0,0,.5)}
-  .cal{padding:8px 8px 0 0;margin-top:-8px}
+  .d>.mods{display:none}
+  .e{position:relative;padding-right:14px}
+  .e>.mq{display:flex;position:absolute;top:-6px;right:-6px;z-index:2;width:18px;height:18px;box-shadow:0 0 0 2px #1F2328,0 2px 5px rgba(0,0,0,.45)}
+  .d.hoy .e>.mq{box-shadow:0 0 0 2px #262A30,0 2px 5px rgba(0,0,0,.45)}
+  .e>.mq .mo svg{width:12px;height:12px}
+  .d.mods2>.e:first-of-type{margin-top:6px}
 }
 @media (max-width:600px){.mods{top:3px;right:3px;gap:2px}.mq{width:15px;height:15px;border-radius:4px}.mq .mo svg{width:11px;height:11px}.d.mods2>.e:first-of-type{margin-top:16px}}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
@@ -325,6 +329,14 @@ function iconoModo(modo) {
   svg.appendChild(p);
   w.appendChild(svg);
   return w;
+}
+// Cuadrado de color con el icono (físico dorado, online azul).
+function cuadroModo(modo) {
+  const m = modo === "online" ? "online" : "fisico";
+  const q = document.createElement("span");
+  q.className = "mq " + m;
+  q.appendChild(iconoModo(m));
+  return q;
 }
 // Línea de la ficha: icono y «Físico · lugar» u «Online (TTS)».
 function lineaModo(modo, lugar) {
@@ -521,9 +533,12 @@ function render() {
         const b = document.createElement("button");
         const llena = e.type === "quedada" && e.capacity && (e.inscritos || 0) >= e.capacity;
         b.className = "e " + (e.type === "torneo" ? "t2" : "q") + (llena || e.starts_at <= now ? " x" : "");
-        b.textContent = e.title;
-        b.setAttribute("translate", "no");
+        const tt = document.createElement("span");
+        tt.textContent = e.title;
+        tt.setAttribute("translate", "no");
+        b.appendChild(tt);
         modosDia.add(e.modo === "online" ? "online" : "fisico");
+        b.appendChild(cuadroModo(e.modo));
         b.onclick = () => { show(e); irAFicha(); };
         cell.appendChild(b);
       });
@@ -537,6 +552,7 @@ function render() {
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
         b.textContent = (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza;
         modosDia.add(p.modo === "online" ? "online" : "fisico");
+        b.appendChild(cuadroModo(p.modo));
         b.onclick = () => { showPartida(p); irAFicha(); };
         cell.appendChild(b);
       });
@@ -545,12 +561,7 @@ function render() {
     if (modosDia.size) {
       const mods = document.createElement("span");
       mods.className = "mods";
-      ["fisico", "online"].filter((x) => modosDia.has(x)).forEach((x) => {
-        const q = document.createElement("span");
-        q.className = "mq " + x;
-        q.appendChild(iconoModo(x));
-        mods.appendChild(q);
-      });
+      ["fisico", "online"].filter((x) => modosDia.has(x)).forEach((x) => mods.appendChild(cuadroModo(x)));
       cell.appendChild(mods);
       if (modosDia.size > 1) cell.classList.add("mods2");
     }
