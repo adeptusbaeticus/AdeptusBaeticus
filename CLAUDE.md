@@ -155,6 +155,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   sobre las tarjetas de `TARJETAS` (blog, galería —bajo los sellos—, miembros, encuestas de Inicio, rondas, eventos del
   calendario —fina en los del mes—, desplegables de la FAQ —en su `summary`— y el reglamento) y luces bajo `.nav`
   (dorado del Emperador y los 4 dioses del Caos: excepción a «nunca azul»).
+  Con los efectos activados, del 1 al 7 de enero (hora de Madrid) sale solo «¡Feliz año AAAA!» colgado de las luces
+  (`anioNuevo()`, comprobado cada minuto).
 - **Notificaciones tipo anuncio** (preparadas, sin uso ahora): tabla `anuncios` (migración 0033), una fila por socio;
   salen arriba en la servocalavera (`me.anuncios` en `/api/me`) hasta que pulsa «Aceptar» (`/api/anuncios/:id/acepta`).
   La lista se abre sola una vez por visita. Para enviar uno a todos: `anunciaATodos(env, tipo, titulo, texto)` (una

@@ -2,7 +2,9 @@
 // - nieve ligera cayendo (un lienzo fijo que no recibe clics; se para con la pestaña oculta y no sale con «reducir
 //   movimiento»);
 // - nieve acumulada encima de las tarjetas (entradas del blog, publicaciones de la galería, fichas de miembros…);
-// - una tira de luces bajo el menú principal en los colores del Emperador (dorado) y de los cuatro dioses del Caos.
+// - una tira de luces bajo el menú principal en los colores del Emperador (dorado) y de los cuatro dioses del Caos;
+// - del 1 al 7 de enero (hora de Madrid, desde la medianoche de Nochevieja), un cartel «¡Feliz año AAAA!» colgado de
+//   las luces (se comprueba cada minuto, así que aparece solo a medianoche aunque la página esté abierta).
 // Todo es decorativo: aria-hidden y sin eventos de ratón. Uso: window.abNavidad.aplica(true | false).
 (function () {
   if (window.abNavidad) return;
@@ -27,7 +29,14 @@
     ".abn-luces svg{display:block;width:100%;height:100%;overflow:visible}" +
     ".abn-b{animation:abn-brillo 2.8s ease-in-out infinite}" +
     "@keyframes abn-brillo{0%,100%{opacity:1}50%{opacity:.4}}" +
-    "@media (prefers-reduced-motion:reduce){.abn-b{animation:none}}";
+    "@media (prefers-reduced-motion:reduce){.abn-b{animation:none}}" +
+    ".abn-feliz{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);z-index:2;pointer-events:none;white-space:nowrap;" +
+    "padding:5px 16px 6px;border-radius:999px;border:1px solid #D9B25A;background:linear-gradient(#2A2418,#15171A);color:#F0CE82;" +
+    "font:700 15px/1.2 Cinzel,Georgia,serif;letter-spacing:.04em;box-shadow:0 0 14px rgba(217,178,90,.45),0 4px 10px rgba(0,0,0,.6);" +
+    "text-shadow:0 0 8px rgba(240,206,130,.6);animation:abn-feliz 3s ease-in-out infinite}" +
+    "@keyframes abn-feliz{0%,100%{box-shadow:0 0 10px rgba(217,178,90,.35),0 4px 10px rgba(0,0,0,.6)}50%{box-shadow:0 0 22px rgba(217,178,90,.7),0 4px 10px rgba(0,0,0,.6)}}" +
+    "@media (max-width:600px){.abn-feliz{font-size:13px;bottom:-22px}}" +
+    "@media (prefers-reduced-motion:reduce){.abn-feliz{animation:none}}";
 
   const svg = (w, h, attrs) => {
     const s = document.createElementNS(NS, "svg");
@@ -184,6 +193,24 @@
     } else if (!si && tira) { tira.remove(); tira = null; }
   }
 
+  // ===== Año nuevo: del 1 al 7 de enero en Madrid =====
+  let feliz = null, relojAnio = 0;
+  function anioNuevo() {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", year: "numeric", month: "numeric", day: "numeric" })
+      .formatToParts(new Date()).map((x) => [x.type, x.value]));
+    const toca = activo && +p.month === 1 && +p.day <= 7, nav = document.querySelector(".nav");
+    if (toca && nav && !feliz) {
+      if (getComputedStyle(nav).position === "static") { nav.style.position = "relative"; nav.dataset.abnPos = "1"; }
+      feliz = document.createElement("span");
+      feliz.className = "abn-feliz";
+      feliz.setAttribute("role", "status");
+      nav.appendChild(feliz);
+    }
+    // Solo se escribe al cambiar el año (así no pisa la traducción al inglés).
+    if (toca && feliz && feliz.dataset.anio !== p.year) { feliz.dataset.anio = p.year; feliz.textContent = "¡Feliz año " + p.year + "!"; }
+    if (!toca && feliz) { feliz.remove(); feliz = null; }
+  }
+
   let espera = 0;
   const alCambiarTamano = () => { clearTimeout(espera); espera = setTimeout(() => { ajustaLienzo(); pintaLuces(); }, 150); };
 
@@ -193,7 +220,8 @@
     activo = si;
     if (si) {
       if (!css.isConnected) document.head.appendChild(css);
-      nieve(true); luces(true); nevar();
+      nieve(true); luces(true); nevar(); anioNuevo();
+      relojAnio = setInterval(anioNuevo, 60000);
       mo = new MutationObserver((ms) => { if (ms.some((m) => [...m.addedNodes].some((n) => n.nodeType === 1 && !n.classList.contains("abn-cap")))) programa(); });
       mo.observe(document.body, { childList: true, subtree: true });
       window.addEventListener("resize", alCambiarTamano);
@@ -203,7 +231,8 @@
       mo = null;
       window.removeEventListener("resize", alCambiarTamano);
       document.removeEventListener("visibilitychange", sigue);
-      nieve(false); luces(false); quitaNieveTarjetas();
+      clearInterval(relojAnio);
+      nieve(false); luces(false); quitaNieveTarjetas(); anioNuevo();
     }
   }
   // Con «reducir movimiento» no cae nieve (la acumulada y las luces quietas sí se quedan).

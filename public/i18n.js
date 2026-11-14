@@ -635,6 +635,7 @@
     [/^Publicación #(\d+): se han subido (\d+) de (\d+) fotos\. (.+)$/, (m, n, a, b, e) => "Post #" + n + ": " + a + " of " + b + " photos were uploaded. " + tr(e)],
     [/^Físico · (.+)$/, "In person · $1"],
     [/^(\d+) avisos pendientes$/, "$1 pending notices"],
+    [/^¡Feliz año (\d{4})!$/, "Happy New Year $1!"],
     [/^(\d+) encuestas? sin votar$/, (m, n) => n + (n === "1" ? " poll" : " polls") + " not voted yet"],
     [/^¿Cerrar ahora la encuesta «(.+)»\? Ya no se podrá votar\.$/, "Close the poll «$1» now? Voting will no longer be possible."],
     [/^(\d+) votos?$/, (m, n) => n + (n === "1" ? " vote" : " votes")],

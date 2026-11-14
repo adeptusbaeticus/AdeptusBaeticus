@@ -36,6 +36,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   de la FAQ y el reglamento…) y una tira de luces bajo el menú en los colores del Emperador y de los cuatro
   dioses del Caos. Todo decorativo y sin tapar nada (no recibe clics); con «reducir movimiento» no cae nieve.
 - Iguales para todos mientras estén activados (nadie puede quitarlos para sí). No se envía ningún aviso.
+- **Año nuevo:** con los efectos activados, desde la medianoche de Nochevieja (hora de España) y durante los 7
+  primeros días de enero sale solo un cartel «¡Feliz año 2027!» (con el año que toque) colgado de las luces del menú.
 
 ### Idiomas
 - Toda la web en **español e inglés**, con las banderas de la cabecera. La elección se recuerda en el navegador.
