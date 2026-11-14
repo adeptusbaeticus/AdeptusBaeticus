@@ -30,12 +30,12 @@
     ".abn-b{animation:abn-brillo 2.8s ease-in-out infinite}" +
     "@keyframes abn-brillo{0%,100%{opacity:1}50%{opacity:.4}}" +
     "@media (prefers-reduced-motion:reduce){.abn-b{animation:none}}" +
-    ".abn-feliz{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);z-index:2;pointer-events:none;white-space:nowrap;" +
-    "padding:5px 16px 6px;border-radius:999px;border:1px solid #D9B25A;background:linear-gradient(#2A2418,#15171A);color:#F0CE82;" +
-    "font:700 15px/1.2 Cinzel,Georgia,serif;letter-spacing:.04em;box-shadow:0 0 14px rgba(217,178,90,.45),0 4px 10px rgba(0,0,0,.6);" +
+    ".abn-feliz{position:absolute;left:50%;bottom:-40px;transform:translateX(-50%);z-index:2;pointer-events:none;white-space:nowrap;" +
+    "padding:8px 28px 10px;border-radius:999px;border:2px solid #D9B25A;background:linear-gradient(#2A2418,#15171A);color:#F0CE82;" +
+    "font:700 26px/1.2 Cinzel,Georgia,serif;letter-spacing:.05em;box-shadow:0 0 14px rgba(217,178,90,.45),0 4px 10px rgba(0,0,0,.6);" +
     "text-shadow:0 0 8px rgba(240,206,130,.6);animation:abn-feliz 3s ease-in-out infinite}" +
     "@keyframes abn-feliz{0%,100%{box-shadow:0 0 10px rgba(217,178,90,.35),0 4px 10px rgba(0,0,0,.6)}50%{box-shadow:0 0 22px rgba(217,178,90,.7),0 4px 10px rgba(0,0,0,.6)}}" +
-    "@media (max-width:600px){.abn-feliz{font-size:13px;bottom:-22px}}" +
+    "@media (max-width:600px){.abn-feliz{font-size:19px;padding:6px 18px 8px;bottom:-32px}}" +
     "@media (prefers-reduced-motion:reduce){.abn-feliz{animation:none}}";
 
   const svg = (w, h, attrs) => {
