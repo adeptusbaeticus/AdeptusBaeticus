@@ -135,6 +135,7 @@
     "Tu nombre de perfil o el enlace a tu perfil de Steam.": "Your profile name or a link to your Steam profile.",
     "Tu usuario de New Recruit (se usa para la Gran Liga).": "Your New Recruit username (used for the Grand League).",
     "Tu nombre en BCP.": "Your name on BCP.", "@usuario": "@username",
+    "Antes tienes que completar tus datos de socio.": "First you have to complete your member details.",
     "Completa tus datos": "Complete your details", "Tus datos": "Your details", "Guardar mis datos": "Save my details",
     "Antes de seguir usando la web, revisa tus datos de socio y completa lo que falte. Solo tendrás que hacerlo una vez.": "Before you keep using the website, check your member details and fill in anything missing. You only have to do this once.",
     "No se pudieron cargar tus datos. Recarga la página.": "Could not load your details. Reload the page.",

@@ -95,6 +95,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   (`faltanDatos`, `completar` en `/api/me`) va a `inscripcion.html?completar=1` (`auth.js`) hasta guardarlos
   (`/api/socio/datos`, misma validación que la inscripción, `validaDatosSocio`); vienen rellenos con lo del Excel.
   Los que no están en el Excel son nuevos y lo rellenan entero.
+  También lo exige el servidor: mientras le falten, toda la API le responde 403 salvo `SIN_DATOS_PERMITIDO`
+  (`/api/me`, `/api/socio/datos`, `/api/ver-como/salir`, `/api/push/baja`) y `/api/inscripcion*`.
 - Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos); en la ficha de
   Miembros, «En el club desde».
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`

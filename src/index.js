@@ -543,6 +543,8 @@ async function vinculaAlEntrar(env, u, nick) {
         (SELECT date(created_at) FROM solicitudes WHERE discord_id=?1 AND estado='aprobada' ORDER BY id DESC LIMIT 1)),
       instagram=COALESCE(instagram, (SELECT instagram FROM socios_datos WHERE discord_id=?1)) WHERE discord_id=?1`).bind(u.id).run();
 }
+// Lo único de la API que puede usar un socio mientras le faltan sus datos (además de /api/inscripcion*).
+const SIN_DATOS_PERMITIDO = new Set(["/api/me", "/api/socio/datos", "/api/ver-como/salir", "/api/push/baja"]);
 // ¿Tiene que completar sus datos? Todos los socios menos el admin, hasta que los completen (o si se inscribieron con la web).
 async function faltanDatos(env, s) {
   if (!s || s.role === "admin") return false;
@@ -1771,6 +1773,14 @@ export default {
     if (path.startsWith("/api/") && request.method !== "GET" && request.method !== "HEAD" && path !== "/api/ver-como/salir") {
       const sv = await leeSesion(env, request);
       if (sv && sv.admin) return Response.json({ error: "Modo «ver como»: solo lectura" }, { status: 403, headers: { "cache-control": "no-store" } });
+    }
+    // Socio que aún no ha completado sus datos de inscripción (`faltanDatos`): solo puede usar lo necesario para
+    // rellenarlos; el resto de la API le responde 403 hasta que los guarde.
+    if (path.startsWith("/api/") && !SIN_DATOS_PERMITIDO.has(path) && !path.startsWith("/api/inscripcion")) {
+      const sd = await readSession(env, request);
+      if (sd && !sd.admin && (await faltanDatos(env, sd))) {
+        return Response.json({ error: "Antes tienes que completar tus datos de socio.", completar: true }, { status: 403, headers: { "cache-control": "no-store" } });
+      }
     }
     const cookieSesion = (valor, maxAge) => `${COOKIE}=${valor}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 
