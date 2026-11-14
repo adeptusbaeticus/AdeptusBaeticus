@@ -32,7 +32,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .lead{color:#CFC9BA;margin:0 0 32px;max-width:640px}
 .lead code{background:#1F2328;border:1px solid #2C3036;border-radius:6px;padding:1px 6px;font-size:14px}
 .m{color:#A8A293;font-size:14px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:32px}
 .post{background:#1F2328;border:1px solid #2C3036;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
 .post .foto{position:relative;display:block;border:0;padding:0;background:#2A2F36;cursor:zoom-in;aspect-ratio:1/1;width:100%}
 .post .n{position:absolute;top:8px;right:8px;background:rgba(21,23,26,.85);color:#ECE7DC;border-radius:999px;padding:2px 10px;font:600 13px Inter,sans-serif}
@@ -42,7 +42,10 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .post .who{display:flex;justify-content:space-between;gap:8px;color:#A8A293;font-size:13px}
 .post .pie{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}
 .bless{display:inline-flex;align-items:center;gap:6px;background:#15171A;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:4px 12px;min-height:36px;font:600 14px Inter,sans-serif;cursor:pointer}
-.bless svg{display:block}
+.bless{justify-content:center;min-width:76px;box-sizing:border-box}
+.bless span{min-width:2ch;text-align:left;font-variant-numeric:tabular-nums}
+.bless svg{display:block;flex:none;margin:auto 0}
+.bless .ic{display:flex;align-items:center;justify-content:center;width:30px;height:18px;flex:none}
 .bless.emp svg{color:#D9B25A}.bless.rui svg{color:#E0524A}
 .bless.emp.on{background:#D9B25A;color:#15171A;border-color:#D9B25A}.bless.emp.on svg{color:#15171A}
 .bless.rui.on{background:#A3211B;color:#fff;border-color:#A3211B}.bless.rui.on svg{color:#fff}
@@ -86,6 +89,21 @@ dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
 #dsub .ay{font-size:13px;color:#A8A293;margin:6px 0 0}
 #dsub .inval{border-color:#E0524A!important}
 .post.nueva{outline:3px solid #D9B25A;outline-offset:2px}
+/* Aura de las bendiciones: dorada a la izquierda (Emperador) y con los colores de los cuatro dioses del Caos
+   a la derecha (Poderes Ruinosos). Crece de 1 a 10 bendiciones (--es/--eb/--eo y --rs/--rb/--ro desde JS). */
+.marco{position:relative;border-radius:12px;--es:0px;--eb:0px;--eo:0;--rs:0px;--rb:0px;--ro:0}
+.marco>.post{position:relative;z-index:1;height:100%;box-sizing:border-box}
+.marco::before,.marco::after{content:"";position:absolute;pointer-events:none;z-index:0;border-radius:18px;transition:opacity .4s,filter .4s}
+.marco::before{left:calc(-1 * var(--es));top:calc(-1 * var(--es));bottom:calc(-1 * var(--es));right:50%;
+  background:linear-gradient(180deg,#F0CE82,#D9B25A 50%,#F0CE82);filter:blur(var(--eb));opacity:var(--eo)}
+.marco::after{right:calc(-1 * var(--rs));top:calc(-1 * var(--rs));bottom:calc(-1 * var(--rs));left:50%;
+  background:linear-gradient(180deg,#D7263D 0%,#3FA34D 34%,#2E6FD9 67%,#8E44C9 100%);filter:blur(var(--rb));opacity:var(--ro)}
+/* 10 bendiciones de cada tipo: borde especial dorado y del Caos, con un pulso suave del aura. */
+.marco.legendaria>.post{border:3px solid transparent;background:linear-gradient(#1F2328,#1F2328) padding-box,
+  linear-gradient(90deg,#F0CE82,#D9B25A 40%,#D7263D 58%,#3FA34D 72%,#2E6FD9 86%,#8E44C9) border-box}
+.marco.legendaria::before,.marco.legendaria::after{animation:aura 3s ease-in-out infinite}
+@keyframes aura{50%{opacity:.7}}
+@media (prefers-reduced-motion:reduce){.marco.legendaria::before,.marco.legendaria::after{animation:none}}
 .ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
 .ftl{display:flex;gap:20px;flex-wrap:wrap}
 .ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
@@ -203,8 +221,11 @@ function icono(tipo) {
   const svg = document.createElementNS(NS, "svg");
   const ic = ICONOS[tipo];
   svg.setAttribute("viewBox", "0 0 " + ic.w + " " + ic.h);
-  svg.setAttribute("height", ic.alto);
-  svg.setAttribute("width", Math.round((ic.alto * ic.w) / ic.h));
+  // Los dos símbolos van en la misma caja (30×18), centrados; la estrella, algo más baja para que pese lo
+  // mismo a la vista que el águila (que es ancha y fina).
+  svg.setAttribute("width", "30");
+  svg.setAttribute("height", tipo === "ruinosos" ? "15" : "18");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.setAttribute("aria-hidden", "true");
   const path = document.createElementNS(NS, "path");
   path.setAttribute("d", ic.d);
@@ -223,7 +244,8 @@ function bendicion(p, tipo, sesion) {
     const n = p[tipo], mia = p.mias[tipo];
     b.textContent = "";
     b.classList.toggle("on", mia);
-    b.append(icono(tipo), el("span", "", String(n)));
+    const ic = el("span", "ic"); ic.appendChild(icono(tipo));
+    b.append(ic, el("span", "", String(n)));
     b.title = !sesion ? "Entra con Discord para dar tu bendición" : mia ? B.quitar : B.dar;
     b.setAttribute("aria-label", n + (n === 1 ? " bendición " : " bendiciones ") + B.nombre + ". " + b.title);
     b.setAttribute("aria-pressed", mia ? "true" : "false");
@@ -238,6 +260,7 @@ function bendicion(p, tipo, sesion) {
         const d = await r.json();
         p.emperador = d.emperador; p.ruinosos = d.ruinosos; p.mias = d.mias;
         pinta(); // no se reordena al momento para no mover la tarjeta bajo el dedo
+        const m = b.closest(".marco"); if (m) aura(m, p);
       }
     } catch (e) {}
     b.disabled = false;
@@ -294,6 +317,21 @@ function tarjeta(p) {
 
 let data = { sesion: false, publicaciones: [] };
 
+// Intensidad del aura según las bendiciones (visible desde 1, máxima a partir de 10).
+function aura(m, p) {
+  const lado = (n, k) => {
+    n = Math.min(10, n || 0);
+    m.style.setProperty("--" + k + "s", n ? 5 + n * 1.5 + "px" : "0px");
+    m.style.setProperty("--" + k + "b", n ? 8 + n * 1.4 + "px" : "0px");
+    m.style.setProperty("--" + k + "o", n ? String(0.6 + n * 0.04) : "0");
+  };
+  lado(p.emperador, "e");
+  lado(p.ruinosos, "r");
+  const leg = p.emperador >= 10 && p.ruinosos >= 10;
+  m.classList.toggle("legendaria", leg);
+  m.title = leg ? "Bendecida por el Emperador y por los Poderes Ruinosos" : "";
+}
+
 // Pinta la cuadrícula según el orden y el miembro elegidos.
 function pintar() {
   const orden = $("orden").value, autor = $("autor").value;
@@ -303,7 +341,12 @@ function pintar() {
   g.textContent = "";
   $("msg").hidden = !!list.length;
   $("msg").textContent = list.length ? "" : autor ? "Este miembro aún no ha publicado fotos." : "Todavía no hay fotos publicadas.";
-  list.forEach((p) => g.appendChild(tarjeta(p)));
+  list.forEach((p) => {
+    const m = el("div", "marco");
+    m.appendChild(tarjeta(p));
+    aura(m, p);
+    g.appendChild(m);
+  });
 }
 
 $("orden").onchange = pintar;
