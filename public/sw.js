@@ -1,9 +1,9 @@
 // Service worker de la web del club: permite instalarla como app y verla sin conexión.
 // Siempre se pide primero a la red (para no mostrar versiones viejas tras un despliegue);
 // la copia guardada solo se usa si no hay conexión. /api, /auth, /discord y /cal nunca se guardan.
-const CACHE = "ab-v2";
+const CACHE = "ab-v3";
 const BASE = ["/", "/index.html", "/calendario.html", "/galeria.html", "/gran-liga.html", "/miembros.html", "/faq.html",
-  "/i18n.js", "/auth.js", "/Final_General.png", "/icon-192.png"];
+  "/i18n.js", "/auth.js", "/colores.css", "/iconos-juego.js", "/Final_General.png", "/icon-192.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(BASE)).catch(() => {}));

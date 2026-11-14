@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Adeptus Baeticus">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/colores.css">
 <style>
 [hidden]{display:none!important}
 body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif}
@@ -73,30 +74,31 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .ag-i .tt{flex:1;min-width:0}
 .ag-i .tt strong{display:block;font-size:15px;overflow-wrap:anywhere}
 .ag-i .tt span{display:block;font-size:13px;color:#A8A293}
-.ag-i.ag-q{border-left-color:#F0CE82}.ag-i.ag-q.ag-x{border-left-color:#8A6416}
-.ag-i.ag-t{border-left-color:#F08A82}.ag-i.ag-t.ag-x{border-left-color:#7A1712}
-.ag-i.ag-p{border-left-color:#A8E0A0}.ag-i.ag-p.ag-x{border-left-color:#2F6B2A}
+.ag-i.ag-q{border-left-color:var(--quedada)}.ag-i.ag-q.ag-x{border-left-color:var(--quedada-osc)}
+.ag-i.ag-t{border-left-color:var(--torneo)}.ag-i.ag-t.ag-x{border-left-color:var(--torneo-osc)}
+.ag-i.ag-p{border-left-color:var(--partida)}.ag-i.ag-p.ag-x{border-left-color:var(--partida-osc)}
 .ag-i.ag-x .tt strong{color:#A8A293}
 .ag-i.ag-l{border-left-color:#6E56B8;min-height:40px;padding:6px 14px}
 .ag-i.ag-l .tt strong{font-size:14px;color:#D9CCFA}
 .lh{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
-.li{display:flex;gap:16px;align-items:center;width:100%;text-align:left;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #F0CE82;border-radius:10px;padding:12px 16px;margin-bottom:8px;color:#ECE7DC;font:inherit;cursor:pointer}
-.li.tor{border-left-color:#F08A82}
-.li.x{border-left-color:#8A6416}.li.tor.x{border-left-color:#7A1712}
+.li{display:flex;gap:16px;align-items:center;width:100%;text-align:left;background:#1F2328;border:1px solid #2C3036;border-left:4px solid var(--quedada);border-radius:10px;padding:12px 16px;margin-bottom:8px;color:#ECE7DC;font:inherit;cursor:pointer}
+.li.tor{border-left-color:var(--torneo)}
+.li.x{border-left-color:var(--quedada-osc)}.li.tor.x{border-left-color:var(--torneo-osc)}
 .li:hover,.li:focus{border-color:#D9B25A;outline:none}
 .li.sel{background:#262A30;border-color:#D9B25A}
 .li .fe{min-width:64px;text-align:center;line-height:1.1}
-.li .fe b{display:block;font:700 26px Inter,sans-serif;color:#F0CE82}
-.li.tor .fe b{color:#F08A82}
+.li .fe b{display:block;font:700 26px Inter,sans-serif;color:var(--quedada-claro)}
+.li.tor .fe b{color:var(--torneo-claro)}
 .li .fe small{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#A8A293}
 .li .tx{flex:1;min-width:0}
 .li .tx strong{display:block;font-size:16px}
 .li .tx span{display:block;font-size:13px;color:#A8A293}
 .e{display:block;width:100%;border:0;text-align:left;cursor:pointer;font:600 12px Inter,sans-serif;border-radius:6px;padding:3px 6px;margin-top:6px}
 /* Claro: abierto. Oscuro: completo o cerrado. */
-.q{background:#F0CE82;color:#15171A}.q.x{background:#8A6416;color:#fff}
-.t2{background:#F08A82;color:#15171A}.t2.x{background:#7A1712;color:#fff}
-.pt{background:#A8E0A0;color:#15171A}.pt.x{background:#2F6B2A;color:#fff}
+/* Colores por tipo (colores.css): quedada roja, torneo verde, partida dorada */
+.q{background:var(--quedada);color:var(--quedada-txt)}.q.x{background:var(--quedada-osc);color:var(--quedada-osc-txt)}
+.t2{background:var(--torneo);color:var(--torneo-txt)}.t2.x{background:var(--torneo-osc);color:var(--torneo-osc-txt)}
+.pt{background:var(--partida);color:var(--partida-txt)}.pt.x{background:var(--partida-osc);color:var(--partida-osc-txt)}
 .ley{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:#A8A293}
 .ley span{display:inline-flex;align-items:center;gap:6px}
 .ley i{display:inline-block;width:14px;height:14px;border-radius:4px}
@@ -173,11 +175,11 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 /* Cuadrados de modalidad en la esquina superior derecha de cada día (como un aviso, pero cuadrado) */
 .mods{position:absolute;top:6px;right:6px;display:flex;flex-direction:column;gap:3px;pointer-events:auto}
 .mq{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;box-sizing:border-box;box-shadow:0 0 0 2px #1F2328}
-.mq.fisico{background:#D9B25A;color:#15171A}
-.mq.online{background:#343B20;color:#DCD8C2;border:1px solid #7C8A4C}
-/* Físico y online: el cuadrado partido por la mitad (mesa en dorado, ordenador en verde) */
-.mq.ambos{background:linear-gradient(90deg,#D9B25A 50%,#343B20 50%);border:1px solid #7C8A4C}
-.mq.ambos .izq{stroke:#15171A}.mq.ambos .der{stroke:#DCD8C2}
+.mq.fisico{background:var(--fisico);color:var(--fisico-txt);border:1px solid var(--fisico-borde)}
+.mq.online{background:var(--online);color:var(--online-txt);border:1px solid var(--online-borde)}
+/* Físico y online: el cuadrado partido por la mitad (mesa en rojo, ordenador en verde) */
+.mq.ambos{background:linear-gradient(90deg,var(--fisico) 50%,var(--online) 50%);border:1px solid;border-color:var(--fisico-borde) var(--online-borde) var(--online-borde) var(--fisico-borde)}
+.mq.ambos .izq{stroke:var(--fisico-txt)}.mq.ambos .der{stroke:var(--online-txt)}
 .mq .mo{margin:0}.mq .mo svg{width:14px;height:14px;stroke-width:1.8}
 .d.hoy .mq{box-shadow:0 0 0 2px #262A30}
 /* En el ordenador, cada evento lleva su cuadrado montado sobre su esquina, como un aviso;
@@ -195,6 +197,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 }
 @media (max-width:600px){.mods{top:3px;right:3px;gap:2px}.mq{width:15px;height:15px;border-radius:4px}.mq .mo svg{width:11px;height:11px}.d.mods2>.e:first-of-type{margin-top:16px}}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
+.lb.lb-q{color:var(--quedada-claro)}.lb.lb-t{color:var(--torneo-claro)}.lb.lb-p{color:var(--partida-claro)}
 .card h3{font:700 22px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
 .card p{margin:0 0 8px}
 .m{color:#A8A293;font-size:14px}
@@ -687,7 +690,7 @@ function show(e) {
     box.appendChild(el);
     return el;
   };
-  add("span", "lb", e.type === "torneo" ? "Torneo" : "Quedada");
+  add("span", "lb " + (e.type === "torneo" ? "lb-t" : "lb-q"), e.type === "torneo" ? "Torneo" : "Quedada");
   add("h3", "", e.title).setAttribute("translate", "no");
   box.appendChild(lineaModo(e.modo));
   const f = new Date(e.starts_at).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
@@ -1028,7 +1031,7 @@ function showPartida(p) {
     box.appendChild(x);
     return x;
   };
-  add("span", "lb", "Partida");
+  add("span", "lb lb-p", "Partida");
   const tp = add("h3", "", partidaTitulo(p));
   const ijf = iconoJuego(p.activity, true); if (ijf) tp.prepend(ijf);
   box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || (p.modo === "ambos" ? "" : "A decidir")));

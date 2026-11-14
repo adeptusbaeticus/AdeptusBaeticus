@@ -25,6 +25,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   nunca `innerHTML`. No tocar `wrangler.jsonc` ni secretos sin permiso expreso.
 - **Colores:** nunca azul. Paleta del club: dorado `#D9B25A`, rojo `#A3211B` y el verde Adeptus del logo
   `#343B20` (con icono o texto claro `#DCD8C2` y borde `#7C8A4C` cuando va sobre fondo oscuro).
+  Los colores de los tipos de evento están en `public/colores.css` (variables, con la paleta anterior para volver
+  atrás): quedadas rojas, torneos verdes, partidas doradas; físico en rojo y online en verde. Usar siempre esas
+  variables, no colores sueltos.
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.
 

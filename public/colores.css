@@ -1,0 +1,23 @@
+/* Colores de los tipos de evento y de las modalidades físico/online, iguales en toda la web.
+   Colores del club: rojo (quedadas y físico), verde Adeptus (torneos y online) y dorado (partidas).
+   Cada tipo tiene versión abierta (más viva) y completa o cerrada (oscura).
+   Para volver a los colores anteriores, sustituir este bloque por el de «Paleta anterior» de abajo. */
+:root {
+  --quedada: #C0392F;      --quedada-txt: #FFFFFF;  --quedada-osc: #5C1714; --quedada-osc-txt: #E8B9B4;
+  --quedada-claro: #E46A60; /* texto/fecha en rojo sobre fondo oscuro */
+  --torneo: #5E6B36;       --torneo-txt: #FFFFFF;   --torneo-osc: #2B3119;  --torneo-osc-txt: #C3CAA6;
+  --torneo-claro: #A9B776;
+  --partida: #D9B25A;      --partida-txt: #15171A;  --partida-osc: #6B5A2E; --partida-osc-txt: #F0E2BC;
+  --partida-claro: #F0CE82;
+  --fisico: #C0392F;       --fisico-txt: #FFFFFF;   --fisico-borde: #EE8A82;
+  --online: #5E6B36;       --online-txt: #F1EEDF;   --online-borde: #8C9A5B;
+}
+/* Paleta anterior (por si se quiere volver):
+:root {
+  --quedada: #F0CE82; --quedada-txt: #15171A; --quedada-osc: #8A6416; --quedada-osc-txt: #FFFFFF; --quedada-claro: #F0CE82;
+  --torneo: #F08A82;  --torneo-txt: #15171A;  --torneo-osc: #7A1712;  --torneo-osc-txt: #FFFFFF;  --torneo-claro: #F08A82;
+  --partida: #A8E0A0; --partida-txt: #15171A; --partida-osc: #2F6B2A; --partida-osc-txt: #FFFFFF; --partida-claro: #A8E0A0;
+  --fisico: #D9B25A;  --fisico-txt: #15171A;  --fisico-borde: #D9B25A;
+  --online: #343B20;  --online-txt: #DCD8C2;  --online-borde: #7C8A4C;
+}
+*/
