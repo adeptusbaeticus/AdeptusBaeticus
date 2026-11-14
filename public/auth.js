@@ -591,3 +591,17 @@
     cargaEncuestas(me);
   });
 })();
+
+// La cabecera fija mide más en el móvil (menú en dos filas): los saltos a una parte de la página (#enlaces,
+// fichas, rondas…) descuentan su altura real para que no quede nada tapado debajo de ella.
+(function () {
+  const nav = document.querySelector(".nav");
+  if (!nav) return;
+  const ajusta = () => {
+    const fija = getComputedStyle(nav).position === "sticky";
+    document.documentElement.style.scrollPaddingTop = (fija ? Math.ceil(nav.getBoundingClientRect().height) + 12 : 0) + "px";
+  };
+  ajusta();
+  if (window.ResizeObserver) new ResizeObserver(ajusta).observe(nav);
+  else window.addEventListener("resize", ajusta);
+})();

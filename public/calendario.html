@@ -1014,6 +1014,7 @@ function showPartida(p) {
       }
       if (d.id) { partidas = partidas.map((x) => (x.id === d.id ? d : x)); render(); showPartida(d); }
       else { partidas = partidas.filter((x) => x.id !== p.id); render(); $("det").textContent = "Partida retirada."; }
+      irAFicha();
     } catch (x) {
       err.textContent = "No se pudo completar. Inténtalo de nuevo.";
       box.querySelectorAll("button").forEach((y) => { y.disabled = false; });
@@ -1280,6 +1281,7 @@ function openPartidaForm() {
         n.textContent = "Se han publicado " + d.length + " partidas, una por cada día.";
         $("det").insertBefore(n, $("det").children[1]);
       }
+      irAFicha();
     } catch (y2) {
       err.textContent = "No se pudo publicar. Inténtalo de nuevo.";
       ok.disabled = false;
@@ -1327,6 +1329,7 @@ function openGestion() {
       ok.className = "ok";
       ok.textContent = d.borradas === 1 ? "Se ha borrado 1 partida." : "Se han borrado " + d.borradas + " partidas.";
       $("det").appendChild(ok);
+      irAFicha();
     } catch (x) { err.textContent = "No se pudo borrar."; b.disabled = false; }
   };
   const mk = (txt, solo, disabled) => {
@@ -1355,7 +1358,8 @@ $("fm").onchange = render;
 $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
 
-$("bp").onclick = openPartidaForm;
+// En el móvil la ficha queda debajo del calendario: todo lo que se abre en ella baja hasta ella.
+$("bp").onclick = () => { openPartidaForm(); irAFicha(); };
 // Añadir a mi calendario: enlace que el móvil consulta solo (Google Calendar, iPhone/Mac/Outlook).
 let enlacesCal = null, tipoCal = "personal";
 function pintaCal() {
@@ -1386,7 +1390,7 @@ $("dcal-tipo").onclick = (e) => { if (e.target.dataset.cal) { tipoCal = e.target
 $("dcal-x").onclick = () => $("dcal").close();
 $("dcal").addEventListener("click", (e) => { if (e.target === $("dcal")) $("dcal").close(); });
 fetch("/api/liga/calendario").then((r) => (r.ok ? r.json() : [])).then((d) => { liga = d; render(); }).catch(() => {});
-$("bdel").onclick = openGestion;
+$("bdel").onclick = () => { openGestion(); irAFicha(); };
 
 Promise.all([fetch("/api/events").then((r) => r.json()), reloadMine().then(() => (mine ? loadPartidas() : null))]).then(([d]) => {
   if (mine) $("bp").hidden = $("bdel").hidden = $("chp").hidden = $("chp").disabled = false;
@@ -1410,7 +1414,7 @@ function abrirDesdeEnlace() {
   const p = partidas.find((x) => String(x.id) === q.get("partida"));
   if (p) { irA(partidaDias(p)[0]); showPartida(p); }
   if (q.get("buscar") === "1" && mine) openPartidaForm();
-  if (e || p) $("det").scrollIntoView({ block: "nearest" });
+  if (e || p || (q.get("buscar") === "1" && mine)) irAFicha();
 }
 render();
 </script>
