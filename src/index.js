@@ -1986,7 +1986,9 @@ export default {
       // Los enlaces de Discord caducan: se renuevan los que caducan en menos de una hora.
       const pronto = Date.now() / 1000 + 3600;
       const viejos = [];
-      results.forEach((r) => r.imagenes.forEach((im) => { if (im.url && urlExpira(im.url) < pronto) viejos.push(im.url); }));
+      // Solo los enlaces de Discord (cdn.discordapp.com / media.discordapp.net) caducan y se renuevan.
+      const deDiscord = (u) => /^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//.test(u || "");
+      results.forEach((r) => r.imagenes.forEach((im) => { if (deDiscord(im.url) && urlExpira(im.url) < pronto) viejos.push(im.url); }));
       if (viejos.length && env.DISCORD_BOT_TOKEN) {
         const map = new Map();
         for (let i = 0; i < viejos.length; i += 50) {
