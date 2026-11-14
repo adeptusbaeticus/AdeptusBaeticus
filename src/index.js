@@ -591,6 +591,32 @@ async function avisoDatos(env, s) {
   if (await tieneDatos(env, s.id)) return {};
   return s.role === "admin" ? { datos_pendientes: true } : { datos_pendientes: true, completar: true };
 }
+// Ajustes generales de la web (tabla `ajustes`, migración 0033).
+async function ajuste(env, clave) {
+  try { const r = await env.DB.prepare("SELECT valor FROM ajustes WHERE clave=?1").bind(clave).first(); return r ? r.valor : null; }
+  catch (e) { return null; }
+}
+// Notificaciones tipo anuncio (tabla `anuncios`): salen en la servocalavera hasta que el socio las acepta.
+// `anunciaATodos` da una a cada socio que no tenga ya una sin aceptar de ese tipo (una sola consulta).
+async function anunciaATodos(env, tipo, titulo, texto) {
+  const r = await env.DB.prepare(
+    `INSERT INTO anuncios (discord_id, tipo, titulo, texto)
+     SELECT u.discord_id, ?1, ?2, ?3 FROM users u
+     WHERE NOT EXISTS (SELECT 1 FROM anuncios a WHERE a.discord_id=u.discord_id AND a.tipo=?1 AND a.aceptado IS NULL)`
+  ).bind(tipo, titulo, texto).run();
+  return r.meta.changes || 0;
+}
+async function anunciosDe(env, id) {
+  try {
+    return (await env.DB.prepare("SELECT id, tipo, titulo, texto FROM anuncios WHERE discord_id=?1 AND aceptado IS NULL ORDER BY id").bind(id).all()).results;
+  } catch (e) { return []; }
+}
+const ANUNCIO_NAVIDAD = {
+  titulo: "¡Llega la Navidad a la web!",
+  texto: "Hemos encendido los efectos de Navidad: nieve ligera y luces en los colores del Emperador y del Caos. " +
+    "Si prefieres no verlos, desactívalos en tu menú de usuario («Quitar efectos de Navidad»).",
+};
+
 // Borra por completo el perfil de un socio en la web: ficha, datos de inscripción, inscripciones, partidas que creó,
 // votos, bendiciones, trofeos, notificaciones… y quita su vínculo con la liga. Las fotos de la galería y los posts se
 // quedan (son del club y están en Discord). Si sigue en Discord con rol del club y vuelve a entrar, empieza de cero.
@@ -605,6 +631,7 @@ async function borraPerfil(env, id) {
     env.DB.prepare("DELETE FROM trofeo_miembros WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM push_subs WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM dm_canales WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1").bind(id),
     env.DB.prepare("UPDATE liga_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM socios_datos WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM solicitudes WHERE discord_id=?1").bind(id),
@@ -612,7 +639,7 @@ async function borraPerfil(env, id) {
   ]);
 }
 // Lo único de la API que puede usar un socio mientras le faltan sus datos (además de /api/inscripcion*).
-const SIN_DATOS_PERMITIDO = new Set(["/api/me", "/api/socio/datos", "/api/socio/borrar", "/api/ver-como/salir", "/api/push/baja"]);
+const SIN_DATOS_PERMITIDO = new Set(["/api/me", "/api/ajustes", "/api/socio/datos", "/api/socio/borrar", "/api/ver-como/salir", "/api/push/baja"]);
 // ¿Tiene que completar sus datos? Todos los socios menos el admin, hasta que los completen (o si se inscribieron con la web).
 async function faltanDatos(env, s) {
   if (!s || s.role === "admin") return false;
@@ -2664,6 +2691,35 @@ export default {
       });
     }
 
+    // Ajustes públicos de la web (también para invitados): de momento, si están puestos los efectos de Navidad.
+    if (path === "/api/ajustes" && request.method === "GET") {
+      return Response.json({ navidad: (await ajuste(env, "navidad")) === "1" }, { headers: { "cache-control": "public, max-age=60" } });
+    }
+    // Aceptar una notificación tipo anuncio (desaparece de la servocalavera).
+    const anm = path.match(/^\/api\/anuncios\/(\d+)\/acepta$/);
+    if (anm && request.method === "POST") {
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      await env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE id=?1 AND discord_id=?2 AND aceptado IS NULL").bind(Number(anm[1]), s.id).run();
+      return Response.json({ ok: true }, { headers: noStore });
+    }
+    // Efectos de Navidad (solo admin). Al activarlos, cada socio recibe el anuncio si no tiene ya uno sin aceptar;
+    // al quitarlos, se retiran los anuncios de Navidad que nadie ha aceptado todavía.
+    if (path === "/api/admin/navidad") {
+      const s = await readSession(env, request);
+      if (!s || s.role !== "admin") return Response.json({ error: "Solo para administradores" }, { status: 403, headers: noStore });
+      if (request.method === "GET") return Response.json({ navidad: (await ajuste(env, "navidad")) === "1" }, { headers: noStore });
+      if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+      if (request.headers.get("origin") && request.headers.get("origin") !== url.origin) return new Response("Prohibido", { status: 403 });
+      const b = await request.json().catch(() => ({}));
+      const activo = b.activo === true;
+      await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('navidad', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(activo ? "1" : "0").run();
+      let enviados = 0;
+      if (activo) enviados = await anunciaATodos(env, "navidad", ANUNCIO_NAVIDAD.titulo, ANUNCIO_NAVIDAD.texto);
+      else await env.DB.prepare("DELETE FROM anuncios WHERE tipo='navidad' AND aceptado IS NULL").run();
+      return Response.json({ ok: true, navidad: activo, enviados }, { headers: noStore });
+    }
+
     if (path === "/api/me") {
       const raw = await leeSesion(env, request);
       // Renovación de la sesión (no en el modo «ver como»): como mucho una vez al día se comprueba con el bot
@@ -2696,7 +2752,7 @@ export default {
         const row = await env.DB.prepare("SELECT nr_username FROM users WHERE discord_id=?1").bind(renovada.id).first();
         if (row) nr = row.nr_username;
         return Response.json({ id: renovada.id, name: renovada.name, avatar: renovada.avatar, role: renovada.role, nr_username: nr, ver_como: null,
-          ...(await avisoDatos(env, renovada)) },
+          ...(await avisoDatos(env, renovada)), anuncios: await anunciosDe(env, renovada.id) },
           { headers: { "cache-control": "no-store", "set-cookie": `${COOKIE}=${ck}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${MAX_AGE}` } });
       }
       if (raw && raw.invitado && raw.admin) {
@@ -2712,7 +2768,7 @@ export default {
       }
       return Response.json(
         s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role, nr_username: nr, ver_como: s.admin ? String(s.admin.name || s.admin.id) : null,
-          ...(s.admin ? {} : await avisoDatos(env, s)) } : null,
+          ...(s.admin ? {} : await avisoDatos(env, s)), anuncios: s.admin ? [] : await anunciosDe(env, s.id) } : null,
         { headers: { "cache-control": "no-store" } }
       );
     }

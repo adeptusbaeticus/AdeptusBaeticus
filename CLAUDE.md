@@ -141,9 +141,23 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 
 ## Administración
 
-- `admin.html`: bot de Discord, FAQ, sincronización con New Recruit y socios del Excel. Los eventos se administran en
+- `admin.html`: efectos de Navidad, bot de Discord, FAQ, sincronización con New Recruit y socios del Excel. Los eventos se administran en
   el Calendario («Administrar eventos») y los vínculos de los jugadores de la liga en Gran Liga («Administrar
   jugadores»): botones que solo ve el admin (`public/admin-paneles.js`, que abre un panel; el servidor comprueba el rol).
+
+## Navidad y anuncios
+
+- **Efectos de Navidad:** interruptor en Admin (`/api/admin/navidad`, tabla `ajustes` clave `navidad`, migración 0033).
+  `auth.js` lee `/api/ajustes` (público, guardado 5 min en `sessionStorage`) y, si están activos, carga
+  `public/navidad.js` (`window.abNavidad.aplica`): nieve en un lienzo fijo (z-index 35, sin clics, parada con la
+  pestaña oculta, sin caída con «reducir movimiento»), nieve acumulada sobre `.slide, .marco, .mb, .card` y luces bajo
+  `.nav` (dorado del Emperador y los 4 dioses del Caos: excepción a «nunca azul»). Cada socio los quita en su menú
+  (`localStorage` `ab_navidad_off`).
+- **Notificaciones tipo anuncio:** tabla `anuncios` (migración 0033), una fila por socio; salen arriba en la
+  servocalavera (`me.anuncios` en `/api/me`) hasta que pulsa «Aceptar» (`/api/anuncios/:id/acepta`). La lista se abre
+  sola una vez por visita. Para enviar uno a todos: `anunciaATodos(env, tipo, titulo, texto)` (una sola consulta; no
+  duplica si ya tiene uno de ese tipo sin aceptar). Al activar la Navidad se envía `ANUNCIO_NAVIDAD`; al desactivarla
+  se borran los no aceptados. El texto del anuncio se traduce en `i18n.js` (`EXACT`).
 
 ## Encuestas
 

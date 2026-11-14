@@ -36,6 +36,12 @@ textarea{min-height:80px}
 .full{grid-column:1/-1}
 .btn{background:#A3211B;color:#fff;border:0;border-radius:8px;padding:12px 20px;font:600 15px Inter,sans-serif;cursor:pointer;min-height:44px}
 .chip{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:8px 16px;min-height:44px;font:500 14px Inter,sans-serif;cursor:pointer}
+.sw{position:relative;width:64px;height:36px;flex:none;border-radius:999px;border:1px solid #6B6558;background:#2A2F36;cursor:pointer;padding:0}
+.sw span{position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#A8A293;transition:left .2s,background .2s}
+.sw[aria-checked=true]{background:#343B20;border-color:#7C8A4C}
+.sw[aria-checked=true] span{left:31px;background:#D9B25A}
+.sw:disabled{opacity:.5;cursor:default}
+@media (prefers-reduced-motion:reduce){.sw span{transition:none}}
 .row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
 a.chip{display:inline-flex;align-items:center;box-sizing:border-box;text-decoration:none}
@@ -78,6 +84,16 @@ table.lj select{min-width:220px}
   <p class="m">Los eventos se administran desde el Calendario y los jugadores de la liga desde Gran Liga (con el botón de admin de cada página).</p>
   <p id="gate" class="m">Cargando...</p>
   <div id="app" hidden>
+    <div class="card" style="margin-top:24px">
+      <div class="row" style="margin:0">
+        <div>
+          <strong>Efectos de Navidad</strong>
+          <div class="m" id="navstat">Nieve ligera, nieve sobre las tarjetas y luces en el menú. Cada socio puede quitarlos en su menú.</div>
+        </div>
+        <button class="sw" type="button" id="navsw" role="switch" aria-checked="false" aria-label="Efectos de Navidad" disabled><span></span></button>
+      </div>
+      <p class="m" id="navmsg" style="margin:8px 0 0;min-height:20px"></p>
+    </div>
     <div class="card" style="margin-top:24px">
       <div class="row" style="margin:0">
         <div>
@@ -144,6 +160,32 @@ async function discordStatus() {
     $("dreg").disabled = !d.bot_token;
   } catch (e) { $("dstat").textContent = "No se pudo comprobar."; }
 }
+// Efectos de Navidad: al activarlos, cada socio recibe un anuncio en la servocalavera (si no tiene ya uno sin aceptar).
+async function navidad() {
+  const sw = $("navsw");
+  try {
+    const d = await (await fetch("/api/admin/navidad")).json();
+    sw.setAttribute("aria-checked", String(!!d.navidad));
+    sw.disabled = false;
+  } catch (e) { $("navmsg").textContent = "No se pudo comprobar."; }
+}
+$("navsw").onclick = async () => {
+  const sw = $("navsw"), si = sw.getAttribute("aria-checked") !== "true";
+  sw.disabled = true;
+  $("navmsg").textContent = "";
+  try {
+    const r = await fetch("/api/admin/navidad", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ activo: si }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "No se pudo guardar.");
+    sw.setAttribute("aria-checked", String(d.navidad));
+    $("navmsg").textContent = d.navidad
+      ? (d.enviados === 1 ? "Activados. Anuncio enviado a 1 socio." : "Activados. Anuncio enviado a " + d.enviados + " socios.")
+      : "Desactivados. Se han retirado los anuncios de Navidad sin aceptar.";
+    try { sessionStorage.removeItem("ab_ajustes"); } catch (e) {}
+    if (window.abAjustes) window.abAjustes({ navidad: d.navidad });
+  } catch (e) { $("navmsg").textContent = e.message || "No se pudo guardar."; }
+  sw.disabled = false;
+};
 // FAQ: copia del canal #preguntas-frecuentes (se renueva sola cada 6 h; aquí, al momento).
 async function faqStatus() {
   try {
@@ -274,7 +316,7 @@ $("dreg").onclick = async () => {
 };
 
 fetch("/api/me").then((r) => r.json()).then((me) => {
-  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; discordStatus(); faqStatus(); nrStatus(); socios(); }
+  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; navidad(); discordStatus(); faqStatus(); nrStatus(); socios(); }
   else $("gate").textContent = me && !me.invitado ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
 }).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
 </script>

@@ -286,6 +286,10 @@
     ".ss-menu a:hover,.ss-menu a:focus{background:#2A2F36;outline:none}" +
     ".ss-menu a strong{display:block;font-weight:600;overflow-wrap:anywhere}" +
     ".ss-menu a span{font-size:12px;color:#A8A293}.ss-menu a span.pend{color:#F0A39E}" +
+    ".ss-an{background:#2A2F36;border:1px solid #6B6558;border-left:3px solid #D9B25A;border-radius:8px;padding:10px 12px;margin:0 0 8px}" +
+    ".ss-an strong{display:block;font:700 15px Cinzel,Georgia,serif;color:#F0CE82;margin:0 0 4px}" +
+    ".ss-an p{margin:0 0 10px;color:#CFC9BA}" +
+    ".ss-an button{min-height:40px;padding:6px 16px;border-radius:8px;border:1px solid #D9B25A;background:#D9B25A;color:#15171A;font:700 14px Inter,sans-serif;cursor:pointer}" +
     ".ss-menu a.todas{border-top:1px solid #2C3036;margin-top:6px;border-radius:0 0 6px 6px;color:#D9B25A;font-weight:600}" +
     "#ver-como{position:relative;z-index:70;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;background:#A3211B;color:#fff;padding:8px 16px;font:600 14px Inter,system-ui,sans-serif}" +
     "#ver-como button{background:#fff;color:#A3211B;border:0;border-radius:999px;padding:6px 14px;min-height:36px;font:700 13px Inter,sans-serif;cursor:pointer}";
@@ -370,8 +374,10 @@
     const abiertas = encDatos ? encDatos.filter((e) => e.abierta) : [];
     // Aviso de datos de socio sin completar (también al admin).
     const datos = !!(me && me.datos_pendientes);
-    if (!abiertas.length && !datos) return;
-    const pend = abiertas.filter((e) => !e.mis_votos.length).length + (datos ? 1 : 0);
+    // Notificaciones tipo anuncio: se quedan hasta que el socio pulsa «Aceptar».
+    const anuncios = (me && !me.ver_como && me.anuncios) || [];
+    if (!abiertas.length && !datos && !anuncios.length) return;
+    const pend = abiertas.filter((e) => !e.mis_votos.length).length + (datos ? 1 : 0) + anuncios.length;
     const ss = document.createElement("span");
     ss.className = "ss";
     const b = document.createElement("button");
@@ -379,7 +385,7 @@
     b.className = "ss-btn";
     b.setAttribute("aria-haspopup", "true");
     b.setAttribute("aria-expanded", "false");
-    const etiqueta = datos ? (pend === 1 ? "Completa tus datos de socio" : pend + " avisos pendientes")
+    const etiqueta = datos || anuncios.length ? (pend === 1 ? (datos ? "Completa tus datos de socio" : "Tienes un anuncio nuevo") : pend + " avisos pendientes")
       : pend ? (pend === 1 ? "1 encuesta sin votar" : pend + " encuestas sin votar") : "Encuestas abiertas";
     b.setAttribute("aria-label", etiqueta);
     b.title = etiqueta;
@@ -389,6 +395,33 @@
     const m = document.createElement("div");
     m.className = "ss-menu";
     m.hidden = true;
+    anuncios.forEach((an) => {
+      const d = document.createElement("div");
+      d.className = "ss-an";
+      const t = document.createElement("strong");
+      t.textContent = an.titulo;
+      const p = document.createElement("p");
+      p.textContent = an.texto;
+      const ok = document.createElement("button");
+      ok.type = "button";
+      ok.textContent = "Aceptar";
+      ok.onclick = async (e) => {
+        e.stopPropagation();
+        ok.disabled = true;
+        try {
+          const r = await fetch("/api/anuncios/" + an.id + "/acepta", { method: "POST" });
+          if (!r.ok) throw new Error();
+          me.anuncios = me.anuncios.filter((x) => x.id !== an.id);
+          guarda(me);
+          pinta(me);
+          // Si quedan más anuncios, la lista sigue abierta.
+          const nb = document.querySelector(".ss-btn");
+          if (nb && me.anuncios.length) nb.click();
+        } catch (er) { ok.disabled = false; alert("No se pudo guardar. Inténtalo de nuevo."); }
+      };
+      d.append(t, p, ok);
+      m.appendChild(d);
+    });
     if (datos) {
       const a = document.createElement("a");
       a.href = "/inscripcion.html?completar=1";
@@ -425,13 +458,31 @@
       todas.textContent = "Ver todas las encuestas";
       m.appendChild(todas);
     }
-    const abre = (si) => { m.hidden = !si; b.setAttribute("aria-expanded", String(si)); };
+    const abre = (si) => {
+      m.hidden = !si;
+      b.setAttribute("aria-expanded", String(si));
+      // Si no cabe hacia la izquierda (el icono queda a la izquierda de la cabecera), se abre hacia la derecha.
+      m.style.left = m.style.right = "";
+      if (si && innerWidth > 600 && m.getBoundingClientRect().left < 8) { m.style.left = "0"; m.style.right = "auto"; }
+    };
     b.onclick = () => abre(m.hidden);
     ss.addEventListener("keydown", (e) => { if (e.key === "Escape" && !m.hidden) { abre(false); b.focus(); } });
     document.addEventListener("click", (e) => { if (!ss.contains(e.target)) abre(false); });
     m.addEventListener("click", () => abre(false));
     ss.append(b, m);
     box.insertBefore(ss, wrap);
+    // Un anuncio nuevo abre la lista sola una vez por visita, para que se vea.
+    const nuevos = anuncios.map((a) => a.id).join(",");
+    let vistos = "";
+    try { vistos = sessionStorage.getItem("ab_anuncios_vistos") || ""; } catch (e) {}
+    if (nuevos && vistos !== nuevos) {
+      // (la cabecera puede volver a pintarse enseguida: se da por visto solo cuando de verdad se ha abierto)
+      setTimeout(() => {
+        if (!ss.isConnected) return;
+        abre(true);
+        try { sessionStorage.setItem("ab_anuncios_vistos", nuevos); } catch (e) {}
+      }, 600);
+    }
   }
   function cargaEncuestas(me) {
     if (!me || me.invitado) return;
@@ -529,6 +580,17 @@
     item("#", "Notificaciones").addEventListener("click", (e) => { e.preventDefault(); abre(false); dialogoAvisos(); });
     item("/mis-inscripciones.html", "Mis inscripciones");
     if (me.role === "admin") item("/admin.html", "Admin");
+    if (navidadWeb) {
+      const nv = item("#", navidadPropia() ? "Quitar efectos de Navidad" : "Poner efectos de Navidad");
+      nv.addEventListener("click", (e) => {
+        e.preventDefault();
+        const si = !navidadPropia();
+        try { if (si) localStorage.removeItem(NAV_KEY); else localStorage.setItem(NAV_KEY, "1"); } catch (er) {}
+        aplicaNavidad();
+        nv.textContent = si ? "Quitar efectos de Navidad" : "Poner efectos de Navidad";
+        abre(false);
+      });
+    }
     const recarga = () => { try { sessionStorage.removeItem(KEY); } catch (e) {} location.reload(); };
     if (me.ver_como) {
       // Volver a la cuenta del admin.
@@ -610,6 +672,38 @@
     }
   }
   }
+
+  // Efectos de Navidad: los activa el admin (`/api/ajustes`, guardado 5 minutos en esta visita) y cada uno puede
+  // quitarlos para sí en su menú (se recuerda en este dispositivo). Los efectos están en /navidad.js.
+  const NAV_KEY = "ab_navidad_off", AJ_KEY = "ab_ajustes";
+  let navidadWeb = false;
+  const navidadPropia = () => { try { return localStorage.getItem(NAV_KEY) !== "1"; } catch (e) { return true; } };
+  function aplicaNavidad() {
+    const si = navidadWeb && navidadPropia();
+    if (window.abNavidad) return window.abNavidad.aplica(si);
+    if (!si) return;
+    const sc = document.createElement("script");
+    sc.src = "/navidad.js";
+    sc.onload = () => { if (window.abNavidad) window.abNavidad.aplica(navidadWeb && navidadPropia()); };
+    document.head.appendChild(sc);
+  }
+  function ajustes(d) {
+    const antes = navidadWeb;
+    navidadWeb = !!(d && d.navidad);
+    aplicaNavidad();
+    if (antes !== navidadWeb && ultimoMe && !ultimoMe.invitado) pinta(ultimoMe);
+  }
+  window.abAjustes = ajustes; // Admin lo llama al cambiar el interruptor, para verlo al momento.
+  (function () {
+    let c = null;
+    try { c = JSON.parse(sessionStorage.getItem(AJ_KEY) || "null"); } catch (e) {}
+    if (c && Date.now() - c.t < 300000) return ajustes(c.d);
+    fetch("/api/ajustes").then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return;
+      try { sessionStorage.setItem(AJ_KEY, JSON.stringify({ t: Date.now(), d })); } catch (e) {}
+      ajustes(d);
+    }).catch(() => {});
+  })();
 
   const cache = leeCache();
   if (cache !== undefined && !q) pinta(cache);
