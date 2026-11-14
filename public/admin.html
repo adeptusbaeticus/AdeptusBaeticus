@@ -182,8 +182,8 @@ $("navsw").onclick = async () => {
       ? (d.enviados === 1 ? "Activados. Anuncio enviado a 1 socio." : "Activados. Anuncio enviado a " + d.enviados + " socios.")
       : "Desactivados. Se han retirado los anuncios de Navidad sin aceptar.";
     // El resto de páginas de esta visita usan ya el valor nuevo.
-    try { sessionStorage.setItem("ab_ajustes", JSON.stringify({ t: Date.now(), d: { navidad: d.navidad } })); } catch (e) {}
-    if (window.abAjustes) window.abAjustes({ navidad: d.navidad });
+    try { sessionStorage.setItem("ab_ajustes", JSON.stringify({ t: Date.now(), d: { navidad: d.navidad, desde: d.desde } })); } catch (e) {}
+    if (window.abAjustes) window.abAjustes({ navidad: d.navidad, desde: d.desde });
   } catch (e) { $("navmsg").textContent = e.message || "No se pudo guardar."; }
   sw.disabled = false;
 };

@@ -34,7 +34,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - Los activa y desactiva el admin con un interruptor en Admin: nieve ligera cayendo, nieve acumulada encima de las
   tarjetas (blog, galería, miembros…) y una tira de luces bajo el menú en los colores del Emperador y de los cuatro
   dioses del Caos. Todo decorativo y sin tapar nada (no recibe clics); con «reducir movimiento» no cae nieve.
-- Cada socio puede quitarlos (o volver a ponerlos) en su menú de usuario; se recuerda en ese dispositivo.
+- Activados, salen a todos por defecto. Cada socio puede quitarlos (o volver a ponerlos) en su menú de usuario; se
+  recuerda en ese dispositivo hasta que el admin los vuelva a activar.
 - Al activarlos, cada socio recibe un anuncio en la servocalavera (si no tiene ya uno sin aceptar); al desactivarlos se
   retiran los que nadie ha aceptado.
 

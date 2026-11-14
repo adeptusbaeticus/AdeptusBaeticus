@@ -152,8 +152,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   el valor nuevo al cambiarlo) y, si están activos, carga
   `public/navidad.js` (`window.abNavidad.aplica`): nieve en un lienzo fijo (z-index 35, sin clics, parada con la
   pestaña oculta, sin caída con «reducir movimiento»), nieve acumulada sobre `.slide, .marco, .mb, .card` y luces bajo
-  `.nav` (dorado del Emperador y los 4 dioses del Caos: excepción a «nunca azul»). Cada socio los quita en su menú
-  (`localStorage` `ab_navidad_off`).
+  `.nav` (dorado del Emperador y los 4 dioses del Caos: excepción a «nunca azul»). Por defecto salen a todos mientras estén
+  activos; cada socio los quita en su menú (`localStorage` `ab_navidad_off` = fecha de activación `navidad_desde`: si
+  el admin los vuelve a activar, le salen de nuevo).
 - **Notificaciones tipo anuncio:** tabla `anuncios` (migración 0033), una fila por socio; salen arriba en la
   servocalavera (`me.anuncios` en `/api/me`) hasta que pulsa «Aceptar» (`/api/anuncios/:id/acepta`). La lista se abre
   sola una vez por visita. Para enviar uno a todos: `anunciaATodos(env, tipo, titulo, texto)` (una sola consulta; no

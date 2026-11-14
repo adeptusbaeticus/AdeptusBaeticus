@@ -585,7 +585,7 @@
       nv.addEventListener("click", (e) => {
         e.preventDefault();
         const si = !navidadPropia();
-        try { if (si) localStorage.removeItem(NAV_KEY); else localStorage.setItem(NAV_KEY, "1"); } catch (er) {}
+        try { if (si) localStorage.removeItem(NAV_KEY); else localStorage.setItem(NAV_KEY, navidadDesde || "1"); } catch (er) {}
         aplicaNavidad();
         nv.textContent = si ? "Quitar efectos de Navidad" : "Poner efectos de Navidad";
         abre(false);
@@ -676,8 +676,10 @@
   // Efectos de Navidad: los activa el admin (`/api/ajustes`, guardado 2 minutos en esta visita) y cada uno puede
   // quitarlos para sí en su menú (se recuerda en este dispositivo). Los efectos están en /navidad.js.
   const NAV_KEY = "ab_navidad_off", AJ_KEY = "ab_ajustes";
-  let navidadWeb = false;
-  const navidadPropia = () => { try { return localStorage.getItem(NAV_KEY) !== "1"; } catch (e) { return true; } };
+  let navidadWeb = false, navidadDesde = "";
+  // Quitados por el socio solo para la activación actual (se guarda la fecha de activación): si el admin los vuelve
+  // a activar otro año, le salen de nuevo.
+  const navidadPropia = () => { try { const v = localStorage.getItem(NAV_KEY); return !v || v !== (navidadDesde || "1"); } catch (e) { return true; } };
   function aplicaNavidad() {
     const si = navidadWeb && navidadPropia();
     if (window.abNavidad) return window.abNavidad.aplica(si);
@@ -690,6 +692,7 @@
   function ajustes(d) {
     const antes = navidadWeb;
     navidadWeb = !!(d && d.navidad);
+    navidadDesde = (d && d.desde) || "";
     aplicaNavidad();
     if (antes !== navidadWeb && ultimoMe && !ultimoMe.invitado) pinta(ultimoMe);
   }

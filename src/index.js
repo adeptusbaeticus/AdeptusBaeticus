@@ -2693,7 +2693,8 @@ export default {
 
     // Ajustes públicos de la web (también para invitados): de momento, si están puestos los efectos de Navidad.
     if (path === "/api/ajustes" && request.method === "GET") {
-      return Response.json({ navidad: (await ajuste(env, "navidad")) === "1" }, { headers: noStore }); // sin caché del navegador: al cambiarlo se nota en la página siguiente
+      // `desde`: cuándo se activó; quien los quitó en una activación anterior los vuelve a ver al activarse de nuevo.
+      return Response.json({ navidad: (await ajuste(env, "navidad")) === "1", desde: await ajuste(env, "navidad_desde") }, { headers: noStore }); // sin caché del navegador
     }
     // Aceptar una notificación tipo anuncio (desaparece de la servocalavera).
     const anm = path.match(/^\/api\/anuncios\/(\d+)\/acepta$/);
@@ -2714,10 +2715,11 @@ export default {
       const b = await request.json().catch(() => ({}));
       const activo = b.activo === true;
       await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('navidad', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(activo ? "1" : "0").run();
+      if (activo) await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('navidad_desde', datetime('now')) ON CONFLICT(clave) DO UPDATE SET valor=datetime('now')").run();
       let enviados = 0;
       if (activo) enviados = await anunciaATodos(env, "navidad", ANUNCIO_NAVIDAD.titulo, ANUNCIO_NAVIDAD.texto);
       else await env.DB.prepare("DELETE FROM anuncios WHERE tipo='navidad' AND aceptado IS NULL").run();
-      return Response.json({ ok: true, navidad: activo, enviados }, { headers: noStore });
+      return Response.json({ ok: true, navidad: activo, desde: await ajuste(env, "navidad_desde"), enviados }, { headers: noStore });
     }
 
     if (path === "/api/me") {
