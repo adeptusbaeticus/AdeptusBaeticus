@@ -115,10 +115,11 @@ html,body{overflow-x:clip}
 .marco::after{right:calc(-1 * var(--rs));top:calc(-1 * var(--rs));bottom:calc(-1 * var(--rs));left:50%;
   background:linear-gradient(180deg,var(--c1,#9E1414) 0%,var(--c2,#5F6E17) 34%,var(--c3,#3438A3) 67%,var(--c4,#7E2179) 100%);filter:blur(var(--rb));opacity:calc(var(--ro) * .45)}
 /* 10 bendiciones de cada tipo: borde especial dorado y del Caos, con un pulso suave del aura. */
-/* Marco desde 5 bendiciones: mitad izquierda de dorado apagado (5) a dorado brillante (10) y mitad derecha de
-   gris oscuro (5) al negro del Caos (10), con un filo gris para que se vea. Colores --mg/--mc/--mf desde JS. */
+/* Marco: aparece a plena fuerza cuando una facción llega a 5 bendiciones. Si solo una ha llegado, el marco
+   entero es suyo (dorado del Emperador o negro del Caos); si las dos, se lo disputan: el dorado ocupa desde la
+   izquierda su porcentaje de las bendiciones (--mp) y el negro del Caos el resto. El negro lleva un filo gris. */
 .marco.con-marco>.post{border:3px solid transparent;background:linear-gradient(#1F2328,#1F2328) padding-box,
-  linear-gradient(90deg,var(--mg,#2C3036),var(--mg,#2C3036) 44%,var(--mc,#2C3036) 56%,var(--mc,#2C3036)) border-box;
+  linear-gradient(90deg,#F0CE82 0%,#D9B25A max(0%, calc(var(--mp) - 4%)),#0A0A0B min(100%, calc(var(--mp) + 4%)),#000 100%) border-box;
   box-shadow:0 0 0 1px var(--mf,transparent)}
 .marco.legendaria::before,.marco.legendaria::after{animation:aura 3s ease-in-out infinite}
 @keyframes aura{50%{opacity:.7}}
@@ -429,13 +430,15 @@ function aura(m, p) {
   caos.oscuridad = k;
   caos.forEach(([, c], i) => m.style.setProperty("--c" + (i + 1), c));
   if (nr > 0) m.appendChild(fuego("der", nr, caos));
-  // Marco desde 5 bendiciones (cada mitad según las suyas).
-  const ne = Math.min(10, p.emperador || 0);
-  const mezcla = (a, b, k) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - k) + parseInt(b.slice(i, i + 2), 16) * k).toString(16).padStart(2, "0")).join("");
-  m.classList.toggle("con-marco", ne >= 5 || nr >= 5);
-  m.style.setProperty("--mg", ne >= 5 ? mezcla("#5A4A2A", "#F0CE82", (ne - 5) / 5) : "#2C3036");
-  m.style.setProperty("--mc", nr >= 5 ? mezcla("#3A3A3F", "#000000", (nr - 5) / 5) : "#2C3036");
-  m.style.setProperty("--mf", nr >= 5 ? "#5A5A61" : "transparent");
+  // Marco: desde 5 bendiciones de una facción, a plena fuerza; si las dos tienen 5 o más, se reparte según el
+  // porcentaje de votos (con los votos reales, también por encima de 10).
+  const ve = p.emperador || 0, vr = p.ruinosos || 0;
+  const conMarco = ve >= 5 || vr >= 5;
+  m.classList.toggle("con-marco", conMarco);
+  const pct = ve >= 5 && vr >= 5 ? Math.round((ve / (ve + vr)) * 100) : ve >= 5 ? 100 : 0;
+  // Un solo color si el marco es de una sola facción (sin transición asomando por el borde).
+  m.style.setProperty("--mp", (pct === 0 ? -10 : pct === 100 ? 110 : pct) + "%");
+  m.style.setProperty("--mf", conMarco && pct < 100 ? "#5A5A61" : "transparent");
   const leg = p.emperador >= 10 && p.ruinosos >= 10;
   m.classList.toggle("legendaria", leg);
   m.title = leg ? "Bendecida por el Emperador y por los Poderes Ruinosos" : "";
@@ -467,7 +470,7 @@ const PRUEBA = new URLSearchParams(location.search).get("prueba") === "1";
 let pruebas = null;
 function publicacionesPrueba() {
   if (!pruebas) {
-    pruebas = [[0, 0], [1, 0], [0, 1], [3, 7], [7, 3], [10, 10]].map(([e, r], i) => ({
+    pruebas = [[0, 0], [3, 1], [6, 2], [2, 7], [7, 5], [10, 10]].map(([e, r], i) => ({
       id: -(i + 1), numero: "P" + (i + 1), prueba: true, texto: "Publicación de prueba · Emperador " + e + " · Ruinosos " + r,
       autor: "Prueba", created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
       imagenes: [{ url: "/Final_General.png", width: 1080, height: 1345 }], emperador: e, ruinosos: r,
