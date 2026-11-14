@@ -32,7 +32,8 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .lead{color:#CFC9BA;margin:0 0 32px;max-width:640px}
 .lead code{background:#1F2328;border:1px solid #2C3036;border-radius:6px;padding:1px 6px;font-size:14px}
 .m{color:#A8A293;font-size:14px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:40px 56px}
+@media (max-width:600px){.grid{gap:32px}}
 .post{background:#1F2328;border:1px solid #2C3036;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
 .post .foto{position:relative;display:block;border:0;padding:0;background:#2A2F36;cursor:zoom-in;aspect-ratio:1/1;width:100%}
 .post .n{position:absolute;top:8px;right:8px;background:rgba(21,23,26,.85);color:#ECE7DC;border-radius:999px;padding:2px 10px;font:600 13px Inter,sans-serif}
@@ -94,10 +95,19 @@ dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
 .marco{position:relative;border-radius:12px;--es:0px;--eb:0px;--eo:0;--rs:0px;--rb:0px;--ro:0}
 .marco>.post{position:relative;z-index:1;height:100%;box-sizing:border-box}
 .marco::before,.marco::after{content:"";position:absolute;pointer-events:none;z-index:0;border-radius:18px;transition:opacity .4s,filter .4s}
+/* Fuego que sube desde abajo por los lados de la tarjeta: dorado y divino a la izquierda (Emperador) y con
+   los colores de los cuatro dioses del Caos a la derecha (Poderes Ruinosos). Sube más con cada bendición (1-10). */
+.aura-svg{position:absolute;top:-14px;bottom:-6px;width:40px;z-index:0;pointer-events:none;overflow:visible}
+.aura-svg.izq{left:-30px}.aura-svg.der{right:-30px}
+.aura-svg .llama{transform-box:fill-box;transform-origin:50% 100%;animation:llama 1.6s ease-in-out infinite alternate}
+@keyframes llama{0%{transform:scaleY(.86) skewX(-3deg)}40%{transform:scaleY(1.04) skewX(2deg)}75%{transform:scaleY(.93) skewX(-1deg)}100%{transform:scaleY(1.08) skewX(3deg)}}
+@media (prefers-reduced-motion:reduce){.aura-svg .llama{animation:none}}
+@media (max-width:600px){.aura-svg{width:20px}.aura-svg.izq{left:-15px}.aura-svg.der{right:-15px}}
+html,body{overflow-x:clip}
 .marco::before{left:calc(-1 * var(--es));top:calc(-1 * var(--es));bottom:calc(-1 * var(--es));right:50%;
-  background:linear-gradient(180deg,#F0CE82,#D9B25A 50%,#F0CE82);filter:blur(var(--eb));opacity:var(--eo)}
+  background:linear-gradient(180deg,#F0CE82,#D9B25A 50%,#F0CE82);filter:blur(var(--eb));opacity:calc(var(--eo) * .55)}
 .marco::after{right:calc(-1 * var(--rs));top:calc(-1 * var(--rs));bottom:calc(-1 * var(--rs));left:50%;
-  background:linear-gradient(180deg,#D7263D 0%,#3FA34D 34%,#2E6FD9 67%,#8E44C9 100%);filter:blur(var(--rb));opacity:var(--ro)}
+  background:linear-gradient(180deg,#D7263D 0%,#3FA34D 34%,#2E6FD9 67%,#8E44C9 100%);filter:blur(var(--rb));opacity:calc(var(--ro) * .45)}
 /* 10 bendiciones de cada tipo: borde especial dorado y del Caos, con un pulso suave del aura. */
 .marco.legendaria>.post{border:3px solid transparent;background:linear-gradient(#1F2328,#1F2328) padding-box,
   linear-gradient(90deg,#F0CE82,#D9B25A 40%,#D7263D 58%,#3FA34D 72%,#2E6FD9 86%,#8E44C9) border-box}
@@ -317,6 +327,58 @@ function tarjeta(p) {
 
 let data = { sesion: false, publicaciones: [] };
 
+const NS_SVG = "http://www.w3.org/2000/svg";
+const svgEl = (tag, at) => { const x = document.createElementNS(NS_SVG, tag); for (const k in at) x.setAttribute(k, at[k]); return x; };
+// Colores [llama, núcleo]: dorado divino (Emperador) y los cuatro dioses del Caos: Khorne, Nurgle, Tzeentch, Slaanesh.
+const FUEGO_IMPERIAL = [["#D9A63A", "#FFF4CF"]];
+const FUEGO_CAOS = [["#B3121F", "#FF7A45"], ["#3E7A1E", "#C2EC66"], ["#1F4FB8", "#8ADCFF"], ["#6E2A9E", "#E890FF"]];
+// Lenguas de fuego (franja de 40×600, estirada a la altura de la tarjeta) que suben desde abajo; con n bendiciones
+// (1-10) el fuego llega más arriba: con 1 lame la base y con 10 alcanza la parte de arriba.
+function fuego(lado, n, colores) {
+  const svg = svgEl("svg", { class: "aura-svg " + lado, viewBox: "0 0 40 600", preserveAspectRatio: "none", "aria-hidden": "true" });
+  const H = 600 * (0.14 + 0.086 * n);
+  const id = "f" + Math.random().toString(36).slice(2, 8);
+  const defs = svgEl("defs", {});
+  colores.forEach(([c], k) => {
+    const g = svgEl("linearGradient", { id: id + k, x1: "0", x2: "0", y1: "1", y2: "0" });
+    g.append(svgEl("stop", { offset: "0", "stop-color": c, "stop-opacity": ".95" }), svgEl("stop", { offset: ".7", "stop-color": c, "stop-opacity": ".75" }),
+      svgEl("stop", { offset: "1", "stop-color": c, "stop-opacity": ".15" }));
+    defs.appendChild(g);
+  });
+  svg.appendChild(defs);
+  // Lengua de fuego ondulante hacia arriba: base de ancho 2w en cx, altura h; el eje serpentea (amp, fase)
+  // y el ancho se estrecha hasta la punta. El contorno se suaviza con curvas entre puntos medios.
+  const lengua = (cx, w, h, amp, fase) => {
+    const izq = [], der = [];
+    for (let k = 0; k <= 14; k++) {
+      const t = k / 14, y = 600 - t * h;
+      const x = cx + Math.sin(t * Math.PI * 2.2 + fase) * amp * t;
+      const a = w * Math.pow(1 - t, 0.85) + 0.4;
+      izq.push([x - a, y]); der.push([x + a, y]);
+    }
+    const P = izq.concat(der.reverse());
+    const f = (q) => q[0].toFixed(1) + " " + q[1].toFixed(1);
+    let d = "M" + f(P[0]);
+    for (let k = 1; k < P.length - 1; k++) d += "Q" + f(P[k]) + " " + f([(P[k][0] + P[k + 1][0]) / 2, (P[k][1] + P[k + 1][1]) / 2]);
+    return d + "L" + f(P[P.length - 1]) + "z";
+  };
+  // Lenguas de alturas distintas que se juntan abajo; la más alta, junto al borde de la tarjeta.
+  const L = lado === "izq"
+    ? [[30, 12, 1, 5, 0], [19, 11, .74, 6, 2], [9, 9, .52, 4, 4], [36, 7, .84, 4, 1], [3, 6, .32, 3, 3]]
+    : [[10, 12, 1, 5, 3], [21, 11, .74, 6, 1], [31, 9, .52, 4, 5], [4, 7, .84, 4, 2], [37, 6, .32, 3, 0]];
+  L.forEach(([cx, w, f, amp, fase], i) => {
+    const [c, nucleo] = colores[i % colores.length];
+    const h = H * f;
+    const g = svgEl("g", { class: "llama", style: `animation-delay:${-i * 0.31}s;animation-duration:${1.3 + (i % 3) * 0.3}s` });
+    // Halo difuminado, llama y núcleo brillante.
+    g.appendChild(svgEl("path", { d: lengua(cx, w * 1.35, h * 1.04, amp, fase), fill: c, opacity: ".35", style: "filter:blur(3px)" }));
+    g.appendChild(svgEl("path", { d: lengua(cx, w, h, amp, fase), fill: `url(#${id + (i % colores.length)})` }));
+    g.appendChild(svgEl("path", { d: lengua(cx, w * .45, h * .58, amp * .6, fase), fill: nucleo, opacity: ".85" }));
+    svg.appendChild(g);
+  });
+  return svg;
+}
+
 // Intensidad del aura según las bendiciones (visible desde 1, máxima a partir de 10).
 function aura(m, p) {
   const lado = (n, k) => {
@@ -327,6 +389,9 @@ function aura(m, p) {
   };
   lado(p.emperador, "e");
   lado(p.ruinosos, "r");
+  m.querySelectorAll(".aura-svg").forEach((x) => x.remove());
+  if (p.emperador > 0) m.appendChild(fuego("izq", Math.min(10, p.emperador), FUEGO_IMPERIAL));
+  if (p.ruinosos > 0) m.appendChild(fuego("der", Math.min(10, p.ruinosos), FUEGO_CAOS));
   const leg = p.emperador >= 10 && p.ruinosos >= 10;
   m.classList.toggle("legendaria", leg);
   m.title = leg ? "Bendecida por el Emperador y por los Poderes Ruinosos" : "";
