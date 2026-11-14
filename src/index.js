@@ -271,7 +271,7 @@ function parsePartida(b, now) {
   // Físico (en el club si no se indica lugar), online (Tabletop Simulator) o ambos (lo elige quien se une).
   // Sin el dato (versiones antiguas de la página) se toma físico; vacío o raro, se avisa.
   const modo = b.modo == null ? "fisico" : b.modo;
-  if (!["fisico", "online", "ambos"].includes(modo)) return { error: "Marca si quieres jugar en físico, online o de las dos formas" };
+  if (!["fisico", "online", "ambos"].includes(modo)) return { error: "Marca si buscas jugar en físico, online (TTS) o las dos" };
   const lugar = modo !== "online" ? String(b.lugar || "").trim().slice(0, 120) || null : null;
   return { ...plan, team_a: ta, team_b: tb, availability, modo, lugar };
 }

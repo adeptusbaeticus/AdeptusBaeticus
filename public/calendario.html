@@ -1256,7 +1256,7 @@ function openPartidaForm() {
     const availability = rows.filter((r) => r.cb.checked).map((r) => ({ date: r.iso, from: r.from.value, to: r.to.value }));
     const fallos = [];
     if (!act.value) fallos.push(["Elige una modalidad.", wAct, act]);
-    if (!modoSel()) fallos.push(["Marca si se juega en físico, online o las dos.", fsModo]);
+    if (!modoSel()) fallos.push(["Marca si buscas jugar en físico, online (TTS) o las dos.", fsModo]);
     if (!availability.length) fallos.push(["Marca al menos un día en el que puedas jugar.", days]);
     else if (availability.some((r) => r.from >= r.to)) fallos.push(["En cada día, la hora de fin debe ser posterior a la de inicio.", days]);
     if (fallos.length) { muestraAvisos(fallos); return; }
