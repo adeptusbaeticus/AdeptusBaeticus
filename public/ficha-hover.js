@@ -14,7 +14,7 @@
 .abf{position:absolute;z-index:60;width:300px;max-width:calc(100vw - 24px);box-sizing:border-box;background:#1F2328;border:1px solid #6B5A2E;border-radius:12px;padding:14px;color:#ECE7DC;font:400 14px/1.4 Inter,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.5);text-align:left}
 .abf-cab{display:flex;gap:12px;align-items:center}
 .abf-cab>div:nth-child(2){flex:1;min-width:0}
-.abf-tro{display:grid;grid-template-columns:repeat(2,auto);gap:8px 12px;align-self:flex-start;justify-items:center;flex:none}
+.abf-tro{display:flex;flex-wrap:wrap;gap:6px 12px;margin-left:auto;justify-content:flex-end;align-items:flex-end}
 .abf-tro span{position:relative;display:inline-flex}
 .abf-tro .copa{width:28px;height:32px}
 .abf-tro .copa.p1{color:#E8C25A}.abf-tro .copa.p2{color:#C9CED6}.abf-tro .copa.p3{color:#C98A4B}
@@ -25,7 +25,7 @@
 .abf-rol.off{color:#A8A293;border-color:#4A4F57}
 .abf-fc{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
 .abf-fc span{background:#15171A;border:1px solid #2C3036;border-radius:999px;padding:1px 8px;font-size:12px}
-.abf-dat{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px;font-size:13px;color:#CFC9BA}
+.abf-dat{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:10px;font-size:13px;color:#CFC9BA}
 .abf-dat b{color:#F0CE82}
 .abf a.abf-ver{display:inline-block;margin-top:12px;color:#D9B25A;font-weight:600;text-decoration:none}
 .abf a.abf-ver:hover{text-decoration:underline}
@@ -58,7 +58,19 @@
     tx.append(n, el("span", "abf-rol", ROL[m.role] || m.role));
     if (m.desconectado) tx.appendChild(el("span", "abf-rol off", "Desconectado"));
     cab.append(av, tx);
-    // Trofeos a la derecha, en iconos (iguales que en Miembros): uno por puesto y tipo, con «×N» si se repite.
+    c.appendChild(cab);
+    const fac = m.facciones || [];
+    if (fac.length) {
+      const w = el("div", "abf-fc"); w.setAttribute("translate", "no");
+      fac.slice(0, 6).forEach((f) => w.appendChild(el("span", "", f)));
+      if (fac.length > 6) w.appendChild(el("span", "", "+" + (fac.length - 6)));
+      c.appendChild(w);
+    } else c.appendChild(el("p", "abf-m", "Todavía no ha indicado sus facciones."));
+    const dat = el("div", "abf-dat");
+    const dato = (b, t) => { const s = el("span"); s.append(el("b", "", b), " " + t); dat.appendChild(s); };
+    if (m.liga) dato("#" + m.liga.pos, "Liga");
+    if (m.elo) dato(String(m.elo.elo), "ELO");
+    // Trofeos abajo a la derecha, en iconos (iguales que en Miembros): uno por puesto y tipo, con «×N» si se repite.
     if (m.trofeos && m.trofeos.length && window.abCopa) {
       const PUESTO = { 1: "1.º puesto", 2: "2.º puesto", 3: "3.º puesto" };
       const MOD = { individual: "Individual", parejas: "Parejas", equipo: "Equipo", pintura: "Pintura" };
@@ -75,20 +87,8 @@
         if (l.length > 1) s.appendChild(el("b", "", "×" + l.length));
         w.appendChild(s);
       });
-      cab.appendChild(w);
+      dat.appendChild(w);
     }
-    c.appendChild(cab);
-    const fac = m.facciones || [];
-    if (fac.length) {
-      const w = el("div", "abf-fc"); w.setAttribute("translate", "no");
-      fac.slice(0, 6).forEach((f) => w.appendChild(el("span", "", f)));
-      if (fac.length > 6) w.appendChild(el("span", "", "+" + (fac.length - 6)));
-      c.appendChild(w);
-    } else c.appendChild(el("p", "abf-m", "Todavía no ha indicado sus facciones."));
-    const dat = el("div", "abf-dat");
-    const dato = (b, t) => { const s = el("span"); s.append(el("b", "", b), " " + t); dat.appendChild(s); };
-    if (m.liga) dato("#" + m.liga.pos, "Liga");
-    if (m.elo) dato(String(m.elo.elo), "ELO");
     if (dat.childNodes.length) c.appendChild(dat);
     const ver = el("a", "abf-ver", "Ver ficha completa →"); ver.href = "/miembros.html#m" + m.id;
     c.appendChild(ver);
