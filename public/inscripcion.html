@@ -76,6 +76,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fm fieldset.inval{box-shadow:inset 3px 0 0 #E0524A;padding-left:10px}
 .fm .falta{color:#F0A39E;font-size:13px;margin:4px 0 0}
 .arriba{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.abajo{position:sticky;bottom:0;z-index:5;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 -22px -20px;padding:12px 22px calc(12px + env(safe-area-inset-bottom));border-radius:0 0 14px 14px;background:rgba(21,23,26,.96);border-top:1px solid #2C3036;box-shadow:0 -6px 16px rgba(0,0,0,.35)}
 .resumen{flex-basis:100%;padding:10px 12px;border-radius:8px;background:#2A1A1C;border:1px solid #7A1712;color:#F0A39E;font-size:14px}
 .resumen ul{margin:4px 0 0;padding-left:18px}
 .exito{background:#1F2328;border:1px solid #2C3036;border-left:4px solid #9FD39B;border-radius:12px;padding:20px 22px}
@@ -206,7 +207,9 @@ function formulario(cuenta) {
   let volver = null;
   if (comp && !cuenta.obligatorio) { volver = el("a", "btn alt", "Volver"); volver.href = "/miembros.html#yo"; }
   const avisos = el("div", "avisos");
-  arriba.append(ok); if (volver) arriba.append(volver); arriba.append(avisos);
+  // En «Mis datos», los botones van en una barra fija abajo que te acompaña mientras rellenas; los avisos, arriba.
+  if (comp) { arriba.className = "abajo"; arriba.append(ok); if (volver) arriba.append(volver); }
+  else { arriba.append(ok); arriba.append(avisos); }
   const campo = (id, etiqueta, nodo, obligatorio, ayuda) => {
     const w = el("div");
     const l = el("label", "t", etiqueta); l.htmlFor = id;
@@ -281,11 +284,12 @@ function formulario(cuenta) {
     const bc = cta("f-bc", "BCP (Best Coast Pairings) (opcional)", fi.bcp, "Tu nombre en BCP.");
     ficha = { fsF, valor: () => ({ facciones: [...fsF.querySelectorAll("input[name=fac]:checked")].map((x) => x.value), instagram: ig.value, steam: st.value, nr: nr.value, bcp: bc.value }) };
   }
-  f.append(arriba, wNombre, wEmail, wTel, wDisc);
+  f.append(comp ? avisos : arriba, wNombre, wEmail, wTel, wDisc);
   if (!comp) f.appendChild(wSteam);
   f.append(fsEdad, fsJuegos, fsJuego, fsPintura, wComo);
   if (ficha) f.appendChild(ficha.fsF);
   f.appendChild(fsAcepta);
+  if (comp) f.appendChild(arriba);
   sec.appendChild(f);
   // Datos que ya teníamos (al completar).
   if (comp) {
@@ -317,7 +321,7 @@ function formulario(cuenta) {
       const ul = el("ul");
       fallos.forEach(([t, donde, control]) => { ul.appendChild(el("li", "", t)); donde.appendChild(el("p", "falta", t)); (control || donde).classList.add("inval"); });
       r.appendChild(ul); avisos.appendChild(r);
-      arriba.scrollIntoView({ block: "start", behavior: "smooth" });
+      (comp ? avisos : arriba).scrollIntoView({ block: "start", behavior: "smooth" });
       return;
     }
     ok.disabled = true;
@@ -329,7 +333,7 @@ function formulario(cuenta) {
         como_otro: como.value === "otro" ? comoOtro.value : "", acepta_estatutos: cEst.checked, consentimiento: cDat.checked,
         ficha: ficha ? ficha.valor() : undefined }) });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) { avisoArriba(avisos, d.error || (comp ? "No se pudieron guardar tus datos." : "No se pudo enviar la inscripción.")); ok.disabled = false; return; }
+      if (!r.ok) { avisoArriba(avisos, d.error || (comp ? "No se pudieron guardar tus datos." : "No se pudo enviar la inscripción.")); ok.disabled = false; if (comp) avisos.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
       if (comp) {
         try { sessionStorage.clear(); } catch (e) {}
         const box = $("estado"); box.textContent = "";
