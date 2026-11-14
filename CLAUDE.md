@@ -126,8 +126,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   inscripciones, partidas que creó, votos, bendiciones, trofeos y avisos, y quita su vínculo con la liga; las fotos de
   la galería y los posts se quedan. Si su sesión sigue abierta, `/api/me` la cierra.
 - Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos). Antigüedad en la
-  ficha de Miembros («En el club desde mayo de 2025 · 1 año y 6 meses») y en la ficha rápida, y un galón dorado por año
-  completo junto a la foto (`window.abAntiguedad` y `window.abGalones` en `public/trofeos.js`; solo con sesión).
+  ficha de Miembros («En el club desde mayo de 2025 · 1 año y 6 meses») y en la ficha rápida, y una tachuela de servicio
+  («service stud»: tachuela dorada sobre pletina de hierro, hasta 5 y luego «×N») por año completo junto a la foto (`window.abAntiguedad` y `window.abGalones` en `public/trofeos.js`; solo con sesión).
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
   (migración 0030); en Miembros salen con la etiqueta «Desconectado» hasta su primer inicio de sesión, que lo pone a 1.
 

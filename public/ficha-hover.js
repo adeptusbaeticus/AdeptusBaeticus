@@ -15,7 +15,7 @@
 .abf-cab{display:flex;gap:12px;align-items:center}
 .abf-lau{position:relative;display:inline-flex;flex:none;margin:8px}
 .abf-lau.sin{margin:0}
-.abf-lau .galones{display:block;line-height:0;position:absolute;right:-14px;bottom:-4px;padding:3px 3px 2px;border-radius:7px;background:#15171A;border:1px solid #6B5A2E;box-shadow:0 2px 4px rgba(0,0,0,.6)}
+.abf-lau .galones{display:block;line-height:0;position:absolute;right:-12px;bottom:-2px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7))}
 .abf-lau .laurel{position:absolute;left:-17%;top:-17%;width:134%;height:134%;pointer-events:none;overflow:visible}
 .abf-cab>div:nth-child(2){flex:1;min-width:0}
 .abf-tro{display:flex;flex-wrap:wrap;gap:6px 12px;margin-left:auto;justify-content:flex-end;align-items:flex-end}

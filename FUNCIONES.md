@@ -193,7 +193,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
     usadas);
   - ranking ELO;
   - **trofeos** (en cascada si se repiten);
-  - **Antigüedad**: «En el club desde mayo de 2025 · 1 año y 6 meses», y un **galón** dorado por cada año en el club
+  - **Antigüedad**: «En el club desde mayo de 2025 · 1 año y 6 meses», y una **tachuela de servicio** dorada (sobre una pletina de hierro; hasta 5 y luego «×N») por cada año en el club
     junto a la foto (también en el listado y en la ficha rápida).
   - Para socios con sesión, además, sus **cuentas**: Discord, Instagram, Steam, New Recruit y BCP.
 - **Editar mi ficha:** lleva a «Mis datos».

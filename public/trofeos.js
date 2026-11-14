@@ -136,17 +136,37 @@ function copa(puesto, modalidad) {
     const y = a.anios ? a.anios + (a.anios === 1 ? " año" : " años") : "", mm = a.meses ? a.meses + (a.meses === 1 ? " mes" : " meses") : "";
     return y && mm ? y + " y " + mm : y || mm || "menos de un mes";
   }
-  // Galones: uno dorado por cada año completo en el club (hasta 5 dibujados, «×N» si hay más). null si no lleva.
+  // Tachuelas de servicio («service studs»): una tachuela de metal abombada por cada año completo en el club, en fila
+  // sobre una pletina de hierro (hasta 5 dibujadas, «×N» si hay más). null si no lleva ninguna.
   function galones(alta, grande) {
     const a = antiguedad(alta);
     if (!a || !a.anios) return null;
-    const ns = "http://www.w3.org/2000/svg", n = Math.min(a.anios, 5), ancho = grande ? 26 : 20, paso = grande ? 7 : 5.5;
+    const ns = "http://www.w3.org/2000/svg", n = Math.min(a.anios, 5), mas = a.anios > 5;
+    const W = 4 + n * 9 + (mas ? 12 : 0), H = 12, esc = grande ? 1.5 : 1.15;
     const sv = document.createElementNS(ns, "svg");
-    const alto = 8 + (n - 1) * paso * (20 / ancho);
-    sv.setAttribute("viewBox", "0 0 20 " + alto.toFixed(1));
-    sv.setAttribute("width", String(ancho));
-    sv.setAttribute("height", (alto * ancho / 20).toFixed(1));
+    const add = (tag, at, padre) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); (padre || sv).appendChild(e); return e; };
+    sv.setAttribute("viewBox", "0 0 " + W + " " + H);
+    sv.setAttribute("width", (W * esc).toFixed(1));
+    sv.setAttribute("height", (H * esc).toFixed(1));
     sv.setAttribute("aria-hidden", "true");
+    const id = "t" + Math.random().toString(36).slice(2, 8);
+    const defs = add("defs", {});
+    const g = add("radialGradient", { id, cx: "35%", cy: "30%", r: "70%" }, defs);
+    add("stop", { offset: "0", "stop-color": "#FFF4CF" }, g); add("stop", { offset: ".35", "stop-color": "#E3B95A" }, g);
+    add("stop", { offset: ".8", "stop-color": "#8A6416" }, g); add("stop", { offset: "1", "stop-color": "#4A3208" }, g);
+    // Pletina de hierro con dos remaches pequeños en los extremos.
+    add("rect", { x: "0.5", y: "1.5", width: W - 1, height: "9", rx: "2.2", fill: "#2A2C30", stroke: "#0E0F11", "stroke-width": "0.8" });
+    add("rect", { x: "1.2", y: "2.1", width: W - 2.4, height: "1.3", rx: "0.6", fill: "#5A5E66", opacity: ".55" });
+    for (let i = 0; i < n; i++) {
+      const cx = 6.5 + i * 9;
+      add("circle", { cx: cx + 0.5, cy: "6.9", r: "3.5", fill: "#000", opacity: ".55" }); // sombra
+      add("circle", { cx, cy: "6", r: "3.5", fill: `url(#${id})`, stroke: "#3A2808", "stroke-width": "0.5" });
+      add("circle", { cx: cx - 1.1, cy: "4.9", r: "0.9", fill: "#FFFBEA", opacity: ".85" }); // brillo
+    }
+    if (mas) {
+      const tx = add("text", { x: W - 6.5, y: "8.6", "text-anchor": "middle", "font-size": "6.5", "font-weight": "700", fill: "#E3B95A", "font-family": "Inter,sans-serif" });
+      tx.textContent = "×" + a.anios;
+    }
     // El texto va en un envoltorio (fuera del SVG) para que se traduzca.
     const w = document.createElement("span");
     w.className = "galones";
@@ -154,23 +174,6 @@ function copa(puesto, modalidad) {
     w.title = a.anios === 1 ? "1 año en el club" : a.anios + " años en el club";
     w.setAttribute("aria-label", w.title);
     w.appendChild(sv);
-    for (let i = 0; i < n; i++) {
-      const y = 1.5 + i * paso * (20 / ancho);
-      for (const [c, g] of [["#3A2A0E", 4.2], ["#E3B95A", 2.6]]) {
-        const p = document.createElementNS(ns, "path");
-        p.setAttribute("d", `M2 ${y.toFixed(1)}L10 ${(y + 4.5).toFixed(1)}L18 ${y.toFixed(1)}`);
-        p.setAttribute("fill", "none"); p.setAttribute("stroke", c); p.setAttribute("stroke-width", String(g));
-        p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round");
-        sv.appendChild(p);
-      }
-    }
-    if (a.anios > 5) {
-      const tx = document.createElementNS(ns, "text");
-      tx.setAttribute("x", "10"); tx.setAttribute("y", (alto + 6).toFixed(1)); tx.setAttribute("text-anchor", "middle");
-      tx.setAttribute("font-size", "7"); tx.setAttribute("font-weight", "700"); tx.setAttribute("fill", "#E3B95A");
-      tx.textContent = "×" + a.anios; sv.appendChild(tx);
-      sv.setAttribute("viewBox", "0 0 20 " + (alto + 8).toFixed(1)); sv.setAttribute("height", ((alto + 8) * ancho / 20).toFixed(1));
-    }
     return w;
   }
   window.abAntiguedad = textoAntiguedad;
