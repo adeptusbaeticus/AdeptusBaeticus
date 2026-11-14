@@ -133,6 +133,8 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .fld label.rad .mo{margin:0 2px}
 /* Iconos de modalidad de juego (iconos-juego.js) */
 .ij{display:inline-flex;vertical-align:-2px;margin-right:4px}
+@media (min-width:601px){.e .solo-movil{display:none}}
+@media (max-width:600px){.e .solo-pc{display:none}}
 .ij svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 #det h3 .ij{vertical-align:-3px;margin-right:6px}#det h3 .ij svg{width:22px;height:22px}
 .ag-i .tt strong .ij{display:inline-flex;vertical-align:-3px;margin-right:6px}.ag-i .tt strong .ij svg{width:17px;height:17px}
@@ -514,8 +516,8 @@ function renderAgenda() {
         const av = p.availability.find((x) => x.date === dia);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from : "";
         const sub = p.starts_at ? "Partida" : av ? "Partida · disponible " + av.from + "–" + av.to : "Partida";
-        const b = fila("ag-p" + (p.status === "completa" || partidaCerrada(p) ? " ag-x" : ""), hora, CORTO[p.activity] + " · " + p.organiza, sub, false, p.modo);
-        const ija = iconoJuego(p.activity); if (ija) b.querySelector("strong").prepend(ija);
+        const b = fila("ag-p" + (p.status === "completa" || partidaCerrada(p) ? " ag-x" : ""), hora, textoModalidad(p.activity) + " · " + p.organiza, sub, false, p.modo);
+        const ija = iconoJuego(es40k(p.activity) ? "40k" : p.activity); if (ija) b.querySelector("strong").prepend(ija);
         b.onclick = () => { marca(b); showPartida(p); irAFicha(); };
         mete(dia, hora || "99", b);
       });
@@ -611,8 +613,13 @@ function render() {
         // Hora fijada o, si aún no la hay, la franja ofrecida ese día.
         const av = p.availability.find((x) => x.date === key);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
-        b.textContent = (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza;
-        const ijc = iconoJuego(p.activity); if (ijc) b.prepend(ijc);
+        // Ordenador: icono, hora y quien organiza. Móvil: además la modalidad (en 40k, icono «40K» y los puntos).
+        const ipc = iconoJuego(p.activity), imv = iconoJuego(es40k(p.activity) ? "40k" : p.activity);
+        if (ipc) { ipc.classList.add("solo-pc"); b.appendChild(ipc); }
+        if (imv) { imv.classList.add("solo-movil"); b.appendChild(imv); }
+        b.append((hora ? hora + " · " : ""));
+        const nm = document.createElement("span"); nm.className = "solo-movil"; nm.textContent = textoModalidad(p.activity) + " · ";
+        b.append(nm, p.organiza);
         modosDe(p.modo).forEach((x) => modosDia.add(x));
         b.appendChild(cuadrosModo(p.modo));
         b.onclick = () => { showPartida(p); irAFicha(); };
@@ -961,6 +968,9 @@ function reloadMine() {
 // ===== Partidas =====
 let partidas = [];
 const CORTO = { combat_patrol: "Combat Patrol", "40k_1000": "40k a 1K", "40k_2000": "40k a 2K", necromunda: "Necromunda", bloodbowl: "Blood Bowl" };
+// En el móvil, 40k se muestra con el icono «40K» y los puntos en el texto.
+const es40k = (a) => a === "40k_1000" || a === "40k_2000";
+const textoModalidad = (a) => (a === "40k_1000" ? "1000 pts" : a === "40k_2000" ? "2000 pts" : CORTO[a] || a);
 const JUEGOS = ACTS.filter(([v]) => v !== "ver" && v !== "pintar");
 
 // Hora local del navegador con el formato de starts_at (el servidor valida con la hora de Madrid).

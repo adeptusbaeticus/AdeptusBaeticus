@@ -11,6 +11,8 @@
     combat_patrol: ["Combat Patrol", [[MARCO, false, 1.1], ["texto", "COMBAT", 7.4, 4, 11], ["texto", "PATROL", 12.1, 4, 11]]],
     // 40k: placa con «40K» y, debajo, los puntos («1K» o «2K»).
     "40k_1000": ["40k a 1K", [[MARCO, false, 1.1], ["texto", "40K", 7.5, 5.2, 9.4], ["texto", "1K", 13, 5.2, 6.6]]],
+    // 40k a secas (en el móvil; los puntos van en el texto).
+    "40k": ["40k", [[MARCO, false, 1.1], ["texto", "40K", 10.3, 6.4, 11]]],
     "40k_2000": ["40k a 2K", [[MARCO, false, 1.1], ["texto", "40K", 7.5, 5.2, 9.4], ["texto", "2K", 13, 5.2, 6.6]]],
     // Necromunda: máscara de gas angulosa de pandillero de la colmena, con cresta de púas.
     necromunda: ["Necromunda", [
