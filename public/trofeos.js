@@ -79,9 +79,9 @@ function copa(puesto, modalidad) {
 
   // Corona de laurel alrededor de la foto del socio: verde para los miembros y roja para el admin (los aspirantes no
   // llevan). Dos ramas de hojas que suben desde un lazo abajo hasta casi arriba, dejando libre la parte de arriba.
-  // Con `alta`, cada año completo en el club dora un par de hojas (una por lado), de abajo (junto al lazo) hacia arriba.
+  // Con `alta`, cada medio año completo en el club dora un par de hojas (una por lado), de abajo (junto al lazo) hacia arriba.
   function laurel(rol, alta) {
-    const anios = (alta && antiguedad(alta) || { anios: 0 }).anios;
+    const a = alta && antiguedad(alta), anios = a ? Math.floor((a.anios * 12 + a.meses) / 6) : 0; // medios años
     const colores = { miembro: ["#9DB05C", "#5E6B36"], admin: ["#E0574C", "#7A1712"] }[rol];
     if (!colores) return null;
     const [hoja, oscuro] = colores;
@@ -148,10 +148,10 @@ function copa(puesto, modalidad) {
     const y = a.anios ? a.anios + (a.anios === 1 ? " año" : " años") : "", mm = a.meses ? a.meses + (a.meses === 1 ? " mes" : " meses") : "";
     return y && mm ? y + " y " + mm : y || mm || "menos de un mes";
   }
-  // «1 año en el club» / «N años en el club» (título de la corona), o "" si aún no lleva un año.
+  // «En el club: 1 año y 7 meses» (título de la corona), o "" si aún no lleva medio año.
   function aniosClub(alta) {
     const a = antiguedad(alta);
-    return a && a.anios ? (a.anios === 1 ? "1 año en el club" : a.anios + " años en el club") : "";
+    return a && (a.anios || a.meses >= 6) ? "En el club: " + textoAntiguedad(alta) : "";
   }
   window.abAntiguedad = textoAntiguedad;
   window.abAniosClub = aniosClub;
