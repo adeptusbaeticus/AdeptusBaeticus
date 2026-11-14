@@ -377,7 +377,7 @@ function lineaModo(modo, lugar) {
   const t = document.createElement("span");
   t.textContent = modo === "online" ? "Online (TTS)" : modo === "ambos" ? "Físico u online (TTS)" : "Físico";
   p.append(iconoModo(modo), t);
-  if (lugar) { const l = document.createElement("span"); l.textContent = "· " + lugar; if (lugar !== "En el club") l.setAttribute("translate", "no"); p.appendChild(l); }
+  if (lugar) { const l = document.createElement("span"); l.textContent = lugar; if (lugar !== "A decidir") l.setAttribute("translate", "no"); p.append("·", l); }
   return p;
 }
 
@@ -964,7 +964,7 @@ function showPartida(p) {
   };
   add("span", "lb", "Partida");
   add("h3", "", partidaTitulo(p));
-  box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || (p.modo === "ambos" ? "" : "En el club")));
+  box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || (p.modo === "ambos" ? "" : "A decidir")));
   add("p", "m", "Organiza: " + p.organiza);
   if (p.starts_at) add("p", "", fechaLarga(p.starts_at.slice(0, 10)) + " · " + p.starts_at.slice(11, 16));
   else {
@@ -989,7 +989,7 @@ function showPartida(p) {
   else add("p", "", names("A", p.team_a).join(" y ") + " contra " + names("B", p.team_b).join(" y "));
 
   const cerrada = partidaCerrada(p);
-  if (p.status === "completa") add("p", "ok", p.modo === "online" || p.lugar ? "Completa" : "Completa · " + (p.mesa ? "Mesa " + p.mesa : "sin mesa libre: avisa a un admin"));
+  if (p.status === "completa") add("p", "ok", p.mesa ? "Completa · Mesa " + p.mesa : "Completa");
   else if (!cerrada) add("p", "m", "Abierta · falta" + (p.faltan > 1 ? "n " : " ") + p.faltan + " jugador" + (p.faltan > 1 ? "es" : ""));
   if (cerrada) { add("p", "m", "La partida está cerrada."); return; }
 
@@ -1087,7 +1087,7 @@ function showPartida(p) {
       const lg = document.createElement("legend");
       lg.textContent = "¿Cómo jugáis?";
       fs.appendChild(lg);
-      [["fisico", p.lugar ? "Físico" : "Físico (en el club)"], ["online", "Online (TTS)"]].forEach(([v, txt]) => {
+      [["fisico", p.lugar ? "Físico" : "Físico (lugar a decidir)"], ["online", "Online (TTS)"]].forEach(([v, txt]) => {
         const l = document.createElement("label");
         l.className = "rad";
         const r = document.createElement("input");
@@ -1128,7 +1128,7 @@ function openPartidaForm() {
   const wSide = mkField("¿Cómo vas en el 1vs2?", side);
   const wNp = mkField("Número de participantes (contándote a ti)", np);
 
-  // Físico (en el club o donde se indique) u online (Tabletop Simulator).
+  // Físico (donde se indique, o «A decidir») u online (Tabletop Simulator).
   const fsModo = document.createElement("fieldset");
   fsModo.className = "fld";
   const lgModo = document.createElement("legend");
@@ -1148,11 +1148,11 @@ function openPartidaForm() {
   ayModo.textContent = "Puedes marcar las dos: quien se una elegirá cómo jugáis.";
   fsModo.appendChild(ayModo);
   const lugar = document.createElement("input");
-  lugar.id = "bp-lugar"; lugar.maxLength = 120; lugar.placeholder = "En el club (2d6 Store)";
+  lugar.id = "bp-lugar"; lugar.maxLength = 120; lugar.placeholder = "A decidir";
   const wLugar = mkField("Lugar (opcional)", lugar);
   const ayLugar = document.createElement("p");
   ayLugar.className = "m";
-  ayLugar.textContent = "Si lo dejas vacío, se juega en el club y se asigna mesa.";
+  ayLugar.textContent = "Por ejemplo: 2d6 Store o casa de alguien. Si lo dejas vacío, queda «A decidir» y lo acordáis entre los jugadores.";
   wLugar.appendChild(ayLugar);
   fsModo.appendChild(wLugar);
   // «fisico», «online», «ambos» o "" si no hay ninguna marcada.

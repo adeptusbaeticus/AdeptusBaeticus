@@ -268,7 +268,7 @@ function parsePartida(b, now) {
   }
   if (!availability.length) return { error: "Marca al menos un día con sus horas" };
   availability.sort((x, y) => (x.date < y.date ? -1 : 1));
-  // Físico (en el club si no se indica lugar), online (Tabletop Simulator) o ambos (lo elige quien se une).
+  // Físico (en el lugar indicado o «A decidir» si se deja vacío), online (Tabletop Simulator) o ambos (lo elige quien se une).
   // Sin el dato (versiones antiguas de la página) se toma físico; vacío o raro, se avisa.
   const modo = b.modo == null ? "fisico" : b.modo;
   if (!["fisico", "online", "ambos"].includes(modo)) return { error: "Marca si buscas jugar en físico, online (TTS) o las dos" };
@@ -283,11 +283,6 @@ const inAvailability = (av, slot) =>
   /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):00$/.test(slot) &&
   av.some((x) => x.date === slot.slice(0, 10) && slot.slice(11) >= x.from && slot.slice(11) < x.to);
 
-// Primera mesa libre (1-5): ocupada si otra partida completa empieza a menos de 3 horas.
-const MESA_SQL = `(SELECT n FROM (SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5)
-  WHERE n NOT IN (SELECT q.mesa FROM partidas q WHERE q.id<>partidas.id AND q.status='completa' AND q.mesa IS NOT NULL
-    AND abs(julianday(q.starts_at) - julianday(partidas.starts_at)) * 24 < 3)
-  ORDER BY n LIMIT 1)`;
 
 // Partidas recientes (o una) con sus jugadores, vistas por el usuario `uid`.
 async function listPartidas(env, uid, id) {
@@ -959,7 +954,7 @@ async function calendarioEventos(env, uid) {
     let fin = sumaHoras(p.starts_at, 3);
     try { const av = JSON.parse(p.availability).find((x) => x.date === p.starts_at.slice(0, 10)); if (av && av.to > p.starts_at.slice(11, 16)) fin = p.starts_at.slice(0, 11) + av.to; } catch (e) {}
     ev.push({ uid: "partida-" + p.id, inicio: p.starts_at, fin, titulo: "⚔️ " + (MODALIDAD[p.activity] || "Partida") + (p.rivales ? " · " + p.rivales : ""),
-      lugar: p.modo === "online" ? "Online (TTS)" : p.modo === "ambos" ? "Físico u online (TTS)" + (p.lugar ? " · " + p.lugar : "") : p.lugar || (p.mesa ? "Mesa " + p.mesa : null), url: WEB + "/calendario.html?partida=" + p.id });
+      lugar: p.modo === "online" ? "Online (TTS)" : p.modo === "ambos" ? "Físico u online (TTS)" + (p.lugar ? " · " + p.lugar : "") : p.lugar || (p.mesa ? "Mesa " + p.mesa : "A decidir"), url: WEB + "/calendario.html?partida=" + p.id });
   }
   // Tu partida de cada ronda de la Gran Liga (todo el periodo de la ronda) y su cierre.
   const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
@@ -2436,7 +2431,7 @@ export default {
                AND EXISTS (SELECT 1 FROM partida_players WHERE partida_id=?1 AND discord_id=?3)`
           ).bind(pid, modoElegido || "fisico", s.id),
           env.DB.prepare(
-            `UPDATE partidas SET status='completa', mesa=CASE WHEN modo='fisico' AND lugar IS NULL THEN ${MESA_SQL} END
+            `UPDATE partidas SET status='completa'
              WHERE id=?1 AND status='abierta' AND (SELECT COUNT(*) FROM partida_players WHERE partida_id=?1) >= team_a + team_b`
           ).bind(pid),
         ]);

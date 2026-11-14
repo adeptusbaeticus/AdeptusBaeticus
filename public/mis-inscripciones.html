@@ -240,7 +240,7 @@ async function loadPartidas() {
       : names("A", p.team_a).join(" y ") + " contra " + names("B", p.team_b).join(" y ")));
     const c = cerrada(p);
     if (c) info.appendChild(el("div", "st", "Cerrada"));
-    else if (p.status === "completa") info.appendChild(el("div", "st ok", "Completa · " + (p.mesa ? "Mesa " + p.mesa : "sin mesa libre")));
+    else if (p.status === "completa") info.appendChild(el("div", "st ok", p.mesa ? "Completa · Mesa " + p.mesa : "Completa"));
     else info.appendChild(el("div", "st w", "Abierta · falta" + (p.faltan > 1 ? "n " : " ") + p.faltan));
     row.appendChild(info);
     if (!c) {
