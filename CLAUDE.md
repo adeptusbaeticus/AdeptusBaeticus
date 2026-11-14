@@ -242,7 +242,12 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   empate 0,5), partida a partida en orden (`eloPartidas`: fecha de la ronda, fase, ronda y mesa; todas las fases desde
   la Gran Liga 2026; sin las perdidas por abandono; jugador = su cuenta de la web o, sin ella, su fila de la liga).
   `eloCalcula` lo rehace de cero tras cada sincronización de resultados y una vez al día (`eloDiario` en `scheduled`)
-  y lo guarda en `nr_cache` `elo:club`. Hasta `ELO.minimo` (10) partidas, «Clasificando»; después, título por puesto
-  entre los clasificados (`ELO_TITULOS`: Maestro top 20 %, Oro 40 %, Plata 60 %, Bronce 80 %, Aprendiz) y número.
-  `/api/miembros` lo da en `m.elo`. Torneos puntuales: preparado en `eloPartidas` (sus partidas con su fecha en
+  y lo guarda en `nr_cache` `elo:club` (`{ minimo, jugadores }`, con el historial `h` de cada uno: fecha, liga y
+  ronda, rival, PV, cambio y ELO tras la partida). Partidas para dejar de estar «Clasificando»: ajuste `elo_minimo` en
+  Admin («ELO del club», `/api/admin/elo`, 10 por defecto; 0 = salen todos; al cambiarlo se recalcula). Después,
+  título por puesto entre los socios clasificados (`ELO_TITULOS`: Maestro top 20 %, Oro 40 %, Plata 60 %, Bronce 80 %,
+  Aprendiz) y número. `/api/miembros` lo da en `m.elo`; `/api/elo` (público) da clasificados, «clasificando» (con al
+  menos una partida), historiales y nombres para `elo.html` («Ranking ELO», botón en Miembros): tabla, mini gráfica de
+  las últimas 5 partidas al pasar el ratón y, al pulsar, gráfica de toda la evolución arriba (con scroll hasta ella) y
+  la lista de partidas; `elo.html#ID` la abre directamente. Torneos puntuales: preparado en `eloPartidas` (sus partidas con su fecha en
   `orden`), de momento ninguno.

@@ -86,6 +86,19 @@ table.lj select{min-width:220px}
     <div class="card" style="margin-top:24px">
       <div class="row" style="margin:0">
         <div>
+          <strong>ELO del club</strong>
+          <div class="m">Partidas que hay que jugar para dejar de estar «Clasificando» y salir en la clasificación (0 = salen todos).</div>
+        </div>
+        <form class="acts" id="eloform" style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="elomin" min="0" max="100" step="1" required aria-label="Partidas para clasificar" style="width:90px;min-height:44px;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit">
+          <button class="chip" type="submit">Guardar</button>
+        </form>
+      </div>
+      <p class="m" id="elomsg" style="margin:8px 0 0;min-height:20px"></p>
+    </div>
+    <div class="card" style="margin-top:24px">
+      <div class="row" style="margin:0">
+        <div>
           <strong>Efectos de Navidad</strong>
           <div class="m" id="navstat">Nieve ligera, nieve sobre las tarjetas y luces en el menú, para todos. En automático, del 8 de diciembre al 7 de enero (con «¡Feliz año!» del 1 al 7 de enero).</div>
         </div>
@@ -189,6 +202,20 @@ navBotones().forEach((bt) => { bt.onclick = async () => {
   } catch (e) { $("navmsg").textContent = e.message || "No se pudo guardar."; }
   navBotones().forEach((b) => { b.disabled = false; });
 }; });
+// ELO del club: partidas para salir de «Clasificando».
+async function eloMin() {
+  try { const d = await (await fetch("/api/admin/elo")).json(); $("elomin").value = d.minimo; } catch (e) { $("elomsg").textContent = "No se pudo comprobar."; }
+}
+$("eloform").onsubmit = async (ev) => {
+  ev.preventDefault();
+  $("elomsg").textContent = "";
+  try {
+    const r = await fetch("/api/admin/elo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ minimo: Number($("elomin").value) }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "No se pudo guardar.");
+    $("elomsg").textContent = "Guardado. Clasificados ahora: " + d.clasificados + ".";
+  } catch (e) { $("elomsg").textContent = e.message || "No se pudo guardar."; }
+};
 // FAQ: copia del canal #preguntas-frecuentes (se renueva sola cada 6 h; aquí, al momento).
 async function faqStatus() {
   try {
@@ -319,7 +346,7 @@ $("dreg").onclick = async () => {
 };
 
 fetch("/api/me").then((r) => r.json()).then((me) => {
-  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; navidad(); discordStatus(); faqStatus(); nrStatus(); socios(); }
+  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; navidad(); eloMin(); discordStatus(); faqStatus(); nrStatus(); socios(); }
   else $("gate").textContent = me && !me.invitado ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
 }).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
 </script>

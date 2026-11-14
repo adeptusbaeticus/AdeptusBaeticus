@@ -1698,7 +1698,7 @@ async function nrSync(env, tipo, idTorneo) {
       : texto;
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(clave, guardar).run();
     // Con los resultados nuevos se recalcula el ELO del club.
-    const elo = tipo === "reports" ? await eloCalcula(env).then((x) => ({ ok: true, jugadores: x.length })).catch((e) => ({ ok: false, error: String(e.message || e) })) : null;
+    const elo = tipo === "reports" ? await eloCalcula(env).then((x) => ({ ok: true, jugadores: x.jugadores.length })).catch((e) => ({ ok: false, error: String(e.message || e) })) : null;
     await avisoEstado(env, "nr-" + tipo, tipo === "reports" ? "la sincronización de resultados con New Recruit" : "la sincronización del torneo con New Recruit", null);
     return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json), liga, elo };
   } catch (e) {
@@ -1816,16 +1816,21 @@ async function ligaAuto(env, fase) {
 // ===== ELO del club =====
 // Propio (no el de New Recruit): todos empiezan en 1500 y cada partida jugada lo mueve con la fórmula de Elo (K = 32;
 // victoria 1, empate 0,5, derrota 0). Se recalcula de cero, partida a partida en orden, cada vez que llegan resultados
-// de New Recruit y una vez al día, y se guarda en nr_cache (clave 'elo:club'). Hasta 10 partidas, «Clasificando».
+// de New Recruit y una vez al día, y se guarda en nr_cache (clave 'elo:club', con el historial de cada jugador). Hasta
+// N partidas, «Clasificando» (N lo fija el admin: ajuste 'elo_minimo', 10 por defecto; con 0 salen todos).
 // Títulos por puesto entre los ya clasificados: Maestro (top 20 %), Oro (40 %), Plata (60 %), Bronce (80 %), Aprendiz.
 const ELO = { inicial: 1500, k: 32, minimo: 10, clave: "elo:club" };
+async function eloMinimo(env) {
+  const n = parseInt(await ajuste(env, "elo_minimo"), 10);
+  return Number.isInteger(n) && n >= 0 && n <= 100 ? n : ELO.minimo;
+}
 const ELO_TITULOS = [[0.2, "Maestro"], [0.4, "Oro"], [0.6, "Plata"], [0.8, "Bronce"], [1, "Aprendiz"]];
 // Partidas que cuentan, en orden. Cada una: { orden, a, b, pa, pb } (a y b: cuenta de la web, o el jugador de la liga
 // si no la tiene). Gran Liga: todas las fases (pasadas y en curso), desde la primera partida de la Gran Liga 2026,
 // por la fecha de su ronda y después ronda y mesa; no cuentan las perdidas por abandono (no se jugaron).
 async function eloPartidas(env) {
   const liga = (await env.DB.prepare(
-    `SELECT f.inicio, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb
+    `SELECT f.inicio, f.nombre AS liga, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb
      FROM liga_partidas p JOIN liga_fases f ON f.id=p.fase_id
      JOIN liga_jugadores a ON a.id=p.jugador_a JOIN liga_jugadores b ON b.id=p.jugador_b
      WHERE p.pv_a IS NOT NULL AND p.pv_b IS NOT NULL AND p.abandono IS NULL`
@@ -1834,28 +1839,44 @@ async function eloPartidas(env) {
   const partidas = liga.map((p) => ({
     orden: masDias(p.inicio.slice(0, 10), 14 * (p.ronda - 1)) + " " + p.inicio + " " + n3(p.ronda) + " " + n3(p.mesa),
     a: p.da || "j" + p.ja, b: p.db || "j" + p.jb, pa: p.pv_a, pb: p.pv_b,
+    fecha: masDias(p.inicio.slice(0, 10), 14 * (p.ronda - 1)), etq: p.liga + " · R" + p.ronda,
   }));
-  // Torneos puntuales (todavía no): sus partidas se añadirían aquí con el mismo formato, con su fecha («YYYY-MM-DD …»)
-  // al principio de `orden` para que se intercalen con las de la liga por fecha.
+  // Torneos puntuales (todavía no): sus partidas se añadirían aquí con el mismo formato (con `fecha`, `etq` = nombre
+  // del torneo y su ronda, y la fecha «YYYY-MM-DD …» al principio de `orden` para que se intercalen por fecha).
   return partidas.sort((x, y) => (x.orden < y.orden ? -1 : x.orden > y.orden ? 1 : 0));
 }
+// Historial de cada jugador: { f: fecha, l: liga y ronda, r: rival, m/s: PV propios y del rival, d: cambio, e: ELO tras
+// la partida } (cambio y ELO redondeados, para que cuadren entre sí).
 async function eloCalcula(env) {
+  const minimo = await eloMinimo(env);
   const t = new Map();
-  const de = (id) => { if (!t.has(id)) t.set(id, { id, elo: ELO.inicial, n: 0, v: 0, e: 0, d: 0 }); return t.get(id); };
+  const de = (id) => { if (!t.has(id)) t.set(id, { id, elo: ELO.inicial, n: 0, v: 0, e: 0, d: 0, h: [] }); return t.get(id); };
   for (const p of await eloPartidas(env)) {
     const A = de(p.a), B = de(p.b);
     const esperado = 1 / (1 + Math.pow(10, (B.elo - A.elo) / 400));
     const res = p.pa > p.pb ? 1 : p.pa < p.pb ? 0 : 0.5;
     const cambio = ELO.k * (res - esperado);
+    const ra = Math.round(A.elo), rb = Math.round(B.elo);
     A.elo += cambio; B.elo -= cambio; A.n++; B.n++;
     if (res === 1) { A.v++; B.d++; } else if (res === 0) { A.d++; B.v++; } else { A.e++; B.e++; }
+    A.h.push({ f: p.fecha, l: p.etq, r: p.b, m: p.pa, s: p.pb, d: Math.round(A.elo) - ra, e: Math.round(A.elo) });
+    B.h.push({ f: p.fecha, l: p.etq, r: p.a, m: p.pb, s: p.pa, d: Math.round(B.elo) - rb, e: Math.round(B.elo) });
   }
   const todos = [...t.values()].map((x) => ({ ...x, elo: Math.round(x.elo) }));
-  const clasif = todos.filter((x) => x.n >= ELO.minimo).sort((a, b) => b.elo - a.elo || b.n - a.n);
+  // Clasificados: solo socios con cuenta en la web (los jugadores sin ella cuentan como rivales, pero no salen).
+  const clasif = todos.filter((x) => !x.id.startsWith("j") && x.n >= minimo).sort((a, b) => b.elo - a.elo || b.n - a.n);
   clasif.forEach((x, i) => { x.pos = i + 1; x.total = clasif.length; x.titulo = ELO_TITULOS.find(([q]) => (i + 1) / clasif.length <= q + 1e-9)[1]; });
+  const datos = { minimo, jugadores: todos };
   await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now'), error=NULL")
-    .bind(ELO.clave, JSON.stringify(todos)).run();
-  return todos;
+    .bind(ELO.clave, JSON.stringify(datos)).run();
+  return datos;
+}
+// El ELO guardado (o calculado ahora si aún no está o es del formato anterior).
+async function eloDatos(env) {
+  let d = null;
+  try { d = JSON.parse(((await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(ELO.clave).first()) || {}).datos || "null"); } catch (e) {}
+  if (!d || !Array.isArray(d.jugadores)) d = await eloCalcula(env);
+  return d;
 }
 // Una vez al día (desde el temporizador), por si cambió algo sin pasar por la sincronización.
 async function eloDiario(env) {
@@ -3301,6 +3322,29 @@ export default {
     }
 
     // Socios para elegir compañero o rival (solo nombre; requiere sesión).
+    // Ranking ELO del club (público, como Miembros): clasificados, «clasificando» (con al menos una partida) y el
+    // historial de cada uno, con el nombre y la foto de cada jugador y rival.
+    if (path === "/api/elo" && request.method === "GET") {
+      const d = await eloDatos(env);
+      const us = new Map((await env.DB.prepare("SELECT discord_id, name, avatar, role FROM users").all()).results.map((u) => [u.discord_id, u]));
+      const ljs = new Map((await env.DB.prepare("SELECT id, discord, nombre FROM liga_jugadores").all()).results.map((j) => ["j" + j.id, j]));
+      const nombres = {};
+      const nombre = (id) => {
+        if (nombres[id]) return;
+        const u = us.get(id), j = ljs.get(id);
+        nombres[id] = u ? { n: u.name, a: u.avatar || null, socio: true } : j ? { n: j.discord + (j.nombre ? " (" + j.nombre + ")" : ""), socio: false } : { n: "?", socio: false };
+      };
+      const socios = d.jugadores.filter((x) => us.has(x.id) && x.n > 0);
+      socios.forEach((x) => { nombre(x.id); x.h.forEach((h) => nombre(h.r)); });
+      const fila = (x) => ({ id: x.id, elo: x.elo, n: x.n, v: x.v, e: x.e, d: x.d, pos: x.pos || null, total: x.total || null, titulo: x.titulo || null, rol: us.get(x.id).role, h: x.h });
+      return Response.json({
+        minimo: d.minimo,
+        clasificados: socios.filter((x) => x.pos).sort((a, b) => a.pos - b.pos).map(fila),
+        clasificando: socios.filter((x) => !x.pos).sort((a, b) => b.n - a.n || b.elo - a.elo).map(fila),
+        nombres,
+      }, { headers: { "cache-control": "public, max-age=60" } });
+    }
+
     // Miembros: el listado es público (nombre, foto, rol, facciones, liga y ELO); las cuentas
     // (Discord, Instagram, Steam, New Recruit, BCP) solo se entregan a los socios con sesión.
     if (path === "/api/miembros" && request.method === "GET") {
@@ -3309,15 +3353,13 @@ export default {
         "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username, conectado, alta FROM users ORDER BY name COLLATE NOCASE"
       ).all();
       // ELO del club (calculado al llegar resultados y una vez al día; si aún no está, se calcula ahora).
-      let elo = null;
-      try { elo = JSON.parse(((await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(ELO.clave).first()) || {}).datos || "null"); } catch (e) {}
-      if (!elo) elo = await eloCalcula(env).catch(() => []);
-      const porId = new Map(elo.map((x) => [x.id, x]));
+      const eloD = await eloDatos(env).catch(() => ({ minimo: ELO.minimo, jugadores: [] }));
+      const porId = new Map(eloD.jugadores.map((x) => [x.id, x]));
       const eloDe = (u) => {
         const x = porId.get(u.discord_id);
         if (!x) return null;
-        return x.n >= ELO.minimo ? { elo: x.elo, pos: x.pos, total: x.total, titulo: x.titulo, partidas: x.n, v: x.v, e: x.e, d: x.d }
-          : { clasificando: true, partidas: x.n, minimo: ELO.minimo, v: x.v, e: x.e, d: x.d };
+        return x.pos ? { elo: x.elo, pos: x.pos, total: x.total, titulo: x.titulo, partidas: x.n, v: x.v, e: x.e, d: x.d }
+          : { clasificando: true, partidas: x.n, minimo: eloD.minimo, v: x.v, e: x.e, d: x.d };
       };
       // Gran Liga (fase más reciente): clasificación como en la página de la liga (V → PV → DIF) y datos de cada jugador vinculado.
       const ligaDe = new Map();
@@ -3566,6 +3608,18 @@ export default {
       }
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
+      // ELO del club: partidas necesarias para dejar de estar «Clasificando» (0 = salen todos). Se recalcula al cambiarlo.
+      if (path === "/api/admin/elo") {
+        if (request.method === "GET") return Response.json({ minimo: await eloMinimo(env) }, { headers: noStore });
+        if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const n = Number(b.minimo);
+        if (!Number.isInteger(n) || n < 0 || n > 100) return Response.json({ error: "Tiene que ser un número entre 0 y 100" }, { status: 400, headers: noStore });
+        await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('elo_minimo', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(String(n)).run();
+        const d = await eloCalcula(env);
+        return Response.json({ ok: true, minimo: n, clasificados: d.jugadores.filter((x) => x.pos).length }, { headers: noStore });
+      }
       // Temporada: estado de la liga en curso (o ninguna) y los socios para lanzar la siguiente.
       if (path === "/api/admin/liga/temporada" && request.method === "GET") {
         const fase = await env.DB.prepare("SELECT id, nombre, nr_torneo, inicio, rondas FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();

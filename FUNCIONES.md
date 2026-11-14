@@ -183,7 +183,13 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   siguientes; no cuentan las partidas perdidas por abandono. Se recalcula al llegar resultados y una vez al día.
   Hasta 10 partidas sale «Clasificando»; después, el título y el número: **Maestro** (top 20 %), **Oro** (40 %),
   **Plata** (60 %), **Bronce** (80 %) y **Aprendiz**. Se ve en Miembros (listado y ficha) y en la ficha rápida.
-  Preparado para sumar torneos puntuales más adelante.
+  Preparado para sumar torneos puntuales más adelante. En Admin se elige cuántas partidas hacen falta para dejar de
+  estar «Clasificando» (0 = salen todos).
+- **Ranking ELO** (botón en Miembros, página `elo.html`): los socios clasificados por su ELO (puesto, título, ELO,
+  partidas y V-D-E) y, debajo, los que aún están clasificando (con al menos una partida). Al pasar el ratón por uno,
+  una gráfica de sus últimas 5 partidas (victoria, derrota o empate y cuánto subió o bajó); al pulsarlo, arriba de la
+  tabla, la gráfica de toda su evolución y todas sus partidas en orden (fecha, liga y ronda, rival, resultado, cambio y
+  ELO). Desde la ficha de Miembros, «Ver su evolución en el ranking ELO».
 - **Calendario de la liga** para el móvil.
 - **Recordatorios por Discord** (mensaje privado del bot): tu partida de cada ronda y el aviso antes del cierre.
 - Ficha rápida de cada jugador al pasar el ratón por su nombre.

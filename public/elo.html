@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ranking ELO · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#15171A">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Adeptus Baeticus">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.5 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px 64px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.nav{position:sticky;top:0;z-index:40;background:#15171A}
+html{scroll-padding-top:96px}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+.menu{display:flex;gap:24px;flex-wrap:wrap}
+.menu a{color:#ECE7DC;text-decoration:none;font-weight:500;padding:8px 0;border-bottom:2px solid transparent}
+.menu a:hover,.menu a.on{border-color:#D9B25A}
+h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
+.lead{color:#CFC9BA;margin:0 0 20px;max-width:680px}
+.m{color:#A8A293;font-size:14px}
+.ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
+.ftl{display:flex;gap:20px;flex-wrap:wrap}
+.ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
+.ftl a:hover{color:#F0CE82;text-decoration:underline}
+@view-transition{navigation:auto}
+.nav{view-transition-name:cabecera}
+.ft{view-transition-name:pie}
+::view-transition-old(cabecera),::view-transition-new(cabecera){animation:none}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+@media (max-width:1200px){.menu{gap:14px}.menu a{font-size:15px}}
+@media (max-width:600px){.menu{display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:2px 18px}.menu a{font-size:14px;padding:6px 0}}
+h2{font:700 24px Cinzel,Georgia,serif;margin:40px 0 12px}
+.acc{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.chip{display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;padding:8px 16px;border-radius:999px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:500 14px Inter,sans-serif;text-decoration:none;cursor:pointer}
+.chip:hover{border-color:#D9B25A}
+.card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:20px}
+.tabla{overflow-x:auto;padding:8px 12px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:10px 8px;border-bottom:1px solid #2C3036;text-align:center;white-space:nowrap}
+th{color:#D9B25A;font:600 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+th.izq,td.izq{text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover,tbody tr:focus-visible{background:#262A30;outline:none}
+tbody tr.sel{background:#2A2618}
+.jug{display:inline-flex;align-items:center;gap:10px}
+.av{width:30px;height:30px;border-radius:50%;object-fit:cover;background:#2A2F36;display:inline-flex;align-items:center;justify-content:center;font:700 13px Cinzel,serif;color:#D9B25A;flex:none}
+.tit{font-weight:700}
+.t-Maestro{color:#E0574C}.t-Oro{color:#E8C25A}.t-Plata{color:#C9CED6}.t-Bronce{color:#C98A4B}.t-Aprendiz{color:#9DB05C}
+.pos{color:#F0CE82;font-weight:700}
+.up{color:#9DB05C;font-weight:600}.down{color:#E0574C;font-weight:600}.eq{color:#D9B25A;font-weight:600}
+.res{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font:700 12px Inter,sans-serif;color:#15171A;margin-right:6px}
+.res.V{background:#9DB05C}.res.D{background:#E0574C}.res.E{background:#D9B25A}
+/* Gráfica grande (al pulsar un jugador) */
+#graf{margin:0 0 24px;scroll-margin-top:110px}
+.gcab{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.gcab h2{margin:0}
+.gcab .dat{color:#CFC9BA}
+.lienzo{width:100%;height:auto;display:block}
+.hist{margin-top:14px;max-height:420px;overflow:auto}
+/* Mini gráfica (al pasar el ratón) */
+.mini{position:absolute;z-index:60;background:#1F2328;border:1px solid #6B5A2E;border-radius:12px;padding:10px 12px;box-shadow:0 12px 32px rgba(0,0,0,.5);pointer-events:none;font-size:13px}
+.mini strong{display:block;font:700 14px Cinzel,Georgia,serif;margin-bottom:4px}
+@media (max-width:600px){h1{font-size:30px}.c{padding:0 16px 48px}th,td{padding:8px 5px;font-size:14px}.oc{display:none}}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a class="on" href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <span id="auth"></span>
+  </div>
+  <h1>Ranking ELO del club</h1>
+  <p class="lead">Todos empiezan en 1500 y cada partida de la Gran Liga lo mueve. Pasa el ratón por un jugador para ver sus últimas 5 partidas, o púlsalo para ver toda su evolución.</p>
+  <div class="acc"><a class="chip" href="/miembros.html">← Volver a Miembros</a></div>
+  <p class="m" id="msg">Cargando...</p>
+  <section id="graf" class="card" hidden aria-live="polite"></section>
+  <div id="app" hidden>
+    <div class="card tabla"><table id="tCla">
+      <thead><tr><th>Pos.</th><th class="izq">Jugador</th><th>Título</th><th>ELO</th><th>PJ</th><th class="oc">V-D-E</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="m" id="sinCla" hidden>Todavía no hay nadie clasificado.</p>
+    <section id="secCla" hidden>
+      <h2>Clasificando</h2>
+      <p class="m" id="notaCla"></p>
+      <div class="card tabla"><table id="tCdo">
+        <thead><tr><th class="izq">Jugador</th><th>ELO</th><th>PJ</th><th class="oc">V-D-E</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+  </div>
+  <footer class="ft">
+    <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
+    <nav class="ftl" aria-label="Enlaces">
+      <a href="/privacidad.html">Privacidad</a>
+      <a href="https://adeptus-baeticus.blogspot.com" target="_blank" rel="noopener">Blog</a>
+      <a href="https://www.instagram.com/adeptusbaeticus/" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a>
+    </nav>
+  </footer>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+const NS = "http://www.w3.org/2000/svg";
+const sv = (tag, at, padre) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (padre) padre.appendChild(e); return e; };
+const COL = { V: "#9DB05C", D: "#E0574C", E: "#D9B25A" };
+let D = null, abierto = null;
+const resDe = (h) => (h.m > h.s ? "V" : h.m < h.s ? "D" : "E");
+const signo = (d) => (d > 0 ? "+" + d : String(d));
+const clase = (d) => (d > 0 ? "up" : d < 0 ? "down" : "eq");
+const nombre = (id) => (D.nombres[id] || { n: "?" }).n;
+const fecha = (f) => f.slice(8, 10) + "/" + f.slice(5, 7) + "/" + f.slice(0, 4);
+
+function jugador(x) {
+  const s = el("span", "jug");
+  const inf = D.nombres[x.id] || {};
+  let av;
+  if (inf.a) { av = el("img", "av"); av.src = "https://cdn.discordapp.com/avatars/" + x.id + "/" + inf.a + ".png?size=64"; av.alt = ""; }
+  else av = el("span", "av", (inf.n || "?").trim().charAt(0).toUpperCase());
+  const n = el("span", "", inf.n || "?"); n.setAttribute("translate", "no");
+  s.append(av, n);
+  return s;
+}
+function fila(x, clasif) {
+  const tr = document.createElement("tr");
+  tr.tabIndex = 0;
+  tr.dataset.id = x.id;
+  const td = (c, cls) => { const t = el("td", cls || ""); if (c instanceof Node) t.appendChild(c); else t.textContent = c; tr.appendChild(t); return t; };
+  if (clasif) td(String(x.pos), "pos");
+  td(jugador(x), "izq");
+  if (clasif) td(el("span", "tit t-" + x.titulo, x.titulo));
+  td(String(x.elo));
+  td(clasif ? String(x.n) : x.n + " de " + D.minimo);
+  td(x.v + "-" + x.d + "-" + x.e, "oc");
+  tr.addEventListener("click", () => grande(x, tr));
+  tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); grande(x, tr); } });
+  tr.addEventListener("mouseenter", (e) => mini(x, tr));
+  tr.addEventListener("mouseleave", quitaMini);
+  return tr;
+}
+
+// Mini gráfica: las últimas 5 partidas (barra hacia arriba si sube el ELO, hacia abajo si baja; V, D o E debajo).
+let caja = null;
+function quitaMini() { if (caja) { caja.remove(); caja = null; } }
+function mini(x, tr) {
+  if (matchMedia("(hover: none)").matches) return;
+  quitaMini();
+  const ult = x.h.slice(-5);
+  if (!ult.length) return;
+  caja = el("div", "mini");
+  caja.setAttribute("aria-hidden", "true");
+  caja.appendChild(el("strong", "", "Últimas " + ult.length + " partidas"));
+  const W = 46 * ult.length, H = 140, base = 56, max = Math.max(8, ...ult.map((h) => Math.abs(h.d)));
+  const s = sv("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H }, caja);
+  sv("line", { x1: 0, x2: W, y1: base, y2: base, stroke: "#4A4F57", "stroke-width": 1 }, s);
+  ult.forEach((h, i) => {
+    const r = resDe(h), cx = 23 + i * 46, alto = Math.max(2, (Math.abs(h.d) / max) * 40);
+    const col = h.d > 0 ? COL.V : h.d < 0 ? COL.D : COL.E;
+    sv("rect", { x: cx - 11, y: h.d >= 0 ? base - alto : base, width: 22, height: alto, rx: 3, fill: col }, s);
+    const t = sv("text", { x: cx, y: h.d >= 0 ? base - alto - 4 : base + alto + 12, "text-anchor": "middle", fill: col, "font-size": 11, "font-weight": 700, "font-family": "Inter,sans-serif" }, s);
+    t.textContent = signo(h.d);
+    sv("circle", { cx, cy: H - 14, r: 11, fill: COL[r] }, s);
+    const l = sv("text", { x: cx, y: H - 10, "text-anchor": "middle", fill: "#15171A", "font-size": 11, "font-weight": 700, "font-family": "Inter,sans-serif" }, s);
+    l.textContent = r;
+  });
+  document.body.appendChild(caja);
+  const rr = tr.getBoundingClientRect(), w = caja.offsetWidth, h = caja.offsetHeight;
+  let x0 = rr.left + window.scrollX + Math.min(260, rr.width / 3), y0 = rr.bottom + window.scrollY + 4;
+  x0 = Math.min(x0, window.scrollX + document.documentElement.clientWidth - w - 12);
+  if (rr.bottom + h + 8 > innerHeight) y0 = rr.top + window.scrollY - h - 4;
+  caja.style.left = x0 + "px"; caja.style.top = y0 + "px";
+}
+
+// Gráfica grande, arriba de la tabla: todo el historial (ELO tras cada partida) y la tabla de partidas.
+function grande(x, tr) {
+  quitaMini();
+  const g = $("graf");
+  document.querySelectorAll("tbody tr.sel").forEach((t) => t.classList.remove("sel"));
+  if (abierto === x.id) { abierto = null; g.hidden = true; return; }
+  abierto = x.id;
+  tr.classList.add("sel");
+  g.textContent = "";
+  const cab = el("div", "gcab");
+  const h = el("h2"); h.appendChild(jugador(x));
+  const dat = el("span", "dat");
+  if (x.titulo) dat.appendChild(el("span", "tit t-" + x.titulo, x.titulo + " "));
+  dat.append("ELO " + x.elo + " · " + x.n + " partidas");
+  const cerrar = el("button", "chip", "Cerrar"); cerrar.type = "button";
+  cerrar.onclick = () => { abierto = null; g.hidden = true; tr.classList.remove("sel"); };
+  const izq = el("div"); izq.append(h, dat);
+  cab.append(izq, cerrar);
+  g.appendChild(cab);
+  // Línea del ELO: empieza en 1500 y un punto por partida (color según el resultado).
+  const pts = [{ e: 1500 }].concat(x.h);
+  // Del ancho real (en el móvil, más estrecha: así el texto no se encoge).
+  g.hidden = false;
+  const W = Math.round(Math.min(900, Math.max(300, g.clientWidth - 40))), H = W < 600 ? 220 : 280, PI = 46, PD = 12, PA = 16, PB = 30;
+  const ys = pts.map((p) => p.e), lo = Math.min(...ys, 1500) - 15, hi = Math.max(...ys, 1500) + 15;
+  const X = (i) => PI + (i * (W - PI - PD)) / Math.max(1, pts.length - 1);
+  const Y = (e) => PA + ((hi - e) * (H - PA - PB)) / (hi - lo);
+  const s = sv("svg", { viewBox: "0 0 " + W + " " + H, class: "lienzo", role: "img" }, g);
+  s.setAttribute("aria-label", "Evolución del ELO");
+  for (const v of [hi - 15, 1500, lo + 15]) {
+    sv("line", { x1: PI, x2: W - PD, y1: Y(v), y2: Y(v), stroke: v === 1500 ? "#6B6558" : "#2C3036", "stroke-dasharray": v === 1500 ? "5 4" : "", "stroke-width": 1 }, s);
+    const t = sv("text", { x: PI - 8, y: Y(v) + 4, "text-anchor": "end", fill: "#A8A293", "font-size": 12, "font-family": "Inter,sans-serif" }, s);
+    t.textContent = String(Math.round(v));
+  }
+  const camino = pts.map((p, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(p.e).toFixed(1)).join("");
+  sv("path", { d: camino + "L" + X(pts.length - 1).toFixed(1) + " " + (H - PB) + "L" + PI + " " + (H - PB) + "Z", fill: "rgba(217,178,90,.08)" }, s);
+  sv("path", { d: camino, fill: "none", stroke: "#D9B25A", "stroke-width": 2.5, "stroke-linejoin": "round" }, s);
+  pts.forEach((p, i) => {
+    if (!i) { sv("circle", { cx: X(0), cy: Y(1500), r: 4, fill: "#6B6558" }, s); return; }
+    const c = sv("circle", { cx: X(i), cy: Y(p.e), r: 5, fill: COL[resDe(p)], stroke: "#15171A", "stroke-width": 1.5 }, s);
+    const tt = sv("title", {}, c); tt.textContent = p.l + " · " + nombre(p.r) + " · " + p.m + "–" + p.s + " (" + signo(p.d) + ")";
+  });
+  const t1 = sv("text", { x: PI, y: H - 8, fill: "#A8A293", "font-size": 12, "font-family": "Inter,sans-serif" }, s); t1.textContent = x.h.length ? fecha(x.h[0].f) : "";
+  const t2 = sv("text", { x: W - PD, y: H - 8, "text-anchor": "end", fill: "#A8A293", "font-size": 12, "font-family": "Inter,sans-serif" }, s); t2.textContent = x.h.length ? fecha(x.h[x.h.length - 1].f) : "";
+  // Todas las partidas en orden.
+  const caja2 = el("div", "hist");
+  const t = el("table");
+  const th = t.createTHead().insertRow();
+  [["#", "oc"], ["Fecha", "oc"], ["Partida", "izq"], ["Rival", "izq"], ["Resultado", ""], ["Cambio", ""], ["ELO", ""]].forEach(([n, c]) => th.appendChild(el("th", c, n)));
+  const tb = t.createTBody();
+  x.h.forEach((p, i) => {
+    const r = tb.insertRow(); r.style.cursor = "default";
+    const td = (c, cls) => { const q = el("td", cls || ""); if (c instanceof Node) q.appendChild(c); else q.textContent = c; r.appendChild(q); return q; };
+    td(String(i + 1), "oc"); td(fecha(p.f), "oc"); td(p.l, "izq");
+    const rv = td(nombre(p.r), "izq"); rv.setAttribute("translate", "no");
+    const rs = el("span"); const b = el("span", "res " + resDe(p), resDe(p)); rs.append(b, p.m + " – " + p.s); td(rs);
+    td(signo(p.d), clase(p.d)); td(String(p.e));
+  });
+  caja2.appendChild(t);
+  g.appendChild(caja2);
+  g.hidden = false;
+  g.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
+fetch("/api/elo").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
+  D = d;
+  $("msg").hidden = true; $("app").hidden = false;
+  const tb = $("tCla").querySelector("tbody");
+  d.clasificados.forEach((x) => tb.appendChild(fila(x, true)));
+  $("tCla").parentElement.hidden = !d.clasificados.length;
+  $("sinCla").hidden = !!d.clasificados.length;
+  if (d.clasificando.length) {
+    $("secCla").hidden = false;
+    $("notaCla").textContent = "Con al menos una partida. Entran en la clasificación al llegar a " + d.minimo + " partidas.";
+    const tc = $("tCdo").querySelector("tbody");
+    d.clasificando.forEach((x) => tc.appendChild(fila(x, false)));
+  }
+  // elo.html#ID abre directamente la gráfica de ese jugador.
+  const id = location.hash.slice(1);
+  const tr = id && document.querySelector('tbody tr[data-id="' + CSS.escape(id) + '"]');
+  if (tr) tr.click();
+}).catch(() => { $("msg").textContent = "No se pudo cargar el ranking."; });
+</script>
+<script src="/i18n.js"></script>
+<script src="/auth.js"></script>
+</body>
+</html>
