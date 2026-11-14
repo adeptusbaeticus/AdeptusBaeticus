@@ -22,6 +22,8 @@ a{color:#D9B25A}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
 /* La cabecera se queda fija arriba al hacer scroll. */
 .nav{position:sticky;top:0;z-index:40;background:#15171A}
+/* El fondo de la cabecera ocupa todo el ancho: el fuego de las bendiciones nunca asoma junto al menú. */
+.nav::before{content:"";position:absolute;top:0;bottom:-1px;left:-100vmax;right:-100vmax;background:#15171A;z-index:-1}
 html{scroll-padding-top:96px}
 .brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
 .lg{height:44px;width:auto;border-radius:6px;display:block}
@@ -113,7 +115,7 @@ html,body{overflow-x:clip}
 /* 10 bendiciones de cada tipo: borde especial dorado y del Caos, con un pulso suave del aura. */
 .marco.legendaria>.post{border:3px solid transparent;background:linear-gradient(#1F2328,#1F2328) padding-box,
   linear-gradient(90deg,#F0CE82,#D9B25A 40%,#5A4318 49%,#120C0C 56%,#000 78%,#2A0606) border-box;
-  box-shadow:0 0 0 1px rgba(255,255,255,.08),12px 0 22px -10px rgba(120,10,10,.55)}
+  box-shadow:0 0 0 1px #5A5A61,12px 0 22px -10px rgba(120,10,10,.55)}
 .marco.legendaria::before,.marco.legendaria::after{animation:aura 3s ease-in-out infinite}
 @keyframes aura{50%{opacity:.7}}
 @media (prefers-reduced-motion:reduce){.marco.legendaria::before,.marco.legendaria::after{animation:none}}
@@ -389,7 +391,9 @@ function fuego(lado, n, colores) {
     // Halo difuminado, llama y núcleo brillante.
     g.appendChild(svgEl("path", { d: lengua(cx, w * 1.4, h * 1.05, amp, fase), fill: oscuro, opacity: ".55", style: "filter:blur(3px)" }));
     g.appendChild(svgEl("path", { d: lengua(cx, w * 1.2, h, amp, fase), fill: c, opacity: ".3", style: "filter:blur(5px)" }));
-    g.appendChild(svgEl("path", { d: lengua(cx, w, h, amp, fase), fill: `url(#${id + (i % colores.length)})` }));
+    // Contorno gris oscuro cuando el fuego se ha oscurecido (Caos), para que se distinga del fondo.
+    const borde = colores.oscuridad ? { stroke: "#6A6A72", "stroke-width": "0.7", "stroke-opacity": String(Math.min(0.9, colores.oscuridad)) } : {};
+    g.appendChild(svgEl("path", { d: lengua(cx, w, h, amp, fase), fill: `url(#${id + (i % colores.length)})`, ...borde }));
     g.appendChild(svgEl("path", { d: lengua(cx, w * .45, h * .58, amp * .6, fase), fill: nucleo, opacity: ".85" }));
     svg.appendChild(g);
   });
@@ -411,6 +415,7 @@ function aura(m, p) {
   // El Caos se oscurece hacia el negro (Chaos Undivided) según suben las bendiciones; las brasas siguen encendidas.
   const nr = Math.min(10, p.ruinosos || 0), k = nr ? (nr - 1) / 9 : 0;
   const caos = FUEGO_CAOS.map(([o, c, nu]) => [oscurece(o, k * 0.8), oscurece(c, k * 0.72), oscurece(nu, k * 0.35)]);
+  caos.oscuridad = k;
   caos.forEach(([, c], i) => m.style.setProperty("--c" + (i + 1), c));
   if (nr > 0) m.appendChild(fuego("der", nr, caos));
   const leg = p.emperador >= 10 && p.ruinosos >= 10;
