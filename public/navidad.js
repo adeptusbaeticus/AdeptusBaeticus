@@ -20,6 +20,7 @@
   css.textContent =
     ".abn-nieve{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:35}" +
     ".abn-cap{position:absolute;left:-4px;right:-4px;top:-11px;height:20px;pointer-events:none;z-index:3;line-height:0}" +
+    ".marco>.abn-cap{z-index:1;left:1px;right:1px}" + // galería: bajo los sellos (z-index 2), sin sobresalir
     ".abn-cap.fina{left:-2px;right:-2px;top:-5px;height:9px}" +
     ".abn-cap svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}" +
     ".abn-luces{position:absolute;left:0;right:0;bottom:-11px;height:24px;pointer-events:none;z-index:1;line-height:0}" +
