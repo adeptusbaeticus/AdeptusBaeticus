@@ -665,6 +665,7 @@
     [/^FAQ: (\d+) mensajes? de #preguntas-frecuentes · actualizada (.+)$/, (m, n, f) => "FAQ: " + n + " message" + (n === "1" ? "" : "s") + " from #preguntas-frecuentes · updated " + f],
     [/^FAQ actualizada: (\d+) mensajes?\.$/, (m, n) => "FAQ updated: " + n + " message" + (n === "1" ? "" : "s") + "."],
     [/^Fase (I|II) (.+)$/, "Phase $1 $2"],
+    [/^Gran Liga (\d{4}\/\d{2}) - Fase (I|II)$/, "Grand League $1 - Phase $2"],
     [/^Sincronizado: (\d+) bytes\. Resultados asignados a la liga: (\d+)(?: \(sin asignar: (\d+)\))?\.$/, (m, b, a, s) => "Synced: " + b + " bytes. Results assigned to the league: " + a + (s ? " (unassigned: " + s + ")" : "") + "."],
     [/^Sincronizado: (\d+) bytes\.$/, "Synced: $1 bytes."],
     [/^Se consultó hace poco \((.+) UTC\)\. Espera (\d+) minutos entre consultas\.$/, "Queried recently ($1 UTC). Wait $2 minutes between queries."],
