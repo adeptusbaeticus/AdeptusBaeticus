@@ -289,7 +289,8 @@ function pintaClasificacion() {
 function filaPartida(p, ronda) {
   const fila = el("div", "pt" + (yo && (p.jugador_a === yo || p.jugador_b === yo) ? " yo" : ""));
   const ahora = D.ahora;
-  const mesa = el("span", "mesa", "Mesa " + p.mesa);
+  // En la ronda de aplazadas, en lugar de la mesa se indica la ronda de la que viene la partida.
+  const mesa = el("span", "mesa", ronda > D.fase.rondas ? "Ronda " + p.ronda : "Mesa " + p.mesa);
   const ja = nombreJ(p.jugador_a), jb = nombreJ(p.jugador_b);
   const hay = p.pv_a != null && p.pv_b != null;
   const lado = (j, fac, der, gana) => {
@@ -430,7 +431,7 @@ function pintaActual() {
     const rival = nombreJ(mia.jugador_a === yo ? mia.jugador_b : mia.jugador_a);
     const tu = el("div", "tu");
     tu.appendChild(el("strong", "", "Tu partida"));
-    const lin = el("p", "", "Mesa " + mia.mesa + " · contra ");
+    const lin = el("p", "", (aplazadas ? "Ronda " + mia.ronda : "Mesa " + mia.mesa) + " · contra ");
     lin.appendChild(celdaJugador(rival));
     tu.appendChild(lin);
     if (mia.pv_a != null && mia.pv_b != null) {

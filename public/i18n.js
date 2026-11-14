@@ -362,6 +362,7 @@
     [/^Ronda (\d+) de la Gran Liga$/, "Grand League round $1"],
     [/^Estás viendo la web como (.+) \(solo lectura\)\.$/, "You are viewing the site as $1 (read only)."],
     [/^Mesa (\d+) · contra$/, "Table $1 · against"],
+    [/^Ronda (\d+) · contra$/, "Round $1 · against"],
     [/^(Victoria|Derrota|Empate) (\d+) – (\d+)$/, (m, r, a, b) => ({ Victoria: "Win", Derrota: "Loss", Empate: "Draw" })[r] + " " + a + " – " + b],
     [/^Sugerencia: (.+) $/, "Suggestion: $1 "],
     [/^Lista (\d+)$/, "List $1"],
