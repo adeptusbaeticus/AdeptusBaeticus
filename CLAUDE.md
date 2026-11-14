@@ -52,7 +52,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 ## Calendario: físico u online
 
 - Eventos y partidas tienen `modo` `fisico` u `online` (Tabletop Simulator), migración 0026, con su icono (mesa u
-  ordenador, `iconoModo()` en `calendario.html`). Las quedadas son siempre físicas (lo fuerza el servidor); los
+  ordenador, `iconoModo()` en `calendario.html`; en el mes, cuadrados en la esquina de cada día, uno por modalidad). Las quedadas son siempre físicas (lo fuerza el servidor); los
   torneos los elige el admin. En las partidas físicas se puede indicar `lugar`: vacío = en el club, con mesa
   asignada; con lugar u online no se asigna mesa.
 

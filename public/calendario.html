@@ -129,6 +129,15 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .modo{display:flex;align-items:center;gap:6px;color:#CFC9BA;margin:4px 0 8px}
 .modo .mo{margin:0}.modo .mo svg{width:16px;height:16px}
 .fld label.rad .mo{margin:0 2px}
+/* Cuadrados de modalidad en la esquina superior derecha de cada día (como un aviso, pero cuadrado) */
+.mods{position:absolute;top:6px;right:6px;display:flex;flex-direction:column;gap:3px;pointer-events:auto}
+.mq{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;box-sizing:border-box;box-shadow:0 0 0 2px #1F2328}
+.mq.fisico{background:#D9B25A;color:#15171A}
+.mq.online{background:#7FB3E0;color:#15171A}
+.mq .mo{margin:0}.mq .mo svg{width:14px;height:14px;stroke-width:1.8}
+.d.hoy .mq{box-shadow:0 0 0 2px #262A30}
+.d.mods2>.e:first-of-type{margin-top:26px}
+@media (max-width:600px){.mods{top:3px;right:3px;gap:2px}.mq{width:15px;height:15px;border-radius:4px}.mq .mo svg{width:11px;height:11px}.d.mods2>.e:first-of-type{margin-top:16px}}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
 .card h3{font:700 22px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
 .card p{margin:0 0 8px}
@@ -500,15 +509,15 @@ function render() {
     } else {
       cell.appendChild(document.createTextNode(d));
     }
+    const modosDia = new Set();
     ev.filter((e) => filtro === "todos" && e.starts_at.startsWith(key))
       .forEach((e) => {
         const b = document.createElement("button");
         const llena = e.type === "quedada" && e.capacity && (e.inscritos || 0) >= e.capacity;
         b.className = "e " + (e.type === "torneo" ? "t2" : "q") + (llena || e.starts_at <= now ? " x" : "");
-        const tt = document.createElement("span");
-        tt.textContent = e.title;
-        tt.setAttribute("translate", "no");
-        b.append(iconoModo(e.modo), tt);
+        b.textContent = e.title;
+        b.setAttribute("translate", "no");
+        modosDia.add(e.modo === "online" ? "online" : "fisico");
         b.onclick = () => { show(e); irAFicha(); };
         cell.appendChild(b);
       });
@@ -520,10 +529,24 @@ function render() {
         // Hora fijada o, si aún no la hay, la franja ofrecida ese día.
         const av = p.availability.find((x) => x.date === key);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
-        b.append(iconoModo(p.modo), (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza);
+        b.textContent = (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza;
+        modosDia.add(p.modo === "online" ? "online" : "fisico");
         b.onclick = () => { showPartida(p); irAFicha(); };
         cell.appendChild(b);
       });
+    }
+    // Físico y/u online ese día: un cuadrado por modalidad, uno debajo del otro.
+    if (modosDia.size) {
+      const mods = document.createElement("span");
+      mods.className = "mods";
+      ["fisico", "online"].filter((x) => modosDia.has(x)).forEach((x) => {
+        const q = document.createElement("span");
+        q.className = "mq " + x;
+        q.appendChild(iconoModo(x));
+        mods.appendChild(q);
+      });
+      cell.appendChild(mods);
+      if (modosDia.size > 1) cell.classList.add("mods2");
     }
     marcasLiga(cell, key, rondas);
     g.appendChild(cell);
