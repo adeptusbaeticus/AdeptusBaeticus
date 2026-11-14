@@ -106,13 +106,31 @@ dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
 /* Fuego que sube desde abajo por los lados de la tarjeta: dorado y divino a la izquierda (Emperador) y con
    los colores de los cuatro dioses del Caos a la derecha (Poderes Ruinosos). Sube más con cada bendición (1-10). */
 /* Las llamas suben por fuera de la tarjeta, pegadas a su borde, desde las esquinas de abajo. */
-.aura-svg{position:absolute;top:-16px;height:calc(100% + 16px);width:44px;z-index:0;pointer-events:none;overflow:visible}
-.aura-svg.izq{left:-42px}.aura-svg.der{right:-42px}
-.aura-svg .llama{transform-box:fill-box;transform-origin:100% 100%;animation:llama 1.6s ease-in-out infinite alternate}
-.aura-svg.der .llama{transform-origin:0% 100%}
-@keyframes llama{0%{transform:scaleY(.86) skewX(-3deg)}40%{transform:scaleY(1.04) skewX(2deg)}75%{transform:scaleY(.93) skewX(-1deg)}100%{transform:scaleY(1.08) skewX(3deg)}}
-@media (prefers-reduced-motion:reduce){.aura-svg .llama{animation:none}}
-@media (max-width:600px){.aura-svg{width:16px}.aura-svg.izq{left:-15px}.aura-svg.der{right:-15px}}
+.fuego{position:absolute;bottom:-4px;width:46px;z-index:0;pointer-events:none;overflow:visible;filter:blur(2.6px) saturate(1.25)}
+.fuego.izq{left:-44px}.fuego.der{right:-44px}
+/* Cada lengua de fuego: un brillo de núcleo claro a borde de color que nace, sube ondulando hacia fuera,
+   se encoge y se apaga. Se suman con «screen», como la luz del fuego real. */
+.fuego i{position:absolute;bottom:var(--y);width:var(--s);height:calc(var(--s) * 1.9);margin-left:calc(var(--s) / -2);
+  border-radius:50% 50% 45% 45% / 60% 60% 40% 40%;background:var(--g);mix-blend-mode:screen;opacity:0;
+  transform-origin:50% 100%;will-change:transform,opacity;animation:lengua var(--d) linear var(--r) infinite}
+.fuego.izq i{right:var(--x)}.fuego.der i{left:var(--x)}
+/* Fuera de la pantalla, quieto (no gasta). */
+.fuego.pausa i,.fuego.pausa b{animation-play-state:paused}
+/* Fuego negro del Caos: no suma luz (oscurece) y solo brilla el filo del color de su dios. */
+.fuego i.negra{mix-blend-mode:normal}
+@keyframes lengua{
+  0%{transform:translate(0,0) scale(1,1);opacity:0}
+  12%{opacity:var(--o)}
+  45%{transform:translate(calc(var(--dx) * .45),calc(var(--h) * -.45)) scale(.82,1.12)}
+  75%{opacity:calc(var(--o) * .7)}
+  100%{transform:translate(var(--dx),calc(var(--h) * -1)) scale(.25,.6);opacity:0}}
+/* Resplandor de la base, que respira. */
+.fuego b{position:absolute;bottom:-6px;width:70px;height:70%;border-radius:50%;background:var(--glow);filter:blur(12px);opacity:.55;
+  animation:brasa 2.4s ease-in-out infinite alternate}
+.fuego.izq b{right:-26px}.fuego.der b{left:-26px}
+@keyframes brasa{to{opacity:.85;transform:scaleY(1.06)}}
+@media (prefers-reduced-motion:reduce){.fuego i{animation:none;opacity:var(--o);transform:translateY(calc(var(--h) * -.3)) scale(.8)}.fuego b{animation:none}}
+@media (max-width:600px){.fuego{width:18px;filter:blur(1.6px) saturate(1.25)}.fuego.izq{left:-16px}.fuego.der{right:-16px}.fuego b{width:34px}.fuego.izq b{right:-14px}.fuego.der b{left:-14px}}
 html,body{overflow-x:clip}
 .marco::before{left:calc(-1 * var(--es));top:calc(-1 * var(--es));bottom:calc(-1 * var(--es));right:50%;
   background:linear-gradient(180deg,#F0CE82,#D9B25A 50%,#F0CE82);filter:blur(var(--eb));opacity:calc(var(--eo) * .55)}
@@ -439,66 +457,60 @@ function tarjeta(p) {
 
 let data = { sesion: false, publicaciones: [] };
 
-const NS_SVG = "http://www.w3.org/2000/svg";
-const svgEl = (tag, at) => { const x = document.createElementNS(NS_SVG, tag); for (const k in at) x.setAttribute(k, at[k]); return x; };
 // Colores [base oscura, llama, núcleo]: oro viejo y divino (Emperador) y los cuatro dioses del Caos, oscuros como
 // el fuego de la disformidad: Khorne (sangre), Nurgle (pútrido), Tzeentch (disformidad azul) y Slaanesh (magenta).
-const FUEGO_IMPERIAL = [["#5E3A0A", "#D9A63A", "#FFF1C4"]];
+const FUEGO_IMPERIAL = [["#5E3A0A", "#D9A63A", "#FFF1C4"], ["#6B2405", "#E8892A", "#FFE6A0"]];
 const FUEGO_CAOS = [["#2A0303", "#9E1414", "#FF5A1F"], ["#141A05", "#5F6E17", "#BFCB4A"], ["#0B0D33", "#3438A3", "#46D2E6"], ["#22062A", "#7E2179", "#E064C8"]];
 // Mezcla un color «#rrggbb» con negro (k de 0 a 1).
 const oscurece = (hex, k) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k)).toString(16).padStart(2, "0")).join("");
-// Degradados de un juego de colores (de la base oscura a la punta casi transparente).
-function degradados(svg, colores) {
-  const id = "f" + Math.random().toString(36).slice(2, 8);
-  const defs = svgEl("defs", {});
-  colores.forEach(([oscuro, c], k) => {
-    const g = svgEl("linearGradient", { id: id + k, x1: "0", x2: "0", y1: "1", y2: "0" });
-    g.append(svgEl("stop", { offset: "0", "stop-color": oscuro, "stop-opacity": ".95" }), svgEl("stop", { offset: ".35", "stop-color": c, "stop-opacity": ".95" }),
-      svgEl("stop", { offset: ".8", "stop-color": c, "stop-opacity": ".8" }), svgEl("stop", { offset: "1", "stop-color": c, "stop-opacity": ".25" }));
-    defs.appendChild(g);
-  });
-  svg.appendChild(defs);
-  return id;
-}
-// Llama grande pegada al borde de la tarjeta (franja de 44×600; el borde de la tarjeta está en x=44 a la
-// izquierda y en x=0 a la derecha): nace en la esquina de abajo, se abre hacia fuera ondulando y acaba en punta.
-function llamaLateral(lado, alto, ancho, fase, base) {
-  const borde = lado === "izq" ? 44 : 0, fuera = lado === "izq" ? -1 : 1;
-  const ext = [], int = [];
-  for (let k = 0; k <= 18; k++) {
-    const t = k / 18, y = base - t * alto;
-    const onda = Math.sin(t * Math.PI * 3 + fase) * 2.2 * (0.4 + t);
-    const abre = ancho * Math.sin(Math.PI * Math.pow(t, 0.75)) * (1 - 0.35 * t);
-    ext.push([borde + fuera * (abre + onda), y]);
-    // El lado interior se pega al borde de la tarjeta y se separa un poco hacia la punta.
-    int.push([borde + fuera * (Math.max(0, t - 0.55) * ancho * 0.9 + Math.sin(t * Math.PI * 2 + fase) * 0.8), y]);
+// Fuego de un lado de la tarjeta: muchas lenguas de fuego (partículas) repartidas a lo largo del borde, más grandes y
+// juntas abajo, que suben, se abren hacia fuera y se apagan. Con n bendiciones (1-10) sube más alto (con 10, hasta
+// arriba) y hay más lenguas. colores: [base oscura, llama, núcleo] por cada fuego (uno imperial, cuatro del Caos).
+const azarFuego = (semilla) => () => { semilla = (semilla * 9301 + 49297) % 233280; return semilla / 233280; };
+const rgba = (hex, a) => "rgba(" + [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",") + "," + a + ")";
+// Solo se animan las llamas que están en pantalla.
+const verFuego = "IntersectionObserver" in window
+  ? new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("pausa", !e.isIntersecting)), { rootMargin: "200px" }) : null;
+function fuego(lado, n, colores, semilla) {
+  const f = el("div", "fuego " + lado + (verFuego ? " pausa" : ""));
+  if (verFuego) verFuego.observe(f);
+  f.setAttribute("aria-hidden", "true");
+  const alto = 16 + 8.4 * n; // % de la altura de la tarjeta
+  f.style.height = "calc(" + alto + "% + 4px)";
+  const movil = matchMedia("(max-width:600px)").matches;
+  const az = azarFuego(semilla || 1);
+  const oscuro = colores.oscuridad || 0;
+  const glow = colores[0];
+  f.style.setProperty("--glow", "radial-gradient(ellipse at 50% 100%," + rgba(glow[1], 0.9) + "," + rgba(glow[0], 0.6) + " 45%,transparent 72%)");
+  f.appendChild(document.createElement("b"));
+  const total = Math.round((movil ? 7 : 14) + n * (movil ? 1.6 : 3.2));
+  for (let k = 0; k < total; k++) {
+    const t = Math.pow(az(), 1.6); // altura de nacimiento (0 = abajo): más lenguas abajo
+    const [os, c, nu] = colores[Math.floor(az() * colores.length)];
+    // Del Caos oscuro: núcleo negro y borde del color del dios (con «screen» el negro no suma luz: queda el filo).
+    // Abajo, núcleo casi blanco; arriba, la llama se enfría hacia el color (las puntas son naranjas o rojas).
+    const caliente = 1 - t;
+    const negra = oscuro > 0.3 && az() < oscuro * 0.85;
+    const nucleo = negra ? "rgba(8,8,10,.95)" : caliente > 0.55 ? rgba(nu, 0.95) : rgba(c, 0.9);
+    const p = document.createElement("i");
+    if (negra) p.className = "negra";
+    const tam = (movil ? 10 : 20) + (1 - t) * (movil ? 12 : 26) * (0.6 + az() * 0.6) + n * (movil ? 0.4 : 1);
+    p.style.cssText = [
+      "--y:" + (t * 82).toFixed(1) + "%",
+      "--x:" + (az() * (movil ? 4 : 9)).toFixed(1) + "px",
+      "--s:" + tam.toFixed(1) + "px",
+      "--h:" + ((movil ? 34 : 60) + az() * (movil ? 40 : 80) + n * 4).toFixed(0) + "px",
+      "--dx:" + ((lado === "izq" ? -1 : 1) * (2 + az() * (movil ? 6 : 14))).toFixed(1) + "px",
+      "--d:" + (0.9 + az() * 0.9).toFixed(2) + "s",
+      "--r:" + (-az() * 2).toFixed(2) + "s",
+      "--o:" + (0.4 + az() * 0.35).toFixed(2),
+      "--g:" + (negra
+        ? "radial-gradient(ellipse at 50% 72%,rgba(8,8,10,.92) 0%,rgba(20,20,24,.85) 34%," + rgba(c, 0.8) + " 52%," + rgba(nu, 0.35) + " 62%,transparent 72%)"
+        : "radial-gradient(ellipse at 50% 72%," + nucleo + " 0%," + (caliente > 0.55 ? rgba(nu, 0.8) : rgba(c, 0.85)) + " 16%," + rgba(c, 0.75) + " 38%," + rgba(os, 0.5) + " 60%,transparent 72%)"),
+    ].join(";");
+    f.appendChild(p);
   }
-  const P = ext.concat(int.reverse());
-  const f = (q) => q[0].toFixed(1) + " " + q[1].toFixed(1);
-  let d = "M" + f(P[0]);
-  for (let k = 1; k < P.length - 1; k++) d += "Q" + f(P[k]) + " " + f([(P[k][0] + P[k + 1][0]) / 2, (P[k][1] + P[k + 1][1]) / 2]);
-  return d + "L" + f(P[P.length - 1]) + "z";
-}
-// Fuego de un lado: varias llamas grandes que nacen en la esquina de abajo; con n bendiciones (1-10) son más
-// altas y anchas (con 10 llegan arriba del todo).
-function fuego(lado, n, colores) {
-  const svg = svgEl("svg", { class: "aura-svg " + lado, viewBox: "0 0 44 600", preserveAspectRatio: "none", "aria-hidden": "true" });
-  const id = degradados(svg, colores);
-  const H = 600 * (0.16 + 0.084 * n), W = 12 + n * 2.6;
-  // [altura relativa, anchura relativa, fase]: de la exterior (más grande) a la interior.
-  const capas = colores.length > 1 ? [[1, 1, 0], [0.82, 0.78, 2], [0.64, 0.58, 4], [0.46, 0.4, 1]] : [[1, 1, 0], [0.8, 0.72, 2.5], [0.58, 0.48, 5]];
-  capas.forEach(([fh, fw, fase], i) => {
-    const [oscuro, c, nucleo] = colores[i % colores.length];
-    const g = svgEl("g", { class: "llama", style: `animation-delay:${-i * 0.4}s;animation-duration:${1.4 + i * 0.3}s` });
-    g.appendChild(svgEl("path", { d: llamaLateral(lado, H * fh * 1.04, W * fw * 1.25, fase, 600), fill: oscuro, opacity: ".5", style: "filter:blur(4px)" }));
-    const bordeC = colores.oscuridad > 0.4
-      ? { stroke: "#8A8A92", "stroke-width": "0.9", "stroke-opacity": String(Math.min(0.95, 0.4 + colores.oscuridad * 0.6)) }
-      : { stroke: nucleo, "stroke-width": "0.8", "stroke-opacity": ".75" };
-    g.appendChild(svgEl("path", { d: llamaLateral(lado, H * fh, W * fw, fase, 600), fill: `url(#${id + (i % colores.length)})`, ...bordeC }));
-    g.appendChild(svgEl("path", { d: llamaLateral(lado, H * fh * 0.55, W * fw * 0.45, fase, 600), fill: nucleo, opacity: ".7" }));
-    svg.appendChild(g);
-  });
-  return svg;
+  return f;
 }
 
 // Intensidad del aura según las bendiciones (visible desde 1, máxima a partir de 10).
@@ -511,14 +523,14 @@ function aura(m, p) {
   };
   lado(p.emperador, "e");
   lado(p.ruinosos, "r");
-  m.querySelectorAll(".aura-svg").forEach((x) => x.remove());
-  if (p.emperador > 0) m.appendChild(fuego("izq", Math.min(10, p.emperador), FUEGO_IMPERIAL));
+  m.querySelectorAll(".fuego").forEach((x) => x.remove());
+  if (p.emperador > 0) m.appendChild(fuego("izq", Math.min(10, p.emperador), FUEGO_IMPERIAL, p.id * 7 + 1));
   // El Caos se oscurece hacia el negro (Chaos Undivided) según suben las bendiciones; las brasas siguen encendidas.
   const nr = Math.min(10, p.ruinosos || 0), k = nr ? (nr - 1) / 9 : 0;
   const caos = FUEGO_CAOS.map(([o, c, nu]) => [oscurece(o, k * 0.7), oscurece(c, k * 0.5), oscurece(nu, k * 0.2)]);
   caos.oscuridad = k;
   caos.forEach(([, c], i) => m.style.setProperty("--c" + (i + 1), c));
-  if (nr > 0) m.appendChild(fuego("der", nr, caos));
+  if (nr > 0) m.appendChild(fuego("der", nr, caos, p.id * 13 + 5));
   // Marco: desde 5 bendiciones de una facción, a plena fuerza; si las dos tienen 5 o más, se reparte según el
   // porcentaje de votos (con los votos reales, también por encima de 10).
   const ve = p.emperador || 0, vr = p.ruinosos || 0;

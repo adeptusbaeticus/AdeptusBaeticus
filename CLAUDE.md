@@ -60,8 +60,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Borrar en la web (autor o admin) borra también el mensaje de Discord. Lo común está en `pubCrear`, `pubAnadir` y
   `pubBorrar`.
 
-- Bendiciones (Emperador / Poderes Ruinosos): cada publicación gana un aura según sus votos (1-10): llamas que
-  suben por fuera de los lados desde las esquinas de abajo (doradas a la izquierda; del Caos a la derecha, que se
+- Bendiciones (Emperador / Poderes Ruinosos): cada publicación gana un aura según sus votos (1-10): fuego de partículas
+  (`fuego()`: lenguas con degradado de núcleo claro a puntas de color, sumadas con «screen» y un desenfoque por lado;
+  las del Caos oscuras no suman luz y solo brilla su filo; fuera de pantalla se pausan) que
+  sube por fuera de los lados desde las esquinas de abajo (doradas a la izquierda; del Caos a la derecha, que se
   oscurecen hacia el negro) y un marco: con 5 de una facción aparece entero de ella (dorado o negro del Caos);
   con 5 o más de las dos, se lo disputan según el porcentaje de votos. La parte del Caos es gris acero oscuro con un filo
   exterior de los cuatro dioses muy oscuros (rojo, verde, azul y morado: excepción a «nunca azul»). Por encima de 10
