@@ -249,6 +249,8 @@
     "Activados para todos.": "Turned on for everyone.", "Desactivados para todos.": "Turned off for everyone.",
     "Tienes un anuncio nuevo": "You have a new announcement", "Aceptar": "Accept",
     "No se pudo guardar. Inténtalo de nuevo.": "Could not save. Please try again.",
+    "Gran Liga Adeptus Baeticus": "Adeptus Baeticus Grand League", "Elegir liga": "Choose league",
+    "Expediente sellado por la Inquisición.": "File sealed by the Inquisition.", "Ya no forma parte del club.": "No longer part of the club.",
     "Abandono": "Forfeit", "Abandonó": "Withdrew", "Ligas pasadas": "Past leagues", "Liga terminada": "League finished", "Clasificación final": "Final standings",
     "Ver clasificación y rondas": "See standings and rounds", "Volver a la Gran Liga actual": "Back to the current Grand League",
     "1.º": "1st", "2.º": "2nd", "3.º": "3rd", "Esa liga ya terminó": "That league has already finished",

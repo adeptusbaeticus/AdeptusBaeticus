@@ -48,10 +48,7 @@ h2{font:700 24px Cinzel,Georgia,serif;margin:40px 0 16px}
 .cab select{min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit}
 .card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
 .actual{border-color:#D9B25A}
-/* Ligas pasadas: tarjeta de cada temporada con su podio, y el podio de la liga que se está viendo. */
-.pasadas{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
-.pasada h3{font:700 22px Cinzel,Georgia,serif;margin:0 0 4px}
-.pasada .chip{margin-top:14px}
+/* Ligas pasadas: el podio de la liga que se está viendo. */
 .podio{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 .podio li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .podio .pos{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:28px;padding:0 8px;box-sizing:border-box;border-radius:999px;font:700 13px Inter,sans-serif;color:#15171A}
@@ -137,8 +134,8 @@ tr.misl td{background:#15171A;text-align:left;white-space:normal;padding:12px}
     <span id="auth"></span>
   </div>
   <div class="cab">
-    <h1>Gran Liga Adeptus</h1>
-    <select id="fase" aria-label="Fase" hidden></select>
+    <h1>Gran Liga Adeptus Baeticus</h1>
+    <select id="fase" aria-label="Elegir liga" hidden></select>
   </div>
   <p class="m" id="act"></p>
   <p class="m" id="msg">Cargando...</p>
@@ -151,10 +148,6 @@ tr.misl td{background:#15171A;text-align:left;white-space:normal;padding:12px}
     </table></div>
     <h2>Rondas</h2>
     <div id="rondas"></div>
-    <section id="secPasadas" hidden>
-      <h2>Ligas pasadas</h2>
-      <div class="pasadas" id="pasadas"></div>
-    </section>
     <section id="secRegl">
     <h2>Reglamento</h2>
     <details class="ronda"><summary><strong>Normas de la liga</strong></summary>
@@ -257,7 +250,8 @@ function clasificacion(d = D) {
       if (fac && (p.jugada || "") >= x.ult) { x.fac = fac; x.ult = p.jugada || ""; }
     });
   });
-  // Orden: victorias, después PV y después diferencia.
+  // Liga pasada con su clasificación final de New Recruit: ese orden. Si no: victorias, después PV y después diferencia.
+  if (d.fase && d.fase.terminada && d.jugadores.every((j) => j.puesto_final)) return [...t.values()].sort((a, b) => a.j.puesto_final - b.j.puesto_final);
   return [...t.values()].sort((a, b) => b.v - a.v || b.pv - a.pv || (b.pv - b.contra) - (a.pv - a.contra) || a.j.discord.localeCompare(b.j.discord));
 }
 
@@ -268,7 +262,8 @@ function celdaJugador(j) {
   s.append(j.discord);
   if (j.nombre) s.append(" ", el("small", "", "(" + j.nombre + ")"));
   // Al pasar el ratón (o tocar), su ficha de Miembros.
-  if (j.discord_id && window.abFicha) window.abFicha(s, j.discord_id);
+  // Sin cuenta en la web (ya no es socio): ficha «REDACTED».
+  if (window.abFicha) window.abFicha(s, j.discord_id || null);
   return s;
 }
 
@@ -491,7 +486,6 @@ function pinta() {
   if (fin) pintaTerminada(); else pintaActual();
   pintaClasificacion();
   pintaRondas();
-  pintaPasadas();
 }
 
 // Fechas de una liga pasada: «Del 1 de enero al 28 de febrero de 2026».
@@ -511,7 +505,7 @@ function podio(cl, conFicha) {
     else {
       const n = el("span", "jug", x.j.discord); n.setAttribute("translate", "no");
       if (x.j.nombre) n.append(" ", el("small", "", "(" + x.j.nombre + ")"));
-      if (x.j.discord_id && window.abFicha) window.abFicha(n, x.j.discord_id);
+      if (window.abFicha) window.abFicha(n, x.j.discord_id || null);
       li.appendChild(n);
     }
     li.appendChild(el("span", "bal", x.v + " V · " + x.pv + " PV"));
@@ -533,29 +527,6 @@ function pintaTerminada() {
   card.appendChild(v);
   box.appendChild(card);
 }
-// «Ligas pasadas» (en la liga en curso): una tarjeta por temporada terminada, con su podio.
-const pasadasCache = new Map();
-function pintaPasadas() {
-  const sec = $("secPasadas"), box = $("pasadas");
-  const ps = D.fase.terminada ? [] : (D.fases || []).filter((f) => f.terminada);
-  sec.hidden = !ps.length;
-  box.textContent = "";
-  ps.forEach((f) => {
-    const card = el("div", "card pasada");
-    card.append(el("h3", "", f.nombre));
-    const fe = fechasLiga(f);
-    if (fe) card.appendChild(el("p", "m", fe));
-    const pod = el("div", "", "");
-    card.appendChild(pod);
-    const ver = el("a", "chip", "Ver clasificación y rondas");
-    ver.href = "/gran-liga.html?fase=" + f.id;
-    card.appendChild(ver);
-    box.appendChild(card);
-    const pon = (d) => { pod.textContent = ""; pod.appendChild(podio(clasificacion(d), false)); };
-    if (pasadasCache.has(f.id)) pon(pasadasCache.get(f.id));
-    else fetch("/api/liga?fase=" + f.id).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && d.fase) { pasadasCache.set(f.id, d); pon(d); } }).catch(() => {});
-  });
-}
 
 // Enlace directo a una ronda (gran-liga.html?fase=ID#ronda-N, p. ej. desde el calendario):
 // se abre y se lleva a la vista solo en la primera carga.
@@ -575,9 +546,17 @@ function carga(fase) {
     yo = null;
     const sel = $("fase");
     sel.textContent = "";
-    const enCurso = d.fases.filter((f) => !f.terminada);
-    enCurso.forEach((f) => { const o = el("option", "", f.nombre); o.value = f.id; o.selected = f.id === d.fase.id; sel.appendChild(o); });
-    sel.hidden = enCurso.length < 2 || !!d.fase.terminada;
+    // Arriba: las fases de la liga en curso y, en su grupo, las ligas pasadas.
+    const enCurso = d.fases.filter((f) => !f.terminada), pasadas = d.fases.filter((f) => f.terminada);
+    const op = (f, padre) => { const o = el("option", "", f.nombre); o.value = f.id; o.selected = f.id === d.fase.id; padre.appendChild(o); };
+    enCurso.forEach((f) => op(f, sel));
+    if (pasadas.length) {
+      const g = document.createElement("optgroup");
+      g.label = "Ligas pasadas";
+      pasadas.forEach((f) => op(f, g));
+      sel.appendChild(g);
+    }
+    sel.hidden = d.fases.length < 2;
     pinta();
     if (irPendiente) {
       // Se abre la ronda pedida y se cierra la actual si es otra.
@@ -591,7 +570,12 @@ function carga(fase) {
     }).catch(() => {});
   }).catch(() => { $("msg").textContent = "No se pudo cargar la liga."; });
 }
-$("fase").onchange = () => carga($("fase").value);
+// Cada liga tiene su dirección (gran-liga.html?fase=ID), para poder compartirla.
+$("fase").onchange = () => {
+  const f = D && D.fases.find((x) => String(x.id) === $("fase").value);
+  const actual = D && D.fases.find((x) => !x.terminada);
+  location.href = "/gran-liga.html" + (f && actual && f.id === actual.id ? "" : "?fase=" + $("fase").value);
+};
 // ¿Es admin? Se pide antes de pintar para mostrar los botones de aplazar.
 fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => { esAdmin = !!(me && me.role === "admin"); carga(new URLSearchParams(location.search).get("fase")); });
 </script>

@@ -1,6 +1,8 @@
 // Ficha rápida de un socio al pasar el ratón por su nombre (Galería, Gran Liga…): avatar, rol, facciones, puesto en
 // la liga, ELO y trofeos, con un enlace a su ficha completa en Miembros. En el móvil se abre al tocar el nombre.
 // Uso: window.abFicha(elemento, discordId). Los datos salen de /api/miembros (una petición, guardada 5 minutos).
+// Si el jugador no tiene cuenta en la web (discordId vacío) o ya no está en Miembros, sale una ficha «REDACTED» con un
+// sello inquisitorial (dibujo propio: columna en «I» con calavera, sobre lacre).
 (function () {
   const ROL = { admin: "Admin", miembro: "Miembro", aspirante: "Aspirante" };
   const CLAVE = "ab_fichas";
@@ -33,8 +35,70 @@
 .abf a.abf-ver{display:inline-block;margin-top:12px;color:#D9B25A;font-weight:600;text-decoration:none}
 .abf a.abf-ver:hover{text-decoration:underline}
 .abf .abf-m{color:#A8A293}
-.abf .abf-ant{margin:4px 0 0;font-size:12px}`;
+.abf .abf-ant{margin:4px 0 0;font-size:12px}
+.abf.red{background:linear-gradient(#1B1816,#121011);border-color:#6E1712;box-shadow:0 12px 32px rgba(0,0,0,.6),inset 0 0 40px rgba(110,23,18,.18)}
+.abf.red .abf-cab{align-items:center}
+.abf-sello{width:84px;height:84px;flex:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.7))}
+.abf-sello+div{flex:1;min-width:0}
+.abf-sello-tx{display:inline-block;transform:rotate(-7deg);border:3px double #B3261E;color:#C8352B;padding:2px 10px;font:900 22px/1.1 "Courier New",monospace;letter-spacing:.14em;opacity:.92;text-shadow:0 0 1px rgba(200,53,43,.6)}
+.abf-tacha{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.abf-tacha i{display:block;height:9px;background:#050505;border-radius:1px}
+.abf.red p{margin:10px 0 0;font-size:12px;color:#B8B09E}`;
   document.head.appendChild(css);
+
+  // Sello inquisitorial (dibujo propio): lacre oscuro con borde irregular, columna en «I» roja con filo dorado,
+  // travesaños dorados y una calavera en un medallón.
+  function sello() {
+    const ns = "http://www.w3.org/2000/svg", s = document.createElementNS(ns, "svg");
+    const add = (tag, at, padre) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); (padre || s).appendChild(e); return e; };
+    s.setAttribute("viewBox", "0 0 100 100"); s.setAttribute("class", "abf-sello"); s.setAttribute("aria-hidden", "true");
+    const id = "si" + Math.random().toString(36).slice(2, 7), defs = add("defs", {});
+    const g1 = add("radialGradient", { id: id + "c", cx: "40%", cy: "35%", r: "70%" }, defs);
+    add("stop", { offset: "0", "stop-color": "#4A0D0A" }, g1); add("stop", { offset: ".7", "stop-color": "#240605" }, g1); add("stop", { offset: "1", "stop-color": "#120302" }, g1);
+    const g2 = add("linearGradient", { id: id + "r", x1: "0", y1: "0", x2: "0", y2: "1" }, defs);
+    add("stop", { offset: "0", "stop-color": "#A3211B" }, g2); add("stop", { offset: ".5", "stop-color": "#7A1712" }, g2); add("stop", { offset: "1", "stop-color": "#5A100C" }, g2);
+    const g3 = add("radialGradient", { id: id + "h", cx: "40%", cy: "35%", r: "70%" }, defs);
+    add("stop", { offset: "0", "stop-color": "#F3EAD2" }, g3); add("stop", { offset: "1", "stop-color": "#B9A982" }, g3);
+    // Lacre con el borde irregular.
+    let d = "";
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2, r = 47 + ((i * 7) % 5) * 0.6 - (i % 3) * 0.9;
+      d += (i ? "L" : "M") + (50 + r * Math.cos(a)).toFixed(1) + " " + (50 + r * Math.sin(a)).toFixed(1);
+    }
+    add("path", { d: d + "Z", fill: `url(#${id}c)`, stroke: "#0B0201", "stroke-width": "1" });
+    add("circle", { cx: "50", cy: "50", r: "40", fill: "none", stroke: "#6E5420", "stroke-width": "1.2", opacity: ".8" });
+    // Travesaños dorados detrás.
+    for (const [y, x0, x1] of [[40, 16, 84], [46, 20, 80], [55, 20, 80], [61, 16, 84]])
+      add("path", { d: `M${x0} ${y}H${x1}`, stroke: y === 40 ? "#E6DDC8" : "#C9A24E", "stroke-width": y === 40 ? "1.6" : "1.2", "stroke-linecap": "round" });
+    // Columna en «I».
+    add("path", { d: "M30 13H70V23H59V77H70V87H30V77H41V23H30Z", fill: `url(#${id}r)`, stroke: "#D9B25A", "stroke-width": "1.8", "stroke-linejoin": "round" });
+    add("path", { d: "M33 16H67V20H56V80H67V84H33V80H44V20H33Z", fill: "none", stroke: "#3A0805", "stroke-width": "1", opacity: ".7" });
+    // Medallón con la calavera.
+    add("ellipse", { cx: "50", cy: "50", rx: "15", ry: "17", fill: "#0E0C0C", stroke: "#D9B25A", "stroke-width": "1.8" });
+    add("path", { d: "M41.5 49a8.5 8.5 0 1 1 17 0c0 3-1.2 4.6-2.6 5.6v3.6H44.1v-3.6c-1.4-1-2.6-2.6-2.6-5.6z", fill: `url(#${id}h)` });
+    add("ellipse", { cx: "46.3", cy: "49.6", rx: "2.6", ry: "2.9", fill: "#140E0C" });
+    add("ellipse", { cx: "53.7", cy: "49.6", rx: "2.6", ry: "2.9", fill: "#140E0C" });
+    add("path", { d: "M50 52.6l-1.3 2.6h2.6z", fill: "#140E0C" });
+    for (const x of [46.6, 48.9, 51.1, 53.4]) add("path", { d: `M${x} 56.2v2`, stroke: "#5A4A38", "stroke-width": ".7" });
+    return s;
+  }
+  // Ficha de quien no tiene (o ya no tiene) cuenta en la web.
+  function redactada() {
+    const c = el("div", "abf red");
+    c.setAttribute("role", "dialog");
+    c.setAttribute("aria-label", "REDACTED");
+    const cab = el("div", "abf-cab");
+    const tx = el("div");
+    const st = el("span", "abf-sello-tx", "REDACTED");
+    st.setAttribute("translate", "no");
+    const ta = el("div", "abf-tacha");
+    ["92%", "70%", "84%"].forEach((w) => { const i = el("i"); i.style.width = w; ta.appendChild(i); });
+    tx.append(st, ta);
+    cab.append(sello(), tx);
+    c.append(cab, el("p", "", "Expediente sellado por la Inquisición."), el("p", "", "Ya no forma parte del club."));
+    c.lastChild.style.marginTop = "2px";
+    return c;
+  }
 
   async function carga() {
     if (datos) return datos;
@@ -121,11 +185,12 @@
     const d = await carga();
     if (pedida !== n) return;
     pedida = null;
-    const m = d && d.get(id);
-    if (!m) return;
+    // Sin cuenta, o con una cuenta que ya no está en Miembros: «REDACTED» (si no se pudo cargar la lista, nada).
+    const m = id && d && d.get(id);
+    if (!m && id && !d) return;
     cierra();
-    const c = tarjeta(m);
-    c.id = "abf-" + id;
+    const c = m ? tarjeta(m) : redactada();
+    c.id = "abf-" + (id || "x" + Math.random().toString(36).slice(2, 7));
     document.body.appendChild(c);
     // Debajo del nombre (o encima si no cabe), sin salirse de la pantalla.
     const r = n.getBoundingClientRect(), w = c.offsetWidth, h = c.offsetHeight;
@@ -145,7 +210,8 @@
   window.addEventListener("scroll", () => { if (abierta && Date.now() - abierta.t > 600 && !abierta.c.matches(":hover")) cierra(); }, { passive: true });
 
   window.abFicha = function (n, id) {
-    if (!n || !id) return n;
+    if (!n) return n;
+    id = id || null; // sin cuenta en la web: ficha «REDACTED»
     n.classList.add("abf-n");
     n.tabIndex = 0;
     n.setAttribute("role", "button");

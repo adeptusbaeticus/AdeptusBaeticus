@@ -167,7 +167,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 ## 6. Gran Liga Adeptus
 - Cada edición tiene **Fase I** (ida) y **Fase II** (vuelta). Se juega todos contra todos en rondas de 2 semanas, y
   después de la última ronda hay una ronda de **aplazadas**.
-- **Selector de fase** (de la liga en curso).
+- **Desplegable de liga** arriba: las fases de la liga en curso y las ligas pasadas.
 - **Clasificación:** victorias, puntos de victoria a favor y diferencia (siempre en ese orden, también en las ligas
   pasadas).
 - **Rondas y emparejamientos:** las partidas de cada ronda con su mesa (en la ronda de aplazadas, la ronda de
@@ -182,11 +182,13 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Calendario de la liga** para el móvil.
 - **Recordatorios por Discord** (mensaje privado del bot): tu partida de cada ronda y el aviso antes del cierre.
 - Ficha rápida de cada jugador al pasar el ratón por su nombre.
-- **Ligas pasadas:** al final de la liga en curso, una tarjeta por temporada terminada (de momento la Gran Liga 2026)
-  con sus fechas y su podio. «Ver clasificación y rondas» abre esa liga: podio, **clasificación final** y las rondas
-  con sus emparejamientos y resultados (sin fechas, sin botones y sin reglamento), con «Volver a la Gran Liga actual».
-  Las ligas pasadas no salen en el calendario y no se pueden modificar. Las partidas perdidas por abandono llevan la
-  etiqueta «Abandono», y quien abandonó, «Abandonó» en la clasificación.
+- **Ligas pasadas:** en el desplegable de arriba (grupo «Ligas pasadas»; de momento la Gran Liga 2026). Cada liga
+  pasada muestra sus fechas, el podio, la **clasificación final tal como quedó en New Recruit** y las rondas con sus
+  emparejamientos y resultados (sin fechas, sin botones y sin reglamento), con «Volver a la Gran Liga actual». No salen
+  en el calendario y no se pueden modificar. Las partidas perdidas por abandono llevan la etiqueta «Abandono», y quien
+  abandonó, «Abandonó» en la clasificación.
+- **Jugadores que ya no son socios:** al pasar el ratón por su nombre sale una ficha **«REDACTED»** con un sello
+  inquisitorial («Expediente sellado por la Inquisición»). Pasa con cualquiera que no tenga cuenta en la web.
 
 ### Administración de jugadores (admin)
 - Botón **«Administrar jugadores»**, que abre un panel con dos pestañas:

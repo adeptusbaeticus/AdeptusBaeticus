@@ -137,6 +137,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - En Galería (autor de cada publicación) y Gran Liga (jugadores vinculados) el nombre muestra la ficha del socio al
   pasar el ratón, con el foco del teclado o al tocarlo en el móvil (`public/ficha-hover.js`, `window.abFicha(el, id)`;
   datos de `/api/miembros`, guardados 5 minutos en `sessionStorage`). «Ver ficha completa» abre `miembros.html#m<ID>`.
+  Jugadores sin cuenta en la web (o cuya cuenta ya no está en Miembros): ficha **«REDACTED»** con un sello inquisitorial
+  (dibujo propio: columna en «I» roja con filo dorado y calavera, sobre lacre; `sello()`/`redactada()`), «Expediente
+  sellado por la Inquisición. Ya no forma parte del club.» `abFicha(el, null)` la muestra siempre.
   Los trofeos salen en iconos abajo a la derecha, en la fila de liga y ELO (iguales en cascada de hasta 4, «×N» si hay más); el dibujo del trofeo es común (`public/trofeos.js`, `window.abCopa`).
 
 ## Administración
@@ -218,9 +221,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **Ligas pasadas** (`liga_fases.terminada = 1` y `fin`, migración 0034): temporadas cerradas en las mismas tablas,
   que la web nunca vuelve a consultar en New Recruit. La «fase en curso» es siempre la última **no terminada**
   (`WHERE terminada=0`): todo lo automático (`ligaAuto`, recordatorios, ELO, calendario, Administrar jugadores,
-  aplazar) la usa solo a ella, y el servidor rechaza aplazar o reemplazar en una liga terminada. En Gran Liga, sección
-  «Ligas pasadas» con el podio de cada una y `gran-liga.html?fase=ID` para verla entera (clasificación final, rondas
-  sin fechas). La **Gran Liga 2026** (4 rondas, 14 jugadores) se leyó una sola vez de la página pública de su torneo
+  aplazar) la usa solo a ella, y el servidor rechaza aplazar o reemplazar en una liga terminada. En Gran Liga (título
+  «Gran Liga Adeptus Baeticus»), el desplegable de arriba tiene las fases en curso y el grupo «Ligas pasadas»; cada liga
+  en `gran-liga.html?fase=ID` (podio, clasificación final, rondas sin fechas). Clasificación final de una liga pasada:
+  la de New Recruit (`liga_jugadores.puesto_final`, migración 0036), no la calculada. La **Gran Liga 2026** (4 rondas, 14 jugadores) se leyó una sola vez de la página pública de su torneo
   en New Recruit (`tourny_get` y `report_get_bulk`, con permiso del propietario) y se guardó con esa migración; en esa
   temporada no se subieron listas ni facciones. Partidas perdidas por **abandono**: `liga_partidas.abandono` = `a`/`b`
   (quien abandonó; migración 0035): etiqueta «Abandono» en la partida y «Abandonó» junto a su nombre en la clasificación
