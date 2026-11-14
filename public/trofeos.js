@@ -79,7 +79,9 @@ function copa(puesto, modalidad) {
 
   // Corona de laurel alrededor de la foto del socio: verde para los miembros y roja para el admin (los aspirantes no
   // llevan). Dos ramas de hojas que suben desde un lazo abajo hasta casi arriba, dejando libre la parte de arriba.
-  function laurel(rol) {
+  // Con `alta`, cada año completo en el club dora un par de hojas (una por lado), de abajo (junto al lazo) hacia arriba.
+  function laurel(rol, alta) {
+    const anios = (alta && antiguedad(alta) || { anios: 0 }).anios;
     const colores = { miembro: ["#9DB05C", "#5E6B36"], admin: ["#E0574C", "#7A1712"] }[rol];
     if (!colores) return null;
     const [hoja, oscuro] = colores;
@@ -91,6 +93,15 @@ function copa(puesto, modalidad) {
     const add = (tag, at, padre) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); (padre || sv).appendChild(e); return e; };
     const R = 45, cx = 50, cy = 50, rad = (g) => (g * Math.PI) / 180;
     const pto = (g, r) => [cx + r * Math.cos(rad(g)), cy + r * Math.sin(rad(g))];
+    let oro = null;
+    if (anios) {
+      oro = "o" + Math.random().toString(36).slice(2, 8);
+      const gr = add("linearGradient", { id: oro, x1: "0", y1: "0", x2: "0", y2: "1" }, add("defs", {}));
+      add("stop", { offset: "0", "stop-color": "#FFF0B8" }, gr); add("stop", { offset: ".45", "stop-color": "#E3B95A" }, gr);
+      add("stop", { offset: "1", "stop-color": "#9A7020" }, gr);
+    }
+    // Relleno y borde de la hoja número k de cada lado (0 = la de abajo): dorada si ya lleva esos años.
+    const color = (k) => (k < anios ? [`url(#${oro})`, "#6E4F12"] : [hoja, oscuro]);
     for (const lado of [-1, 1]) {
       // Ángulos en grados (0 = derecha, 90 = abajo): de abajo (cerca del lazo) hacia arriba por cada lado.
       const g0 = 90 + lado * 12, g1 = 90 + lado * 140;
@@ -101,16 +112,17 @@ function copa(puesto, modalidad) {
         const g = g0 + ((g1 - g0) * (i + 0.5)) / n;
         const tam = 1 - i * 0.045; // hojas algo más pequeñas hacia la punta
         for (const fuera of [1, -1]) {
+          const [rel, bor] = color(2 * i + (fuera > 0 ? 0 : 1));
           const [x, y] = pto(g + lado * 3, R + fuera * 3.2);
           // Hoja: elipse inclinada hacia la punta de la rama y hacia fuera o hacia dentro.
           const giro = g + (lado > 0 ? 90 : -90) + fuera * lado * 32;
-          add("ellipse", { cx: x.toFixed(1), cy: y.toFixed(1), rx: (5.4 * tam).toFixed(2), ry: (2.3 * tam).toFixed(2), fill: hoja, stroke: oscuro, "stroke-width": "0.7",
+          add("ellipse", { cx: x.toFixed(1), cy: y.toFixed(1), rx: (5.4 * tam).toFixed(2), ry: (2.3 * tam).toFixed(2), fill: rel, stroke: bor, "stroke-width": "0.7",
             transform: `rotate(${giro.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})` });
         }
       }
       // Hoja de la punta.
-      const [xp, yp] = pto(g1 + lado * 4, R);
-      add("ellipse", { cx: xp.toFixed(1), cy: yp.toFixed(1), rx: "4.6", ry: "2", fill: hoja, stroke: oscuro, "stroke-width": "0.7", transform: `rotate(${(g1 + (lado > 0 ? 90 : -90)).toFixed(1)} ${xp.toFixed(1)} ${yp.toFixed(1)})` });
+      const [xp, yp] = pto(g1 + lado * 4, R), [rp, bp] = color(18);
+      add("ellipse", { cx: xp.toFixed(1), cy: yp.toFixed(1), rx: "4.6", ry: "2", fill: rp, stroke: bp, "stroke-width": "0.7", transform: `rotate(${(g1 + (lado > 0 ? 90 : -90)).toFixed(1)} ${xp.toFixed(1)} ${yp.toFixed(1)})` });
     }
     // Lazo abajo.
     add("path", { d: "M50 95L44 99.5L45.5 93.5Z M50 95L56 99.5L54.5 93.5Z", fill: oscuro });
@@ -136,46 +148,11 @@ function copa(puesto, modalidad) {
     const y = a.anios ? a.anios + (a.anios === 1 ? " año" : " años") : "", mm = a.meses ? a.meses + (a.meses === 1 ? " mes" : " meses") : "";
     return y && mm ? y + " y " + mm : y || mm || "menos de un mes";
   }
-  // Tachuelas de servicio («service studs»): una tachuela de metal abombada por cada año completo en el club, en fila
-  // sobre una pletina de hierro (hasta 5 dibujadas, «×N» si hay más). null si no lleva ninguna.
-  function galones(alta, grande) {
+  // «1 año en el club» / «N años en el club» (título de la corona), o "" si aún no lleva un año.
+  function aniosClub(alta) {
     const a = antiguedad(alta);
-    if (!a || !a.anios) return null;
-    const ns = "http://www.w3.org/2000/svg", n = Math.min(a.anios, 5), mas = a.anios > 5;
-    const W = 4 + n * 9 + (mas ? 12 : 0), H = 12, esc = grande ? 1.5 : 1.15;
-    const sv = document.createElementNS(ns, "svg");
-    const add = (tag, at, padre) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); (padre || sv).appendChild(e); return e; };
-    sv.setAttribute("viewBox", "0 0 " + W + " " + H);
-    sv.setAttribute("width", (W * esc).toFixed(1));
-    sv.setAttribute("height", (H * esc).toFixed(1));
-    sv.setAttribute("aria-hidden", "true");
-    const id = "t" + Math.random().toString(36).slice(2, 8);
-    const defs = add("defs", {});
-    const g = add("radialGradient", { id, cx: "35%", cy: "30%", r: "70%" }, defs);
-    add("stop", { offset: "0", "stop-color": "#FFF4CF" }, g); add("stop", { offset: ".35", "stop-color": "#E3B95A" }, g);
-    add("stop", { offset: ".8", "stop-color": "#8A6416" }, g); add("stop", { offset: "1", "stop-color": "#4A3208" }, g);
-    // Pletina de hierro con dos remaches pequeños en los extremos.
-    add("rect", { x: "0.5", y: "1.5", width: W - 1, height: "9", rx: "2.2", fill: "#2A2C30", stroke: "#0E0F11", "stroke-width": "0.8" });
-    add("rect", { x: "1.2", y: "2.1", width: W - 2.4, height: "1.3", rx: "0.6", fill: "#5A5E66", opacity: ".55" });
-    for (let i = 0; i < n; i++) {
-      const cx = 6.5 + i * 9;
-      add("circle", { cx: cx + 0.5, cy: "6.9", r: "3.5", fill: "#000", opacity: ".55" }); // sombra
-      add("circle", { cx, cy: "6", r: "3.5", fill: `url(#${id})`, stroke: "#3A2808", "stroke-width": "0.5" });
-      add("circle", { cx: cx - 1.1, cy: "4.9", r: "0.9", fill: "#FFFBEA", opacity: ".85" }); // brillo
-    }
-    if (mas) {
-      const tx = add("text", { x: W - 6.5, y: "8.6", "text-anchor": "middle", "font-size": "6.5", "font-weight": "700", fill: "#E3B95A", "font-family": "Inter,sans-serif" });
-      tx.textContent = "×" + a.anios;
-    }
-    // El texto va en un envoltorio (fuera del SVG) para que se traduzca.
-    const w = document.createElement("span");
-    w.className = "galones";
-    w.setAttribute("role", "img");
-    w.title = a.anios === 1 ? "1 año en el club" : a.anios + " años en el club";
-    w.setAttribute("aria-label", w.title);
-    w.appendChild(sv);
-    return w;
+    return a && a.anios ? (a.anios === 1 ? "1 año en el club" : a.anios + " años en el club") : "";
   }
   window.abAntiguedad = textoAntiguedad;
-  window.abGalones = galones;
+  window.abAniosClub = aniosClub;
 })();

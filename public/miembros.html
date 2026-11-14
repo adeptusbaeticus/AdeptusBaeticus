@@ -46,9 +46,6 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .av.g{width:104px;height:104px;font-size:40px}
 .lau{position:relative;display:inline-flex;flex:none;margin:10px}
 .lau.g{margin:18px}
-.lau.sin{margin:0}
-.lau .galones{display:block;line-height:0;position:absolute;left:calc(100% + 12px);bottom:2px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7))}
-.lau.g .galones{left:calc(100% - 10px);bottom:-12px}
 .lau .laurel{position:absolute;left:-16%;top:-16%;width:132%;height:132%;pointer-events:none;overflow:visible}
 .nm{font-weight:600;font-size:17px;overflow-wrap:anywhere}
 .rol.off{color:#A8A293;border-color:#4A4F57;margin-left:6px}
@@ -173,15 +170,14 @@ const GRUPOS = [
   ["Xenos", ["Aeldari", "Drukhari", "Genestealer Cults", "Leagues of Votann", "Necrons", "Orks", "T'au Empire", "Tyranids"]],
 ];
 
-// Foto con la corona de laurel del rol (verde: miembro; roja: admin), si la lleva.
-// Foto con la corona de laurel del rol y los galones de antigüedad (uno por año en el club), si los lleva.
+// Foto con la corona de laurel del rol, con un par de hojas doradas por cada año en el club, si la lleva.
 function avatar(m, grande) {
-  const f = foto(m, grande), l = window.abLaurel && window.abLaurel(m.role), g = window.abGalones && window.abGalones(m.alta, grande);
-  if (!l && !g) return f;
-  const w = el("span", "lau" + (grande ? " g" : "") + (l ? "" : " sin"));
-  w.appendChild(f);
-  if (l) w.appendChild(l);
-  if (g) w.appendChild(g);
+  const f = foto(m, grande), l = window.abLaurel && window.abLaurel(m.role, m.alta);
+  if (!l) return f;
+  const w = el("span", "lau" + (grande ? " g" : ""));
+  const t = window.abAniosClub && window.abAniosClub(m.alta);
+  if (t) w.title = t;
+  w.append(f, l);
   return w;
 }
 function foto(m, grande) {
