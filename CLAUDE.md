@@ -23,6 +23,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   producción **antes** de subir el código que lo usa.
 - **Seguridad:** validación y permisos siempre en el servidor; en el cliente `textContent`/DOM,
   nunca `innerHTML`. No tocar `wrangler.jsonc` ni secretos sin permiso expreso.
+- **Colores:** nunca azul. Paleta del club: dorado `#D9B25A`, rojo `#A3211B` y el verde Adeptus del logo
+  `#343B20` (con icono o texto claro `#DCD8C2` y borde `#7C8A4C` cuando va sobre fondo oscuro).
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.
 
