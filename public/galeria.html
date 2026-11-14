@@ -111,7 +111,7 @@ dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
   </div>
   <h1>Galería</h1>
   <div class="cab">
-    <p class="lead">Fotos de los miembros del club. Los miembros pueden subirlas desde aquí o con <code>/publicar</code> en el canal #publicaciones-web de Discord.</p>
+    <p class="lead">Fotos de los miembros del club.</p>
     <button class="btn" id="bsubir" type="button" hidden>Subir fotos</button>
   </div>
   <div class="fil" id="fil" hidden>
@@ -274,7 +274,7 @@ function tarjeta(p) {
     const bo = el("button", "borrar", "Borrar");
     bo.type = "button";
     bo.onclick = async () => {
-      if (!confirm("¿Borrar la publicación #" + p.numero + "? También se borrará su mensaje en Discord.")) return;
+      if (!confirm("¿Borrar la publicación #" + p.numero + "?")) return;
       bo.disabled = true;
       try {
         const r = await fetch("/api/galeria/" + p.id, { method: "DELETE" });
@@ -401,7 +401,7 @@ function formularioSubir() {
   };
   const lt = el("label", "t", "Descripción (opcional)"); lt.htmlFor = "dsub-texto";
   const tx = el("textarea"); tx.id = "dsub-texto"; tx.maxLength = 500; tx.placeholder = "Por ejemplo: mis Marines Espaciales recién pintados";
-  c.append(lf, elegir, minis, cuenta, lt, tx, el("p", "ay", "Se publicará también en el canal #publicaciones-web de Discord. Si la borras, se borra de los dos sitios."));
+  c.append(lf, elegir, minis, cuenta, lt, tx);
   pintaMinis();
 
   let subiendo = false;
