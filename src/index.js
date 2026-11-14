@@ -3176,6 +3176,9 @@ export default {
         const sinRol = lista.filter((x) => !x.r).length;
         // Para los que siguen sin vincular: posibles cuentas entre los miembros que aún no tienen ficha vinculada.
         const libresDe = miembros.filter((m) => !usados.has(m.user.id) && !conDatos.has(m.user.id));
+        // Se guarda esa lista (solo cuenta, usuario, nombre visible, apodo y rol) para poder revisar las parejas a mano.
+        await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES ('discord:sin-datos', ?1, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?1, actualizado=datetime('now')")
+          .bind(JSON.stringify(libresDe.map((m) => ({ id: m.user.id, usuario: m.user.username, visible: m.user.global_name || null, apodo: m.nick || null, rol: roleOf(env, m.roles || []) })))).run();
         return informe({ nuevos: lista.length, sin_rol: sinRol, dudosos, fuera, libresDe });
       }
       // Vincular a mano una fila del Excel con una cuenta de Discord (desde las sugerencias).

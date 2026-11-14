@@ -89,6 +89,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Para los que quedan sin vincular, el bot propone hasta 3 cuentas parecidas (`sugerenciasSocio`: alias sin números ni
   signos, contenido o con 1-2 letras distintas, o su nombre real en el apodo) que el admin confirma en Admin
   (`/api/admin/socios/vincula`); nunca se vinculan solas.
+  Al pulsar el botón se guarda en `nr_cache` (`discord:sin-datos`) la lista de cuentas del servidor sin datos (cuenta,
+  usuario, nombre visible, apodo y rol) para revisar las parejas a mano.
 - Datos obligatorios al entrar: todo socio menos el admin que no se inscribió con la web y aún no ha completado sus datos
   (`faltanDatos`, `completar` en `/api/me`) va a `inscripcion.html?completar=1` (`auth.js`) hasta guardarlos
   (`/api/socio/datos`, misma validación que la inscripción, `validaDatosSocio`); vienen rellenos con lo del Excel.
