@@ -80,6 +80,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   `SESSION_SECRET`) y se borra en cuanto entra en el servidor (o al decidir). El bot necesita «Gestionar roles»,
   «Crear invitación» y «Expulsar miembros», y su rol por encima de Externo y Aspirante.
 
+- Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
+  (migración 0030); en Miembros salen con la etiqueta «Desconectado» hasta su primer inicio de sesión, que lo pone a 1.
+
 ## Encuestas
 
 - Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí

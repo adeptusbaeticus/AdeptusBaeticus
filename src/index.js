@@ -2458,7 +2458,7 @@ export default {
       const u = mem.user;
       const name = mem.nick || u.global_name || u.username;
       await env.DB.prepare(
-        "INSERT INTO users (discord_id,name,avatar,role) VALUES (?1,?2,?3,?4) ON CONFLICT(discord_id) DO UPDATE SET name=excluded.name, avatar=excluded.avatar, role=excluded.role"
+        "INSERT INTO users (discord_id,name,avatar,role) VALUES (?1,?2,?3,?4) ON CONFLICT(discord_id) DO UPDATE SET name=excluded.name, avatar=excluded.avatar, role=excluded.role, conectado=1"
       ).bind(u.id, name, u.avatar, role).run();
       try { await ligaVincula(env, u.id); } catch (e) {}
       // Si entró por la inscripción y dio su Steam, pasa a su ficha de Miembros (si aún no tiene uno).
@@ -2883,7 +2883,7 @@ export default {
     if (path === "/api/miembros" && request.method === "GET") {
       const s = await readSession(env, request);
       const { results } = await env.DB.prepare(
-        "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username FROM users ORDER BY name COLLATE NOCASE"
+        "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username, conectado FROM users ORDER BY name COLLATE NOCASE"
       ).all();
       // ELO de la liga: por usuario de New Recruit (el de la ficha o el del jugador de la liga vinculado).
       let elo = [];
@@ -2933,6 +2933,7 @@ export default {
         try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
         const x = eloDe(u);
         const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
+        if (!u.conectado) m.desconectado = true; // creado desde la web y aún sin iniciar sesión
         if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username });
         m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
         return m;

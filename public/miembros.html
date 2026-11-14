@@ -43,6 +43,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .av{width:72px;height:72px;border-radius:999px;object-fit:cover;background:#2A2F36;display:flex;align-items:center;justify-content:center;font:700 28px Cinzel,serif;color:#D9B25A;flex:none}
 .av.g{width:104px;height:104px;font-size:40px}
 .nm{font-weight:600;font-size:17px;overflow-wrap:anywhere}
+.rol.off{color:#A8A293;border-color:#4A4F57;margin-left:6px}
 .rol{display:inline-block;font:600 11px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#D9B25A;border:1px solid #6B5A2E;border-radius:999px;padding:2px 10px}
 .tu{color:#15171A;background:#D9B25A;border-color:#D9B25A;margin-left:4px}
 .fc{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
@@ -302,6 +303,7 @@ function pintaGrid() {
     const rol = el("span");
     rol.appendChild(el("span", "rol", ROL[m.role] || m.role));
     if (m.id === D.yo) rol.appendChild(el("span", "rol tu", "Tú"));
+    if (m.desconectado) rol.appendChild(el("span", "rol off", "Desconectado"));
     b.append(avatar(m), nm, rol);
     if (m.liga || m.elo) {
       const fila = el("span", "fc");
@@ -343,6 +345,7 @@ function ficha(m) {
   const tx = el("div");
   const h = el("h2", "", m.name); h.id = "fi-n"; h.setAttribute("translate", "no");
   tx.append(h, el("span", "rol", ROL[m.role] || m.role));
+  if (m.desconectado) { tx.append(" ", el("span", "rol off", "Desconectado")); tx.appendChild(el("p", "sin", "Todavía no ha entrado en la web.")); }
   cab.append(avatar(m, true), tx);
   fi.append(cab, el("h3", "", "Facciones"), m.facciones.length ? chips(m.facciones) : el("p", "sin", "Todavía no ha indicado sus facciones."));
   // Estadísticas en la Gran Liga (fase actual).

@@ -135,6 +135,7 @@
     "Tu nombre de perfil o el enlace a tu perfil de Steam.": "Your profile name or a link to your Steam profile.",
     "Tu usuario de New Recruit (se usa para la Gran Liga).": "Your New Recruit username (used for the Grand League).",
     "Tu nombre en BCP.": "Your name on BCP.", "@usuario": "@username",
+    "Desconectado": "Not connected", "Todavía no ha entrado en la web.": "Has not signed in to the website yet.",
     "Instagram (opcional)": "Instagram (optional)", "Steam (opcional)": "Steam (optional)", "New Recruit (opcional)": "New Recruit (optional)",
     "BCP (Best Coast Pairings) (opcional)": "BCP (Best Coast Pairings) (optional)", "Conectar con Steam": "Connect with Steam",
     "Conéctala con Steam o escribe tu nombre de perfil o el enlace.": "Connect it with Steam or type your profile name or link.",
