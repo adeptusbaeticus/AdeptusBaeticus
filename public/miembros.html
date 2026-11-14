@@ -99,6 +99,8 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
 .ed .chk label{display:flex;align-items:center;gap:8px;font-weight:400;font-size:14px;margin:0;min-height:32px}
 .ed input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
 .err{color:#F0A39E;font-size:14px;min-height:20px;margin-top:10px}
+.aviso-ok{color:#C3CAA6;font-size:14px;margin:0 0 10px}
+.ed .btn.steam{margin-top:8px;background:var(--online,#2A2D33);color:var(--online-txt,#E6DCC3);border:1px solid var(--online-borde,#8A8F98)}
 .ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
 .ftl{display:flex;gap:20px;flex-wrap:wrap}
 .ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
@@ -317,18 +319,18 @@ function pintaGrid() {
 // Enlace (o texto) de cada cuenta.
 function cuentas(m) {
   const ul = el("ul", "cu");
-  const fila = (et, valor, href) => {
+  const fila = (et, valor, href, traducible) => {
     const li = el("li");
     li.appendChild(el("span", "et", et));
     if (!valor) { li.appendChild(el("span", "sin", "—")); ul.appendChild(li); return; }
     const v = href ? el("a", "", valor) : el("span", "", valor);
     if (href) { v.href = href; v.target = "_blank"; v.rel = "noopener"; }
-    v.setAttribute("translate", "no");
+    if (!traducible) v.setAttribute("translate", "no");
     li.appendChild(v); ul.appendChild(li);
   };
   fila("Discord", m.name, "https://discord.com/users/" + m.id);
   fila("Instagram", m.instagram && "@" + m.instagram, m.instagram && "https://www.instagram.com/" + encodeURIComponent(m.instagram) + "/");
-  fila("Steam", m.steam, m.steam && "https://steamcommunity.com/" + (/^\d{17}$/.test(m.steam) ? "profiles/" : "id/") + encodeURIComponent(m.steam) + "/");
+  fila("Steam", m.steam && (/^\d{17}$/.test(m.steam) ? "Ver perfil de Steam" : m.steam), m.steam &&"https://steamcommunity.com/" + (/^\d{17}$/.test(m.steam) ? "profiles/" : "id/") + encodeURIComponent(m.steam) + "/", /^\d{17}$/.test(m.steam || ""));
   fila("New Recruit", m.nr);
   fila("BCP", m.bcp);
   return ul;
@@ -431,27 +433,41 @@ function editar(m) {
     if (ayuda) f.appendChild(el("div", "ay", ayuda));
     return i;
   };
-  const ig = campo("e-ig", "Instagram", m.instagram, "Tu usuario o el enlace a tu perfil.", "@usuario");
-  const st = campo("e-st", "Steam", m.steam, "Tu nombre de perfil o el enlace a tu perfil de Steam.");
-  const nr = campo("e-nr", "New Recruit", m.nr, "Tu usuario de New Recruit (se usa para la Gran Liga).");
-  const bc = campo("e-bc", "BCP (Best Coast Pairings)", m.bcp, "Tu nombre en BCP.");
+  const ig = campo("e-ig", "Instagram (opcional)", m.instagram, "Tu usuario o el enlace a tu perfil.", "@usuario");
+  const propia = m.id === D.yo;
+  const st = campo("e-st", "Steam (opcional)", m.steam, propia ? "Conéctala con Steam o escribe tu nombre de perfil o el enlace." : "Su nombre de perfil o el enlace a su perfil de Steam.");
   const err = el("div", "err"); err.setAttribute("role", "alert");
+  if (propia) {
+    // «Conectar con Steam»: guarda primero lo que haya cambiado y vuelve con la cuenta verificada.
+    const cs = el("button", "btn steam", "Conectar con Steam"); cs.type = "button";
+    cs.onclick = async () => {
+      if (!(await guarda())) return;
+      location.href = "/auth/steam?para=ficha";
+    };
+    f.appendChild(cs);
+  }
+  const nr = campo("e-nr", "New Recruit (opcional)", m.nr, "Tu usuario de New Recruit (se usa para la Gran Liga).");
+  const bc = campo("e-bc", "BCP (Best Coast Pairings) (opcional)", m.bcp, "Tu nombre en BCP.");
   const acc = el("div", "acc");
   const ok = el("button", "btn", "Guardar"); ok.type = "submit";
   const vol = el("button", "btn alt", "Cancelar"); vol.type = "button"; vol.onclick = () => ficha(m);
   acc.append(vol, ok);
   f.append(err, acc);
-  f.onsubmit = async (ev) => {
-    ev.preventDefault();
+  const guarda = async () => {
     err.textContent = ""; ok.disabled = true;
     const body = { facciones: [...f.querySelectorAll("input[name=fac]:checked")].map((x) => x.value), instagram: ig.value, steam: st.value, nr: nr.value, bcp: bc.value };
     try {
       const r = await fetch("/api/miembros/" + m.id, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) { err.textContent = d.error || "No se pudo guardar."; ok.disabled = false; return; }
-      await carga();
-      ficha(D.miembros.find((x) => x.id === m.id) || m);
-    } catch (x) { err.textContent = "No se pudo guardar. Inténtalo de nuevo."; ok.disabled = false; }
+      if (!r.ok) { err.textContent = d.error || "No se pudo guardar."; ok.disabled = false; return false; }
+      return true;
+    } catch (x) { err.textContent = "No se pudo guardar. Inténtalo de nuevo."; ok.disabled = false; return false; }
+  };
+  f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    if (!(await guarda())) return;
+    await carga();
+    ficha(D.miembros.find((x) => x.id === m.id) || m);
   };
   fi.appendChild(f);
   f.querySelector("input").focus();
@@ -592,6 +608,14 @@ $("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").
 carga().then(() => {
   // miembros.html#yo abre directamente tu ficha.
   if (location.hash === "#yo" && D && D.yo) { const m = D.miembros.find((x) => x.id === D.yo); if (m) ficha(m); }
+  // Vuelta de «Conectar con Steam»: aviso en la ficha.
+  const vs = new URLSearchParams(location.search).get("steam");
+  if (vs && $("dlg").open) {
+    const av = el("p", vs === "ok" ? "aviso-ok" : "err", vs === "ok" ? "✓ Cuenta de Steam conectada." : "No se pudo conectar la cuenta de Steam. Inténtalo de nuevo.");
+    av.setAttribute("role", "status");
+    $("fi").prepend(av);
+  }
+  if (vs) history.replaceState(null, "", location.pathname + location.hash);
 }).catch(() => { $("grid").textContent = ""; $("grid").appendChild(el("p", "m", "No se pudieron cargar los miembros.")); });
 </script>
 <script src="/i18n.js"></script>

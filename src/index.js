@@ -2363,8 +2363,11 @@ export default {
 
     // Steam («Iniciar sesión a través de Steam», OpenID 2.0) para la inscripción: solo sirve para conocer la cuenta
     // verificada (SteamID64) y el nombre de su perfil público. No necesita clave.
+    // Con ?para=ficha, el socio conecta su Steam a su ficha de Miembros (necesita sesión).
     if (path === "/auth/steam") {
-      const n = crypto.randomUUID();
+      const paraFicha = url.searchParams.get("para") === "ficha";
+      if (paraFicha && !(await readSession(env, request))) return Response.redirect(url.origin + "/auth/login", 302);
+      const n = (paraFicha ? "f." : "") + crypto.randomUUID();
       const p = new URLSearchParams({ "openid.ns": "http://specs.openid.net/auth/2.0", "openid.mode": "checkid_setup",
         "openid.return_to": url.origin + "/auth/steam/vuelta?n=" + n, "openid.realm": url.origin,
         "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select", "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select" });
@@ -2372,9 +2375,11 @@ export default {
         "set-cookie": `ab_steam_state=${n}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600` } });
     }
     if (path === "/auth/steam/vuelta") {
-      const sale = (q, cookie) => { const h = new Headers({ location: url.origin + "/inscripcion.html" + (q ? "?" + q : "") });
-        h.append("set-cookie", "ab_steam_state=; Path=/; Max-Age=0"); if (cookie) h.append("set-cookie", cookie); return new Response(null, { status: 302, headers: h }); };
       const st = ((request.headers.get("cookie") || "").match(/ab_steam_state=([^;]+)/) || [])[1];
+      const paraFicha = !!st && st.startsWith("f.");
+      const sale = (q, cookie) => { const h = new Headers({ location: url.origin + (paraFicha
+          ? "/miembros.html?steam=" + (q ? "error" : "ok") + "#yo" : "/inscripcion.html" + (q ? "?" + q : "")) });
+        h.append("set-cookie", "ab_steam_state=; Path=/; Max-Age=0"); if (cookie) h.append("set-cookie", cookie); return new Response(null, { status: 302, headers: h }); };
       const q = url.searchParams;
       const m = /^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/.exec(q.get("openid.claimed_id") || "");
       if (!st || st !== q.get("n") || q.get("openid.mode") !== "id_res" || !m ||
@@ -2387,13 +2392,23 @@ export default {
         const v = await fetch("https://steamcommunity.com/openid/login", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: datos });
         if (!v.ok || !/is_valid\s*:\s*true/.test(await v.text())) return sale("error=steam");
       } catch (e) { return sale("error=steam"); }
-      // Nombre del perfil público (si es privado, se queda el identificador).
-      let nombre = m[1];
+      // Nombre del perfil público (si es privado, se queda el identificador) y su dirección personalizada, si tiene.
+      let nombre = m[1], custom = null;
       try {
         const x = await fetch(`https://steamcommunity.com/profiles/${m[1]}/?xml=1`);
-        const nm = x.ok && /<steamID><!\[CDATA\[([\s\S]*?)\]\]><\/steamID>/.exec(await x.text());
+        const xml = x.ok ? await x.text() : "";
+        const nm = /<steamID><!\[CDATA\[([\s\S]*?)\]\]><\/steamID>/.exec(xml);
         if (nm && nm[1].trim()) nombre = nm[1].trim().slice(0, 64);
+        const cu = /<customURL><!\[CDATA\[([A-Za-z0-9_-]{2,64})\]\]><\/customURL>/.exec(xml);
+        if (cu) custom = cu[1];
       } catch (e) {}
+      if (paraFicha) {
+        // Se guarda en la ficha del socio con sesión (la dirección personalizada o, si no tiene, el SteamID64).
+        const s = await readSession(env, request);
+        if (!s) return sale("error=steam");
+        await env.DB.prepare("UPDATE users SET steam=?2 WHERE discord_id=?1").bind(s.id, custom || m[1]).run();
+        return sale("");
+      }
       const c = await firmaReg(env, { id: m[1], nombre, exp: Math.floor(Date.now() / 1000) + 3600 });
       return sale("", `ab_steam=${c}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`);
     }
