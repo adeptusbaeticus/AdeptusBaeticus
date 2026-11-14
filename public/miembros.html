@@ -138,6 +138,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
     <select id="frol" aria-label="Filtrar por rol"><option value="">Todos los roles</option></select>
     <select id="ffac" aria-label="Filtrar por facción"><option value="">Todas las facciones</option></select>
     <button type="button" class="ftro" id="ftro" aria-pressed="false">🏆 Con trofeos</button>
+    <button type="button" class="ftro" id="fdesc" aria-pressed="false">Desconectados</button>
     <button type="button" class="btn" id="btro" hidden>Asignar trofeos</button>
   </div>
   <div class="grid" id="grid"><p class="m">Cargando...</p></div>
@@ -296,8 +297,8 @@ function chips(fac, max) {
 function pintaGrid() {
   const g = $("grid");
   g.textContent = "";
-  const q = $("busca").value.trim().toLowerCase(), f = $("ffac").value, rl = $("frol").value, tro = $("ftro").getAttribute("aria-pressed") === "true";
-  const ms = D.miembros.filter((m) => (!q || m.name.toLowerCase().includes(q)) && (!f || m.facciones.includes(f)) && (!rl || m.role === rl) && (!tro || m.trofeos.length));
+  const q = $("busca").value.trim().toLowerCase(), f = $("ffac").value, rl = $("frol").value, tro = $("ftro").getAttribute("aria-pressed") === "true", desc = $("fdesc").getAttribute("aria-pressed") === "true";
+  const ms = D.miembros.filter((m) => (!q || m.name.toLowerCase().includes(q)) && (!f || m.facciones.includes(f)) && (!rl || m.role === rl) && (!tro || m.trofeos.length) && (!desc || m.desconectado));
   $("nada").hidden = ms.length > 0;
   ms.forEach((m) => {
     const b = el("button", "mb" + (m.id === D.yo ? " yo" : ""));
@@ -611,7 +612,7 @@ async function carga() {
 $("busca").addEventListener("input", pintaGrid);
 $("ffac").onchange = pintaGrid;
 $("frol").onchange = pintaGrid;
-$("ftro").onclick = () => { const b = $("ftro"); b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); pintaGrid(); };
+["ftro", "fdesc"].forEach((id) => { $(id).onclick = () => { const b = $(id); b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); pintaGrid(); }; });
 $("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").close(); });
 carga().then(() => {
   // miembros.html#yo abre directamente tu ficha.

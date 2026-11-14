@@ -148,6 +148,7 @@
     "Ese socio no existe": "That member does not exist", "Ese socio ya está vinculado": "That member is already linked",
     "Esa cuenta de Discord ya está vinculada con otro socio": "That Discord account is already linked to another member",
     "Esa cuenta ya no está en el servidor de Discord": "That account is no longer on the Discord server",
+    "Desconectados": "Not connected",
     "🏆 Con trofeos": "🏆 With trophies",
     "Socios importados del Excel": "Members imported from the spreadsheet", "Vincular con Discord": "Link with Discord",
     "No hay socios importados.": "There are no imported members.", "Vinculando...": "Linking...", "No se pudo vincular.": "Could not link.",
