@@ -136,7 +136,13 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .mq.online{background:#7FB3E0;color:#15171A}
 .mq .mo{margin:0}.mq .mo svg{width:14px;height:14px;stroke-width:1.8}
 .d.hoy .mq{box-shadow:0 0 0 2px #262A30}
-.d.mods2>.e:first-of-type{margin-top:26px}
+/* En el ordenador se montan sobre la esquina del día, como un aviso; en el móvil van dentro. */
+@media (min-width:601px){
+  .mods{top:-7px;right:-7px;z-index:3}
+  .mq{box-shadow:0 0 0 2px #15171A,0 2px 6px rgba(0,0,0,.5)}
+  .d.hoy .mq{box-shadow:0 0 0 2px #15171A,0 2px 6px rgba(0,0,0,.5)}
+  .cal{padding:8px 8px 0 0;margin-top:-8px}
+}
 @media (max-width:600px){.mods{top:3px;right:3px;gap:2px}.mq{width:15px;height:15px;border-radius:4px}.mq .mo svg{width:11px;height:11px}.d.mods2>.e:first-of-type{margin-top:16px}}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
 .card h3{font:700 22px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
