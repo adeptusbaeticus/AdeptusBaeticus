@@ -57,6 +57,9 @@ h2{font:700 24px Cinzel,Georgia,serif;margin:40px 0 16px}
 .podio .pos{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:28px;padding:0 8px;box-sizing:border-box;border-radius:999px;font:700 13px Inter,sans-serif;color:#15171A}
 .podio .p1{background:#D9B25A}.podio .p2{background:#C9CCD1}.podio .p3{background:#B07A45}
 .podio .bal{color:#A8A293;font-size:13px}
+/* Partida perdida por abandono */
+.aband{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;border:1px solid #A3211B;color:#F0A39E;font:600 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle}
+.res .aband{display:block;width:max-content;margin:4px auto 0}
 .volver{display:inline-flex;margin-top:14px}
 .actual h3{font:700 22px Cinzel,Georgia,serif;margin:0 0 4px}
 .cierre{font-weight:600;color:#F0CE82;margin:8px 0 0}
@@ -242,8 +245,9 @@ function fechasRonda(n) {
 }
 
 function clasificacion(d = D) {
-  const t = new Map(d.jugadores.map((j) => [j.id, { j, pj: 0, v: 0, d: 0, pv: 0, contra: 0, fac: null, ult: "" }]));
+  const t = new Map(d.jugadores.map((j) => [j.id, { j, pj: 0, v: 0, d: 0, pv: 0, contra: 0, fac: null, ult: "", aband: false }]));
   d.partidas.forEach((p) => {
+    if (p.abandono) { const x = t.get(p.abandono === "a" ? p.jugador_a : p.jugador_b); if (x) x.aband = true; }
     if (p.pv_a == null || p.pv_b == null) return;
     [[p.jugador_a, p.pv_a, p.pv_b, p.faccion_a], [p.jugador_b, p.pv_b, p.pv_a, p.faccion_b]].forEach(([id, mio, suyo, fac]) => {
       const x = t.get(id);
@@ -299,7 +303,9 @@ function pintaClasificacion() {
     const dif = x.pv - x.contra;
     const td = (txt, cls) => { const c = el("td", cls || "", txt); tr.appendChild(c); return c; };
     td(String(i + 1));
-    td("", "izq").appendChild(celdaJugador(x.j));
+    const cj = td("", "izq");
+    cj.appendChild(celdaJugador(x.j));
+    if (x.aband) cj.appendChild(el("span", "aband", "Abandonó"));
     const f = td(x.fac || "—", "izq"); f.setAttribute("translate", "no");
     td(String(x.pj)); td(String(x.v)); td(String(x.d)); td(String(x.pv));
     td((dif > 0 ? "+" : "") + dif, dif > 0 ? "pos" : dif < 0 ? "neg" : "");
@@ -323,7 +329,10 @@ function filaPartida(p, ronda) {
     return d;
   };
   let centro;
-  if (hay) centro = el("div", "res", p.pv_a + " – " + p.pv_b);
+  if (hay) {
+    centro = el("div", "res", p.pv_a + " – " + p.pv_b);
+    if (p.abandono) centro.appendChild(el("span", "aband", "Abandono"));
+  }
   else if (D.fase.terminada) centro = el("div", "est", "Sin resultado");
   else {
     const fr = fechasRonda(ronda);

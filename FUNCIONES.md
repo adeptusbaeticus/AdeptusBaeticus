@@ -185,7 +185,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Ligas pasadas:** al final de la liga en curso, una tarjeta por temporada terminada (de momento la Gran Liga 2026)
   con sus fechas y su podio. «Ver clasificación y rondas» abre esa liga: podio, **clasificación final** y las rondas
   con sus emparejamientos y resultados (sin fechas, sin botones y sin reglamento), con «Volver a la Gran Liga actual».
-  Las ligas pasadas no salen en el calendario y no se pueden modificar.
+  Las ligas pasadas no salen en el calendario y no se pueden modificar. Las partidas perdidas por abandono llevan la
+  etiqueta «Abandono», y quien abandonó, «Abandonó» en la clasificación.
 
 ### Administración de jugadores (admin)
 - Botón **«Administrar jugadores»**, que abre un panel con dos pestañas:

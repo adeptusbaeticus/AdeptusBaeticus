@@ -222,7 +222,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   «Ligas pasadas» con el podio de cada una y `gran-liga.html?fase=ID` para verla entera (clasificación final, rondas
   sin fechas). La **Gran Liga 2026** (4 rondas, 14 jugadores) se leyó una sola vez de la página pública de su torneo
   en New Recruit (`tourny_get` y `report_get_bulk`, con permiso del propietario) y se guardó con esa migración; en esa
-  temporada no se subieron listas ni facciones.
+  temporada no se subieron listas ni facciones. Partidas perdidas por **abandono**: `liga_partidas.abandono` = `a`/`b`
+  (quien abandonó; migración 0035): etiqueta «Abandono» en la partida y «Abandonó» junto a su nombre en la clasificación
+  (en 2026, German y Vanesa en la ronda 1, 0 – 50).
 - Excepción autorizada por el propietario: el **ranking ELO** de la liga de New Recruit (no está en la API
   oficial) se lee con la llamada interna `ladder_get_paginated` de su web, solo junto a la sincronización de
   resultados (mismas esperas) y nunca en una visita. Se muestra en la ficha de Miembros.

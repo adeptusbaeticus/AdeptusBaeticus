@@ -2060,7 +2060,7 @@ export default {
       if (!fase) return Response.json({ fases, fase: null }, { headers: { "cache-control": "public, max-age=120" } });
       const jugadores = (await env.DB.prepare("SELECT id, discord, nombre, discord_id FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
       const partidas = (await env.DB.prepare(
-        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada,
+        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada, abandono,
            faccion_a, faccion_b, destac_a, destac_b, ${LIGA_LISTAS_PUBLICAS ? "(lista_a IS NOT NULL OR lista_b IS NOT NULL)" : "0"} AS listas
          FROM liga_partidas WHERE fase_id=?1 ORDER BY ronda, mesa`
       ).bind(fase.id).all()).results;
