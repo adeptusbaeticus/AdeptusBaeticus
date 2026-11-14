@@ -543,14 +543,22 @@ async function vinculaAlEntrar(env, u, nick) {
         (SELECT date(created_at) FROM solicitudes WHERE discord_id=?1 AND estado='aprobada' ORDER BY id DESC LIMIT 1)),
       instagram=COALESCE(instagram, (SELECT instagram FROM socios_datos WHERE discord_id=?1)) WHERE discord_id=?1`).bind(u.id).run();
 }
+// Para /api/me: `datos_pendientes` (aviso junto al usuario, también para el admin) y `completar` (obligatorio, menos el admin).
+async function avisoDatos(env, s) {
+  if (await tieneDatos(env, s.id)) return {};
+  return s.role === "admin" ? { datos_pendientes: true } : { datos_pendientes: true, completar: true };
+}
 // Lo único de la API que puede usar un socio mientras le faltan sus datos (además de /api/inscripcion*).
 const SIN_DATOS_PERMITIDO = new Set(["/api/me", "/api/socio/datos", "/api/ver-como/salir", "/api/push/baja"]);
 // ¿Tiene que completar sus datos? Todos los socios menos el admin, hasta que los completen (o si se inscribieron con la web).
 async function faltanDatos(env, s) {
   if (!s || s.role === "admin") return false;
+  return !(await tieneDatos(env, s.id));
+}
+async function tieneDatos(env, id) {
   const r = await env.DB.prepare(`SELECT EXISTS (SELECT 1 FROM socios_datos WHERE discord_id=?1 AND completado_at IS NOT NULL)
-    OR EXISTS (SELECT 1 FROM solicitudes WHERE discord_id=?1 AND estado='aprobada') AS ok`).bind(s.id).first();
-  return !(r && r.ok);
+    OR EXISTS (SELECT 1 FROM solicitudes WHERE discord_id=?1 AND estado='aprobada') AS ok`).bind(id).first();
+  return !!(r && r.ok);
 }
 
 // Rol «Externo» del servidor (se busca por su nombre; se guarda 1 día). Quien solo tiene ese rol no ve nada en
@@ -2623,7 +2631,7 @@ export default {
         const row = await env.DB.prepare("SELECT nr_username FROM users WHERE discord_id=?1").bind(renovada.id).first();
         if (row) nr = row.nr_username;
         return Response.json({ id: renovada.id, name: renovada.name, avatar: renovada.avatar, role: renovada.role, nr_username: nr, ver_como: null,
-          completar: (await faltanDatos(env, renovada)) || undefined },
+          ...(await avisoDatos(env, renovada)) },
           { headers: { "cache-control": "no-store", "set-cookie": `${COOKIE}=${ck}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${MAX_AGE}` } });
       }
       if (raw && raw.invitado && raw.admin) {
@@ -2637,7 +2645,7 @@ export default {
       }
       return Response.json(
         s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role, nr_username: nr, ver_como: s.admin ? String(s.admin.name || s.admin.id) : null,
-          completar: (!s.admin && (await faltanDatos(env, s))) || undefined } : null,
+          ...(s.admin ? {} : await avisoDatos(env, s)) } : null,
         { headers: { "cache-control": "no-store" } }
       );
     }

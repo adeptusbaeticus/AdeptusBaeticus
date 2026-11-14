@@ -366,10 +366,12 @@
     '</svg>';
   const ENC_KEY = "ab_enc";
   let encDatos = null;
-  function servocalavera(box, wrap) {
+  function servocalavera(box, wrap, me) {
     const abiertas = encDatos ? encDatos.filter((e) => e.abierta) : [];
-    if (!abiertas.length) return;
-    const pend = abiertas.filter((e) => !e.mis_votos.length).length;
+    // Aviso de datos de socio sin completar (también al admin).
+    const datos = !!(me && me.datos_pendientes);
+    if (!abiertas.length && !datos) return;
+    const pend = abiertas.filter((e) => !e.mis_votos.length).length + (datos ? 1 : 0);
     const ss = document.createElement("span");
     ss.className = "ss";
     const b = document.createElement("button");
@@ -377,7 +379,8 @@
     b.className = "ss-btn";
     b.setAttribute("aria-haspopup", "true");
     b.setAttribute("aria-expanded", "false");
-    const etiqueta = pend ? (pend === 1 ? "1 encuesta sin votar" : pend + " encuestas sin votar") : "Encuestas abiertas";
+    const etiqueta = datos ? (pend === 1 ? "Completa tus datos de socio" : pend + " avisos pendientes")
+      : pend ? (pend === 1 ? "1 encuesta sin votar" : pend + " encuestas sin votar") : "Encuestas abiertas";
     b.setAttribute("aria-label", etiqueta);
     b.title = etiqueta;
     // SVG fijo escrito aquí (sin datos de usuario).
@@ -386,10 +389,23 @@
     const m = document.createElement("div");
     m.className = "ss-menu";
     m.hidden = true;
-    const t = document.createElement("div");
-    t.className = "ss-t";
-    t.textContent = "Encuestas abiertas";
-    m.appendChild(t);
+    if (datos) {
+      const a = document.createElement("a");
+      a.href = "/inscripcion.html?completar=1";
+      const q = document.createElement("strong");
+      q.textContent = "Completa tus datos de socio";
+      const st = document.createElement("span");
+      st.textContent = "Faltan datos obligatorios";
+      st.className = "pend";
+      a.append(q, st);
+      m.appendChild(a);
+    }
+    if (abiertas.length) {
+      const t = document.createElement("div");
+      t.className = "ss-t";
+      t.textContent = "Encuestas abiertas";
+      m.appendChild(t);
+    }
     abiertas.slice(0, 5).forEach((e) => {
       const a = document.createElement("a");
       a.href = "/encuestas.html#e" + e.id;
@@ -402,11 +418,13 @@
       a.append(q, st);
       m.appendChild(a);
     });
-    const todas = document.createElement("a");
-    todas.href = "/encuestas.html";
-    todas.className = "todas";
-    todas.textContent = "Ver todas las encuestas";
-    m.appendChild(todas);
+    if (abiertas.length || !(me && me.completar)) {
+      const todas = document.createElement("a");
+      todas.href = "/encuestas.html";
+      todas.className = "todas";
+      todas.textContent = "Ver todas las encuestas";
+      m.appendChild(todas);
+    }
     const abre = (si) => { m.hidden = !si; b.setAttribute("aria-expanded", String(si)); };
     b.onclick = () => abre(m.hidden);
     ss.addEventListener("keydown", (e) => { if (e.key === "Escape" && !m.hidden) { abre(false); b.focus(); } });
@@ -573,7 +591,7 @@
     wrap.addEventListener("focusout", (e) => { if (!wrap.contains(e.relatedTarget)) abre(false); });
     wrap.append(btn, menu);
     box.appendChild(wrap);
-    servocalavera(box, wrap);
+    servocalavera(box, wrap, me);
     franjaVerComo(me);
   } else {
     franjaVerComo(null);
