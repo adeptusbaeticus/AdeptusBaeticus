@@ -304,7 +304,8 @@ function filaPartida(p, ronda) {
   if (hay) centro = el("div", "res", p.pv_a + " – " + p.pv_b);
   else {
     const fr = fechasRonda(ronda);
-    const txt = p.aplazada ? "Aplazada a la ronda " + (D.fase.rondas + 1)
+    // En su ronda original se avisa del aplazamiento; en la ronda de aplazadas, su estado normal.
+    const txt = p.aplazada && ronda <= D.fase.rondas ? "Aplazada a la ronda " + (D.fase.rondas + 1)
       : ahora < fr.abre ? "Por jugar" : ahora <= fr.cierra ? "Pendiente" : "Sin resultado";
     centro = el("div", "est", txt);
   }
@@ -352,7 +353,9 @@ function filaPartida(p, ronda) {
     };
     acc.appendChild(ba);
   }
-  if (D.fase.nr_torneo) {
+  // Una partida aplazada sin resultado solo se sube desde la ronda de aplazadas (la última), no desde la suya.
+  const fueraDeSuRonda = p.aplazada && !hay && ronda <= D.fase.rondas;
+  if (D.fase.nr_torneo && !fueraDeSuRonda) {
     const nr = p.nr_partida
       ? "https://www.newrecruit.eu/app/tournydetails/match?id_match=" + encodeURIComponent(p.nr_partida) + "&id=" + encodeURIComponent(D.fase.nr_torneo)
       : "https://www.newrecruit.eu/app/tournydetails/details?id=" + encodeURIComponent(D.fase.nr_torneo);
