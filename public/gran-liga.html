@@ -48,6 +48,16 @@ h2{font:700 24px Cinzel,Georgia,serif;margin:40px 0 16px}
 .cab select{min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit}
 .card{background:#1F2328;border:1px solid #2C3036;border-radius:12px;padding:24px}
 .actual{border-color:#D9B25A}
+/* Ligas pasadas: tarjeta de cada temporada con su podio, y el podio de la liga que se está viendo. */
+.pasadas{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.pasada h3{font:700 22px Cinzel,Georgia,serif;margin:0 0 4px}
+.pasada .chip{margin-top:14px}
+.podio{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.podio li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.podio .pos{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:28px;padding:0 8px;box-sizing:border-box;border-radius:999px;font:700 13px Inter,sans-serif;color:#15171A}
+.podio .p1{background:#D9B25A}.podio .p2{background:#C9CCD1}.podio .p3{background:#B07A45}
+.podio .bal{color:#A8A293;font-size:13px}
+.volver{display:inline-flex;margin-top:14px}
 .actual h3{font:700 22px Cinzel,Georgia,serif;margin:0 0 4px}
 .cierre{font-weight:600;color:#F0CE82;margin:8px 0 0}
 .tabla{overflow-x:auto}
@@ -131,13 +141,18 @@ tr.misl td{background:#15171A;text-align:left;white-space:normal;padding:12px}
   <p class="m" id="msg">Cargando...</p>
   <div id="app" hidden>
     <section id="secActual"></section>
-    <h2>Clasificación</h2>
+    <h2 id="tClas">Clasificación</h2>
     <div class="card tabla"><table id="clas">
       <thead><tr><th>Pos.</th><th class="izq">Jugador</th><th class="izq">Facción</th><th>PJ</th><th>V</th><th>D</th><th>PV</th><th>Dif.</th></tr></thead>
       <tbody></tbody>
     </table></div>
     <h2>Rondas</h2>
     <div id="rondas"></div>
+    <section id="secPasadas" hidden>
+      <h2>Ligas pasadas</h2>
+      <div class="pasadas" id="pasadas"></div>
+    </section>
+    <section id="secRegl">
     <h2>Reglamento</h2>
     <details class="ronda"><summary><strong>Normas de la liga</strong></summary>
       <div class="partidas regl" translate="no">
@@ -196,6 +211,7 @@ tr.misl td{background:#15171A;text-align:left;white-space:normal;padding:12px}
         </ul>
       </div>
     </details>
+    </section>
   </div>
   <footer class="ft">
     <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
@@ -225,9 +241,9 @@ function fechasRonda(n) {
   return { ini, fin, abre: ini + "T" + D.fase.inicio.slice(11), cierra: fin + "T14:00" };
 }
 
-function clasificacion() {
-  const t = new Map(D.jugadores.map((j) => [j.id, { j, pj: 0, v: 0, d: 0, pv: 0, contra: 0, fac: null, ult: "" }]));
-  D.partidas.forEach((p) => {
+function clasificacion(d = D) {
+  const t = new Map(d.jugadores.map((j) => [j.id, { j, pj: 0, v: 0, d: 0, pv: 0, contra: 0, fac: null, ult: "" }]));
+  d.partidas.forEach((p) => {
     if (p.pv_a == null || p.pv_b == null) return;
     [[p.jugador_a, p.pv_a, p.pv_b, p.faccion_a], [p.jugador_b, p.pv_b, p.pv_a, p.faccion_b]].forEach(([id, mio, suyo, fac]) => {
       const x = t.get(id);
@@ -308,6 +324,7 @@ function filaPartida(p, ronda) {
   };
   let centro;
   if (hay) centro = el("div", "res", p.pv_a + " – " + p.pv_b);
+  else if (D.fase.terminada) centro = el("div", "est", "Sin resultado");
   else {
     const fr = fechasRonda(ronda);
     // En su ronda original se avisa del aplazamiento; en la ronda de aplazadas, su estado normal.
@@ -337,8 +354,8 @@ function filaPartida(p, ronda) {
   }
   // Partida pendiente: el admin y sus dos jugadores pueden aplazarla y subir el resultado a New Recruit.
   const mia = yo && (p.jugador_a === yo || p.jugador_b === yo);
-  const enPlazo = ahora <= fechasRonda(p.ronda).cierra;
-  if (!hay && (esAdmin || (mia && enPlazo))) {
+  const enPlazo = !D.fase.terminada && ahora <= fechasRonda(p.ronda).cierra;
+  if (!hay && !D.fase.terminada && (esAdmin || (mia && enPlazo))) {
     const total = D.fase.rondas + 1;
     const ba = el("button", "chip", p.aplazada ? "Quitar aplazamiento" : "Aplazar");
     ba.type = "button";
@@ -365,7 +382,7 @@ function filaPartida(p, ronda) {
     const nr = p.nr_partida
       ? "https://www.newrecruit.eu/app/tournydetails/match?id_match=" + encodeURIComponent(p.nr_partida) + "&id=" + encodeURIComponent(D.fase.nr_torneo)
       : "https://www.newrecruit.eu/app/tournydetails/details?id=" + encodeURIComponent(D.fase.nr_torneo);
-    if (!hay && (esAdmin || mia)) {
+    if (!hay && !D.fase.terminada && (esAdmin || mia)) {
       const a = el("a", "chip sube", "Subir resultado");
       a.href = nr; a.target = "_blank"; a.rel = "noopener";
       acc.appendChild(a);
@@ -380,6 +397,7 @@ function filaPartida(p, ronda) {
 }
 
 function rondaActual() {
+  if (D.fase.terminada) return null;
   const total = D.fase.rondas + 1; // la última es la de aplazadas
   for (let n = 1; n <= total; n++) { if (D.ahora <= fechasRonda(n).cierra) return n; }
   return null;
@@ -401,7 +419,8 @@ function pintaRondas() {
     const jug = ps.filter((p) => p.pv_a != null).length;
     const tit = el("strong", "", n > D.fase.rondas ? "Ronda " + n + " (aplazadas)" : "Ronda " + n);
     if (n === actual) tit.appendChild(el("span", "curso", "En curso"));
-    sum.append(tit,
+    if (D.fase.terminada) sum.append(tit, el("span", "m", jug + " de " + ps.length + " jugadas"));
+    else sum.append(tit,
       el("span", "m", "Del " + corto(fr.ini) + " al " + corto(fr.fin)),
       el("span", "m", jug + " de " + ps.length + " jugadas"));
     det.appendChild(sum);
@@ -457,9 +476,76 @@ function pinta() {
   $("msg").hidden = true;
   $("app").hidden = false;
   if (D.actualizado) $("act").textContent = "Resultados de New Recruit · actualizado " + new Date(D.actualizado.replace(" ", "T") + "Z").toLocaleString("es-ES", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-  pintaActual();
+  const fin = !!D.fase.terminada;
+  $("tClas").textContent = fin ? "Clasificación final" : "Clasificación";
+  $("secRegl").hidden = fin;
+  if (fin) pintaTerminada(); else pintaActual();
   pintaClasificacion();
   pintaRondas();
+  pintaPasadas();
+}
+
+// Fechas de una liga pasada: «Del 1 de enero al 28 de febrero de 2026».
+function fechasLiga(f) {
+  if (!f.fin) return "";
+  const a = new Date(f.inicio.slice(0, 10) + "T12:00"), b = new Date(f.fin + "T12:00");
+  const da = a.toLocaleDateString("es-ES", a.getFullYear() === b.getFullYear() ? { day: "numeric", month: "long" } : { day: "numeric", month: "long", year: "numeric" });
+  return "Del " + da + " al " + b.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+}
+// Los tres primeros de una clasificación, con sus victorias y PV.
+function podio(cl, conFicha) {
+  const ol = el("ol", "podio");
+  cl.slice(0, 3).forEach((x, i) => {
+    const li = el("li");
+    li.appendChild(el("span", "pos p" + (i + 1), ["1.º", "2.º", "3.º"][i]));
+    if (conFicha) li.appendChild(celdaJugador(x.j));
+    else {
+      const n = el("span", "jug", x.j.discord); n.setAttribute("translate", "no");
+      if (x.j.nombre) n.append(" ", el("small", "", "(" + x.j.nombre + ")"));
+      if (x.j.discord_id && window.abFicha) window.abFicha(n, x.j.discord_id);
+      li.appendChild(n);
+    }
+    li.appendChild(el("span", "bal", x.v + " V · " + x.pv + " PV"));
+    ol.appendChild(li);
+  });
+  return ol;
+}
+// Cabecera de una liga pasada: fechas, podio y vuelta a la liga en curso.
+function pintaTerminada() {
+  const box = $("secActual");
+  box.textContent = "";
+  const card = el("div", "card actual");
+  card.append(el("span", "m", D.fase.nombre), el("h3", "", "Liga terminada"));
+  const fe = fechasLiga(D.fase);
+  if (fe) card.appendChild(el("p", "m", fe));
+  card.appendChild(podio(clasificacion(), true));
+  const v = el("a", "chip volver", "Volver a la Gran Liga actual");
+  v.href = "/gran-liga.html";
+  card.appendChild(v);
+  box.appendChild(card);
+}
+// «Ligas pasadas» (en la liga en curso): una tarjeta por temporada terminada, con su podio.
+const pasadasCache = new Map();
+function pintaPasadas() {
+  const sec = $("secPasadas"), box = $("pasadas");
+  const ps = D.fase.terminada ? [] : (D.fases || []).filter((f) => f.terminada);
+  sec.hidden = !ps.length;
+  box.textContent = "";
+  ps.forEach((f) => {
+    const card = el("div", "card pasada");
+    card.append(el("h3", "", f.nombre));
+    const fe = fechasLiga(f);
+    if (fe) card.appendChild(el("p", "m", fe));
+    const pod = el("div", "", "");
+    card.appendChild(pod);
+    const ver = el("a", "chip", "Ver clasificación y rondas");
+    ver.href = "/gran-liga.html?fase=" + f.id;
+    card.appendChild(ver);
+    box.appendChild(card);
+    const pon = (d) => { pod.textContent = ""; pod.appendChild(podio(clasificacion(d), false)); };
+    if (pasadasCache.has(f.id)) pon(pasadasCache.get(f.id));
+    else fetch("/api/liga?fase=" + f.id).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && d.fase) { pasadasCache.set(f.id, d); pon(d); } }).catch(() => {});
+  });
 }
 
 // Enlace directo a una ronda (gran-liga.html?fase=ID#ronda-N, p. ej. desde el calendario):
@@ -480,8 +566,9 @@ function carga(fase) {
     yo = null;
     const sel = $("fase");
     sel.textContent = "";
-    d.fases.forEach((f) => { const o = el("option", "", f.nombre); o.value = f.id; o.selected = f.id === d.fase.id; sel.appendChild(o); });
-    sel.hidden = d.fases.length < 2;
+    const enCurso = d.fases.filter((f) => !f.terminada);
+    enCurso.forEach((f) => { const o = el("option", "", f.nombre); o.value = f.id; o.selected = f.id === d.fase.id; sel.appendChild(o); });
+    sel.hidden = enCurso.length < 2 || !!d.fase.terminada;
     pinta();
     if (irPendiente) {
       // Se abre la ronda pedida y se cierra la actual si es otra.

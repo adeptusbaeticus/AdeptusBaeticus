@@ -167,8 +167,9 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 ## 6. Gran Liga Adeptus
 - Cada edición tiene **Fase I** (ida) y **Fase II** (vuelta). Se juega todos contra todos en rondas de 2 semanas, y
   después de la última ronda hay una ronda de **aplazadas**.
-- **Selector de fase.**
-- **Clasificación:** victorias, puntos de victoria a favor y diferencia.
+- **Selector de fase** (de la liga en curso).
+- **Clasificación:** victorias, puntos de victoria a favor y diferencia (siempre en ese orden, también en las ligas
+  pasadas).
 - **Rondas y emparejamientos:** las partidas de cada ronda con su mesa (en la ronda de aplazadas, la ronda de
   origen), con el resultado, la facción de cada jugador y el enlace a la partida en New Recruit.
 - **Tu partida** destacada y «Recuerda subir el resultado a New Recruit antes del cierre».
@@ -181,6 +182,10 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Calendario de la liga** para el móvil.
 - **Recordatorios por Discord** (mensaje privado del bot): tu partida de cada ronda y el aviso antes del cierre.
 - Ficha rápida de cada jugador al pasar el ratón por su nombre.
+- **Ligas pasadas:** al final de la liga en curso, una tarjeta por temporada terminada (de momento la Gran Liga 2026)
+  con sus fechas y su podio. «Ver clasificación y rondas» abre esa liga: podio, **clasificación final** y las rondas
+  con sus emparejamientos y resultados (sin fechas, sin botones y sin reglamento), con «Volver a la Gran Liga actual».
+  Las ligas pasadas no salen en el calendario y no se pueden modificar.
 
 ### Administración de jugadores (admin)
 - Botón **«Administrar jugadores»**, que abre un panel con dos pestañas:

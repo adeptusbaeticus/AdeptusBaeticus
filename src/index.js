@@ -1226,7 +1226,7 @@ async function avisoCanal(env, nombreCanal, texto) {
 const fechaLarga = (dia) => new Date(dia + "T12:00:00Z").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 async function ligaRecordatorios(env, ahora = nowLocal()) {
   if (!env.DISCORD_BOT_TOKEN) return [];
-  const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+  const fase = await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
   if (!fase) return [];
   const hechos = [];
   const dia0 = fase.inicio.slice(0, 10), hora = fase.inicio.slice(11, 16) || "22:00";
@@ -1345,7 +1345,7 @@ async function calendarioEventos(env, uid) {
       lugar: p.modo === "online" ? "Online (TTS)" : p.modo === "ambos" ? "Físico u online (TTS)" + (p.lugar ? " · " + p.lugar : "") : p.lugar || (p.mesa ? "Mesa " + p.mesa : "A decidir"), url: WEB + "/calendario.html?partida=" + p.id });
   }
   // Tu partida de cada ronda de la Gran Liga (todo el periodo de la ronda) y su cierre.
-  const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+  const fase = await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
   if (fase) {
     const { results: ls } = await env.DB.prepare(
       `SELECT p.id, p.ronda, p.mesa, p.aplazada, p.pv_a, p.pv_b, a.discord AS a, a.discord_id AS a_id, b.discord AS b
@@ -1763,7 +1763,7 @@ function faccionDeLista(txt) {
 // Asigna los informes de New Recruit a las partidas de la fase. En una liga todos contra todos
 // cada pareja se enfrenta una sola vez por fase, así que la pareja identifica la partida.
 async function ligaProcesa(env, nrTorneo, reports) {
-  const fase = await env.DB.prepare("SELECT id FROM liga_fases WHERE nr_torneo=?1").bind(nrTorneo).first();
+  const fase = await env.DB.prepare("SELECT id FROM liga_fases WHERE nr_torneo=?1 AND terminada=0").bind(nrTorneo).first();
   if (!fase) return { asignados: 0, sin_asignar: reports.length };
   const js = (await env.DB.prepare("SELECT id, nr_participante, nr_nombre, nr_anteriores FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
   const ps = (await env.DB.prepare("SELECT id, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1").bind(fase.id).all()).results;
@@ -1913,7 +1913,7 @@ export default {
       await procesaCola(env, 25).catch(() => {});
       await rolesSemanal(env).catch(() => {});
       // Resultados de la Gran Liga desde New Recruit (fase en curso; `ligaAuto` decide si toca consultar).
-      const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first().catch(() => null);
+      const fase = await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first().catch(() => null);
       if (fase) await ligaAuto(env, fase).catch(() => {});
     })());
   },
@@ -2051,10 +2051,11 @@ export default {
 
     // Gran Liga (pública): fase, jugadores, calendario y resultados (sin las listas, que se piden aparte).
     if (path === "/api/liga" && request.method === "GET") {
-      const fases = (await env.DB.prepare("SELECT id, nombre, edicion, fase FROM liga_fases ORDER BY edicion DESC, fase DESC").all()).results;
+      // Todas las fases: la en curso y las ligas pasadas (`terminada`, con sus fechas para la lista de «Ligas pasadas»).
+      const fases = (await env.DB.prepare("SELECT id, nombre, edicion, fase, terminada, inicio, fin FROM liga_fases ORDER BY edicion DESC, fase DESC").all()).results;
       const pedida = Number(url.searchParams.get("fase")) || null;
       const fase = await env.DB.prepare(
-        pedida ? "SELECT * FROM liga_fases WHERE id=?1" : "SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1"
+        pedida ? "SELECT * FROM liga_fases WHERE id=?1" : "SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1"
       ).bind(...(pedida ? [pedida] : [])).first();
       if (!fase) return Response.json({ fases, fase: null }, { headers: { "cache-control": "public, max-age=120" } });
       const jugadores = (await env.DB.prepare("SELECT id, discord, nombre, discord_id FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
@@ -2067,7 +2068,8 @@ export default {
         ? await env.DB.prepare("SELECT actualizado FROM nr_cache WHERE clave=?1").bind("reports:" + fase.nr_torneo).first()
         : null;
       return Response.json(
-        { fases, fase: { id: fase.id, nombre: fase.nombre, edicion: fase.edicion, fase: fase.fase, nr_torneo: fase.nr_torneo, inicio: fase.inicio, rondas: fase.rondas },
+        { fases, fase: { id: fase.id, nombre: fase.nombre, edicion: fase.edicion, fase: fase.fase, nr_torneo: fase.nr_torneo, inicio: fase.inicio, rondas: fase.rondas,
+            terminada: !!fase.terminada, fin: fase.fin || null },
           jugadores, partidas, actualizado: sync ? sync.actualizado : null, ahora: nowLocal() },
         { headers: { "cache-control": "public, max-age=120" } }
       );
@@ -2360,7 +2362,7 @@ export default {
       const { results } = await env.DB.prepare(
         `SELECT f.id, f.nombre, f.inicio, f.rondas,
            EXISTS (SELECT 1 FROM liga_partidas p WHERE p.fase_id=f.id AND p.aplazada=1) AS aplazadas
-         FROM liga_fases f ORDER BY f.inicio`
+         FROM liga_fases f WHERE f.terminada=0 ORDER BY f.inicio`
       ).all();
       return Response.json(results, { headers: { "cache-control": "public, max-age=300" } });
     }
@@ -2376,11 +2378,12 @@ export default {
       try { b = await request.json(); } catch (e) {}
       if (typeof b.aplazada !== "boolean") return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
       const p = await env.DB.prepare(
-        `SELECT p.id, p.ronda, p.pv_a, p.pv_b, f.inicio, a.discord_id AS da, bb.discord_id AS db
+        `SELECT p.id, p.ronda, p.pv_a, p.pv_b, f.inicio, f.terminada, a.discord_id AS da, bb.discord_id AS db
          FROM liga_partidas p JOIN liga_fases f ON f.id=p.fase_id
          JOIN liga_jugadores a ON a.id=p.jugador_a JOIN liga_jugadores bb ON bb.id=p.jugador_b WHERE p.id=?1`
       ).bind(Number(apm[1])).first();
       if (!p) return Response.json({ error: "La partida no existe" }, { status: 404, headers: noStore });
+      if (p.terminada) return Response.json({ error: "Esa liga ya terminó" }, { status: 403, headers: noStore });
       const admin = s.role === "admin", jugador = s.id === p.da || s.id === p.db;
       if (!admin && !jugador) return Response.json({ error: "Solo pueden aplazarla sus jugadores o un admin" }, { status: 403, headers: noStore });
       if (p.pv_a != null || p.pv_b != null) return Response.json({ error: "La partida ya tiene resultado" }, { status: 409, headers: noStore });
@@ -3220,7 +3223,7 @@ export default {
       const eloDe = (u) => porLogin.get(String(u.nr_username || "").trim().toLowerCase()) || porLogin.get(String(nrLiga.get(u.discord_id) || "").trim().toLowerCase()) || null;
       // Gran Liga (fase más reciente): clasificación como en la página de la liga (V → PV → DIF) y datos de cada jugador vinculado.
       const ligaDe = new Map();
-      const fase = await env.DB.prepare("SELECT id, nombre FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+      const fase = await env.DB.prepare("SELECT id, nombre FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
       if (fase) {
         const js = (await env.DB.prepare("SELECT id, discord, discord_id FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
         const t = new Map(js.map((j) => [j.id, { j, pj: 0, v: 0, d: 0, e: 0, pv: 0, contra: 0, fac: new Map() }]));
@@ -3466,7 +3469,7 @@ export default {
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
       if (path === "/api/admin/liga/jugadores" && request.method === "GET") {
-        const fase = await env.DB.prepare("SELECT id, nombre, rondas FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+        const fase = await env.DB.prepare("SELECT id, nombre, rondas FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
         if (!fase) return Response.json({ fase: null, jugadores: [], usuarios: [] }, { headers: noStore });
         const jugadores = (await env.DB.prepare(
           `SELECT j.id, j.discord, j.nombre, j.nr_nombre, j.discord_id, j.sugerido_id,
@@ -3500,7 +3503,7 @@ export default {
       }
 
       // Gran Liga: añadir un jugador a la fase actual (sin partidas; luego se le ponen cruces).
-      const ligaFase = async () => env.DB.prepare("SELECT id, nombre, rondas FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+      const ligaFase = async () => env.DB.prepare("SELECT id, nombre, rondas FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
       const datosJugador = async (b, faseId, idActual) => {
         const t = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
         const discord = t(b.discord, 60), nombre = t(b.nombre, 60) || null, nr = t(b.nr_nombre, 60) || null;
@@ -3534,8 +3537,10 @@ export default {
       const ljr = path.match(/^\/api\/admin\/liga\/jugador\/(\d+)\/reemplazar$/);
       if (ljr && request.method === "POST") {
         if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
-        const j = await env.DB.prepare("SELECT id, fase_id, nr_participante, nr_anteriores FROM liga_jugadores WHERE id=?1").bind(Number(ljr[1])).first();
+        const j = await env.DB.prepare(`SELECT j.id, j.fase_id, j.nr_participante, j.nr_anteriores, f.terminada FROM liga_jugadores j
+          JOIN liga_fases f ON f.id=j.fase_id WHERE j.id=?1`).bind(Number(ljr[1])).first();
         if (!j) return Response.json({ error: "El jugador no existe" }, { status: 404, headers: noStore });
+        if (j.terminada) return Response.json({ error: "Esa liga ya terminó" }, { status: 403, headers: noStore });
         let b = {}; try { b = await request.json(); } catch (e) {}
         const d = await datosJugador(b, j.fase_id, j.id);
         if (d.error) return Response.json({ error: d.error }, { status: 400, headers: noStore });

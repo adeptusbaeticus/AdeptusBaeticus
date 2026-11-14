@@ -215,6 +215,14 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
     no puede jugar dos veces en la misma ronda y cada pareja una sola vez por fase. Al cambiar un cruce se borra su
     enlace de New Recruit (se reasigna por la pareja al sincronizar).
 - Las listas se guardan pero de momento no se publican (`LIGA_LISTAS_PUBLICAS = false`).
+- **Ligas pasadas** (`liga_fases.terminada = 1` y `fin`, migración 0034): temporadas cerradas en las mismas tablas,
+  que la web nunca vuelve a consultar en New Recruit. La «fase en curso» es siempre la última **no terminada**
+  (`WHERE terminada=0`): todo lo automático (`ligaAuto`, recordatorios, ELO, calendario, Administrar jugadores,
+  aplazar) la usa solo a ella, y el servidor rechaza aplazar o reemplazar en una liga terminada. En Gran Liga, sección
+  «Ligas pasadas» con el podio de cada una y `gran-liga.html?fase=ID` para verla entera (clasificación final, rondas
+  sin fechas). La **Gran Liga 2026** (4 rondas, 14 jugadores) se leyó una sola vez de la página pública de su torneo
+  en New Recruit (`tourny_get` y `report_get_bulk`, con permiso del propietario) y se guardó con esa migración; en esa
+  temporada no se subieron listas ni facciones.
 - Excepción autorizada por el propietario: el **ranking ELO** de la liga de New Recruit (no está en la API
   oficial) se lee con la llamada interna `ladder_get_paginated` de su web, solo junto a la sincronización de
   resultados (mismas esperas) y nunca en una visita. Se muestra en la ficha de Miembros.
