@@ -161,6 +161,15 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **Los resultados solo vienen de New Recruit** (única fuente de verdad): la web no puede escribir allí, así
   que no se editan ni se ponen resultados desde la web (se probó y se quitó, migración 0017).
   Las sanciones no se reflejan en la web (ni en la clasificación ni en los avisos del bot).
+- «Administrar jugadores» (Gran Liga, solo admin; `admin-paneles.js`):
+  - **Jugadores:** cuenta de la web de cada jugador (con «Emparejar automáticamente», `ligaEmpareja`: nombre de
+    Discord = apodo sin paréntesis o alias del Excel, o usuario de New Recruit, solo con un candidato único); añadir
+    jugador; «Reemplazar» (el sustituto se queda con la fila, sus partidas y resultados; el `id_participant` del
+    anterior pasa a `nr_anteriores`, migración 0032, y el del nuevo se toma de su primer informe por su usuario de
+    New Recruit en `ligaProcesa`); «Quitar» solo si no tiene partidas.
+  - **Cruces:** por ronda, cambiar, añadir o quitar partidas sin resultado (`/api/admin/liga/partida`); un jugador
+    no puede jugar dos veces en la misma ronda y cada pareja una sola vez por fase. Al cambiar un cruce se borra su
+    enlace de New Recruit (se reasigna por la pareja al sincronizar).
 - Las listas se guardan pero de momento no se publican (`LIGA_LISTAS_PUBLICAS = false`).
 - Excepción autorizada por el propietario: el **ranking ELO** de la liga de New Recruit (no está en la API
   oficial) se lee con la llamada interna `ladder_get_paginated` de su web, solo junto a la sincronización de

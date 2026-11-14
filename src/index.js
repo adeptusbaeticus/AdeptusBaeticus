@@ -1700,9 +1700,13 @@ function faccionDeLista(txt) {
 async function ligaProcesa(env, nrTorneo, reports) {
   const fase = await env.DB.prepare("SELECT id FROM liga_fases WHERE nr_torneo=?1").bind(nrTorneo).first();
   if (!fase) return { asignados: 0, sin_asignar: reports.length };
-  const js = (await env.DB.prepare("SELECT id, nr_participante FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
+  const js = (await env.DB.prepare("SELECT id, nr_participante, nr_nombre, nr_anteriores FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
   const ps = (await env.DB.prepare("SELECT id, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1").bind(fase.id).all()).results;
-  const porPart = new Map(js.map((j) => [j.nr_participante, j.id]));
+  const porPart = new Map(js.filter((j) => j.nr_participante).map((j) => [j.nr_participante, j.id]));
+  // Reemplazos: los id de New Recruit de los jugadores sustituidos siguen apuntando a la fila (sus resultados se quedan).
+  for (const j of js) { try { for (const v of JSON.parse(j.nr_anteriores || "[]")) if (!porPart.has(v)) porPart.set(v, j.id); } catch (e) {} }
+  // Jugador añadido o sustituto sin id de New Recruit: se toma el de su primer informe, por su usuario de New Recruit.
+  const sinId = new Map(js.filter((j) => !j.nr_participante && j.nr_nombre).map((j) => [String(j.nr_nombre).trim().toLowerCase(), j]));
   const clavePar = (a, b) => (a < b ? a + "-" + b : b + "-" + a);
   const porPar = new Map(ps.map((p) => [clavePar(p.jugador_a, p.jugador_b), p]));
   const upd = [], informes = [];
@@ -1710,6 +1714,13 @@ async function ligaProcesa(env, nrTorneo, reports) {
   for (const r of reports) {
     const pl = r.players || [];
     if (r.id_tourny !== nrTorneo || pl.length !== 2) continue;
+    for (const x of pl) {
+      const j = !porPart.has(x.id_participant) && sinId.get(String(x.name || "").trim().toLowerCase());
+      if (j) {
+        porPart.set(x.id_participant, j.id); sinId.delete(String(x.name).trim().toLowerCase());
+        upd.push(env.DB.prepare("UPDATE liga_jugadores SET nr_participante=?2 WHERE id=?1 AND nr_participante IS NULL").bind(j.id, x.id_participant));
+      }
+    }
     const j0 = porPart.get(pl[0].id_participant), j1 = porPart.get(pl[1].id_participant);
     const p = j0 && j1 ? porPar.get(clavePar(j0, j1)) : null;
     if (!p) { sinAsignar++; continue; }
@@ -1768,6 +1779,31 @@ async function ligaAuto(env, fase) {
   const ultima = madrid(c && c.actualizado);
   if (ultima && ultima > hace(LIGA_AUTO_HORAS) && ultima >= ultimoCierre) return;
   await nrSync(env, "reports", fase.nr_torneo);
+}
+
+// Empareja los jugadores sin cuenta de una fase con los usuarios de la web: por su nombre de Discord igual al apodo
+// del usuario (sin lo que va entre paréntesis), o a su alias del Excel, o por su usuario de New Recruit; solo si hay
+// un único candidato libre. Devuelve cuántos ha vinculado.
+async function ligaEmpareja(env, faseId) {
+  const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const js = (await env.DB.prepare("SELECT id, discord, nr_nombre, discord_id FROM liga_jugadores WHERE fase_id=?1").bind(faseId).all()).results;
+  const usados = new Set(js.filter((j) => j.discord_id).map((j) => j.discord_id));
+  const us = (await env.DB.prepare("SELECT u.discord_id, u.name, u.nr_username, s.discord_alias FROM users u LEFT JOIN socios_datos s ON s.discord_id=u.discord_id").all()).results
+    .filter((u) => !usados.has(u.discord_id));
+  const claves = (u) => new Set([u.name, sinParentesis(u.name), ...aliasDiscord(u.discord_alias)].filter(Boolean).map(norm).filter((k) => k.length >= 3));
+  const ks = us.map((u) => [u, claves(u)]);
+  const upd = [];
+  for (const j of js) {
+    if (j.discord_id) continue;
+    const d = norm(j.discord), nr = norm(j.nr_nombre);
+    let c = ks.filter(([, k]) => k.has(d));
+    if (c.length !== 1 && nr) c = ks.filter(([u]) => norm(u.nr_username) === nr);
+    if (c.length !== 1 || usados.has(c[0][0].discord_id)) continue;
+    usados.add(c[0][0].discord_id);
+    upd.push(env.DB.prepare("UPDATE liga_jugadores SET discord_id=?2, sugerido_id=NULL WHERE id=?1 AND discord_id IS NULL").bind(j.id, c[0][0].discord_id));
+  }
+  if (upd.length) await env.DB.batch(upd);
+  return upd.length;
 }
 
 // Vincula a un usuario de la web con su jugador de la liga en cada fase. Automático solo si
@@ -3326,10 +3362,11 @@ export default {
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
       if (path === "/api/admin/liga/jugadores" && request.method === "GET") {
-        const fase = await env.DB.prepare("SELECT id, nombre FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+        const fase = await env.DB.prepare("SELECT id, nombre, rondas FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
         if (!fase) return Response.json({ fase: null, jugadores: [], usuarios: [] }, { headers: noStore });
         const jugadores = (await env.DB.prepare(
           `SELECT j.id, j.discord, j.nombre, j.nr_nombre, j.discord_id, j.sugerido_id,
+             (SELECT count(*) FROM liga_partidas p WHERE p.jugador_a=j.id OR p.jugador_b=j.id) AS partidas,
              (SELECT name FROM users u WHERE u.discord_id=j.discord_id) AS vinculado,
              (SELECT name FROM users u WHERE u.discord_id=j.sugerido_id) AS sugerido
            FROM liga_jugadores j WHERE j.fase_id=?1 ORDER BY j.discord COLLATE NOCASE`
@@ -3355,6 +3392,109 @@ export default {
         if (did) stmts.push(env.DB.prepare("UPDATE liga_jugadores SET discord_id=NULL WHERE fase_id=?1 AND discord_id=?2 AND id<>?3").bind(j.fase_id, did, id));
         stmts.push(env.DB.prepare("UPDATE liga_jugadores SET discord_id=?2, sugerido_id=NULL WHERE id=?1").bind(id, did));
         await env.DB.batch(stmts);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+
+      // Gran Liga: añadir un jugador a la fase actual (sin partidas; luego se le ponen cruces).
+      const ligaFase = async () => env.DB.prepare("SELECT id, nombre, rondas FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+      const datosJugador = async (b, faseId, idActual) => {
+        const t = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+        const discord = t(b.discord, 60), nombre = t(b.nombre, 60) || null, nr = t(b.nr_nombre, 60) || null;
+        const did = b.discord_id ? String(b.discord_id) : null;
+        if (discord.length < 2) return { error: "Escribe el nombre del jugador (su nombre de Discord)." };
+        if (await env.DB.prepare("SELECT 1 FROM liga_jugadores WHERE fase_id=?1 AND discord=?2 COLLATE NOCASE AND id<>?3").bind(faseId, discord, idActual || 0).first())
+          return { error: "Ya hay un jugador con ese nombre en la liga." };
+        if (did && !(await env.DB.prepare("SELECT 1 FROM users WHERE discord_id=?1").bind(did).first())) return { error: "Ese usuario no existe" };
+        if (did && (await env.DB.prepare("SELECT 1 FROM liga_jugadores WHERE fase_id=?1 AND discord_id=?2 AND id<>?3").bind(faseId, did, idActual || 0).first()))
+          return { error: "Esa cuenta ya está vinculada a otro jugador de la liga." };
+        return { discord, nombre, nr, did };
+      };
+      if (path === "/api/admin/liga/emparejar" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        const fase = await ligaFase();
+        return Response.json({ ok: true, vinculados: fase ? await ligaEmpareja(env, fase.id) : 0 }, { headers: noStore });
+      }
+      if (path === "/api/admin/liga/jugador" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        const fase = await ligaFase();
+        if (!fase) return Response.json({ error: "Todavía no hay ninguna fase de la liga." }, { status: 400, headers: noStore });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const d = await datosJugador(b, fase.id);
+        if (d.error) return Response.json({ error: d.error }, { status: 400, headers: noStore });
+        await env.DB.prepare("INSERT INTO liga_jugadores (fase_id, discord, nombre, nr_nombre, discord_id) VALUES (?1,?2,?3,?4,?5)").bind(fase.id, d.discord, d.nombre, d.nr, d.did).run();
+        if (!d.did) await ligaEmpareja(env, fase.id);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      // Reemplazar a un jugador: el sustituto se queda con su fila (partidas y resultados) y el id de New Recruit del
+      // anterior se guarda para que sus resultados sigan asignados. Quitar: solo si no tiene partidas.
+      const ljr = path.match(/^\/api\/admin\/liga\/jugador\/(\d+)\/reemplazar$/);
+      if (ljr && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        const j = await env.DB.prepare("SELECT id, fase_id, nr_participante, nr_anteriores FROM liga_jugadores WHERE id=?1").bind(Number(ljr[1])).first();
+        if (!j) return Response.json({ error: "El jugador no existe" }, { status: 404, headers: noStore });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const d = await datosJugador(b, j.fase_id, j.id);
+        if (d.error) return Response.json({ error: d.error }, { status: 400, headers: noStore });
+        let ant = []; try { ant = JSON.parse(j.nr_anteriores || "[]"); } catch (e) {}
+        if (j.nr_participante && !ant.includes(j.nr_participante)) ant.push(j.nr_participante);
+        await env.DB.prepare(`UPDATE liga_jugadores SET discord=?2, nombre=?3, nr_nombre=?4, discord_id=?5, sugerido_id=NULL, nr_participante=NULL,
+          nr_anteriores=?6 WHERE id=?1`).bind(j.id, d.discord, d.nombre, d.nr, d.did, ant.length ? JSON.stringify(ant) : null).run();
+        if (!d.did) await ligaEmpareja(env, j.fase_id);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      const ljd = path.match(/^\/api\/admin\/liga\/jugador\/(\d+)$/);
+      if (ljd && request.method === "DELETE") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        const id = Number(ljd[1]);
+        if (await env.DB.prepare("SELECT 1 FROM liga_partidas WHERE jugador_a=?1 OR jugador_b=?1").bind(id).first())
+          return Response.json({ error: "Tiene partidas en el calendario: usa «Reemplazar» o quítalo antes de sus cruces." }, { status: 409, headers: noStore });
+        await env.DB.prepare("DELETE FROM liga_jugadores WHERE id=?1").bind(id).run();
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      // Cruces (calendario del club): partidas de la fase actual; se pueden cambiar, añadir y quitar las que no tienen resultado.
+      if (path === "/api/admin/liga/partidas" && request.method === "GET") {
+        const fase = await ligaFase();
+        if (!fase) return Response.json({ fase: null, partidas: [] }, { headers: noStore });
+        const partidas = (await env.DB.prepare(`SELECT id, ronda, mesa, jugador_a, jugador_b, aplazada, (pv_a IS NOT NULL OR pv_b IS NOT NULL) AS resultado
+          FROM liga_partidas WHERE fase_id=?1 ORDER BY ronda, mesa`).bind(fase.id).all()).results;
+        return Response.json({ fase, partidas }, { headers: noStore });
+      }
+      const lpm = path.match(/^\/api\/admin\/liga\/partida(?:\/(\d+))?$/);
+      if (lpm && ["POST", "PUT", "DELETE"].includes(request.method)) {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        const fase = await ligaFase();
+        if (!fase) return Response.json({ error: "Todavía no hay ninguna fase de la liga." }, { status: 400, headers: noStore });
+        const err = (m, st = 400) => Response.json({ error: m }, { status: st, headers: noStore });
+        let p = null;
+        if (lpm[1]) {
+          p = await env.DB.prepare("SELECT id, ronda, jugador_a, jugador_b, (pv_a IS NOT NULL OR pv_b IS NOT NULL) AS resultado FROM liga_partidas WHERE id=?1 AND fase_id=?2").bind(Number(lpm[1]), fase.id).first();
+          if (!p) return err("Esa partida no existe", 404);
+          if (p.resultado) return err("Esa partida ya tiene resultado: no se puede cambiar.");
+        } else if (request.method !== "POST") return err("Datos no válidos");
+        if (request.method === "DELETE") {
+          await env.DB.prepare("DELETE FROM liga_partidas WHERE id=?1").bind(p.id).run();
+          return Response.json({ ok: true }, { headers: noStore });
+        }
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const ronda = p ? p.ronda : Number(b.ronda);
+        const a = Number(b.jugador_a), c = Number(b.jugador_b);
+        if (!Number.isInteger(ronda) || ronda < 1 || ronda > fase.rondas) return err("Ronda no válida");
+        if (!a || !c || a === c) return err("Elige dos jugadores distintos.");
+        const ok = (await env.DB.prepare("SELECT count(*) n FROM liga_jugadores WHERE fase_id=?1 AND id IN (?2, ?3)").bind(fase.id, a, c).first()).n;
+        if (ok !== 2) return err("Esos jugadores no son de esta fase.");
+        const yaRonda = await env.DB.prepare(`SELECT 1 FROM liga_partidas WHERE fase_id=?1 AND ronda=?2 AND id<>?3 AND (jugador_a IN (?4, ?5) OR jugador_b IN (?4, ?5))`)
+          .bind(fase.id, ronda, p ? p.id : 0, a, c).first();
+        if (yaRonda) return err("Alguno de los dos ya juega otra partida en esa ronda.");
+        // En la liga cada pareja se enfrenta una sola vez por fase (así se asignan los resultados de New Recruit).
+        const yaPar = await env.DB.prepare(`SELECT ronda FROM liga_partidas WHERE fase_id=?1 AND id<>?2 AND ((jugador_a=?3 AND jugador_b=?4) OR (jugador_a=?4 AND jugador_b=?3))`)
+          .bind(fase.id, p ? p.id : 0, a, c).first();
+        if (yaPar) return err("Esa pareja ya se enfrenta en la ronda " + yaPar.ronda + ".");
+        if (p) {
+          await env.DB.prepare("UPDATE liga_partidas SET jugador_a=?2, jugador_b=?3, nr_partida=NULL WHERE id=?1").bind(p.id, a, c).run();
+        } else {
+          const m = (await env.DB.prepare("SELECT COALESCE(MAX(mesa), 0) + 1 AS m FROM liga_partidas WHERE fase_id=?1 AND ronda=?2").bind(fase.id, ronda).first()).m;
+          await env.DB.prepare("INSERT INTO liga_partidas (fase_id, ronda, mesa, jugador_a, jugador_b) VALUES (?1,?2,?3,?4,?5)").bind(fase.id, ronda, m, a, c).run();
+        }
         return Response.json({ ok: true }, { headers: noStore });
       }
 

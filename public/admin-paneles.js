@@ -36,7 +36,10 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
 .apn th{color:#D9B25A;font-weight:600}
 .apn table select{min-width:220px}
 .apn .sug{color:#F0CE82}
-@media (max-width:600px){.apn-cuerpo{padding:12px}.apn .card{padding:14px}}`;
+.apn td .acts{flex-wrap:nowrap}
+.apn td select{min-width:160px}
+@media (max-width:600px){.apn-cuerpo{padding:12px}.apn .card{padding:14px}}
+@media (max-width:600px){.apn table.apil thead{display:none}.apn table.apil tr{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid #2C3036}.apn table.apil td{display:block;border:0;padding:0;white-space:normal}.apn table.apil td select{width:100%;min-width:0}.apn table.apil td .acts{flex-wrap:wrap}}`;
   document.head.appendChild(css);
 
   // Ventana del panel: título, botón de cerrar y cuerpo.
@@ -172,52 +175,142 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
     return d;
   }
 
-  // ---------- Gran Liga: jugadores ----------
+  // ---------- Gran Liga: jugadores y cruces ----------
   function panelJugadores() {
-    let cambios = false;
+    let cambios = false, datos = null;
     const { d, cuerpo } = ventana("Administrar jugadores", () => { if (cambios) location.reload(); });
-    const card = el("div", "card");
-    card.appendChild(el("p", "m", "Se vinculan solos al entrar con Discord si coinciden su apodo y su usuario de New Recruit. Aquí puedes confirmar las sugerencias o vincular a mano."));
-    const t = el("table");
-    const tr = t.createTHead().insertRow();
-    ["Jugador", "New Recruit", "Cuenta vinculada", ""].forEach((x) => tr.appendChild(el("th", "", x)));
-    const tb = t.createTBody();
-    const w = el("div"); w.style.overflowX = "auto"; w.appendChild(t);
-    const msg = el("p", "m"); msg.style.cssText = "margin:8px 0 0;min-height:20px"; msg.setAttribute("role", "status");
-    card.append(w, msg);
-    cuerpo.appendChild(card);
-    async function carga() {
-      let x;
-      try { x = await (await fetch("/api/admin/liga/jugadores")).json(); } catch (e) { msg.textContent = "No se pudo cargar."; return; }
-      tb.textContent = "";
-      if (!x.fase) { msg.textContent = "Todavía no hay ninguna fase de la liga."; return; }
-      const guarda = async (j, did) => {
-        msg.textContent = "";
-        const r = await fetch("/api/admin/liga/jugador/" + j.id, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discord_id: did }) });
-        const y = await r.json().catch(() => ({}));
-        msg.textContent = r.ok ? "Guardado." : y.error || "No se pudo guardar.";
-        if (r.ok) cambios = true;
-        carga();
-      };
-      x.jugadores.forEach((j) => {
+    const msg = el("p", "m"); msg.style.cssText = "margin:0 0 12px;min-height:20px"; msg.setAttribute("role", "status");
+    const pestanas = el("div", "acts"); pestanas.style.marginBottom = "12px";
+    const tJug = chip("Jugadores", () => muestra("jug")), tCru = chip("Cruces", () => muestra("cru"));
+    pestanas.append(tJug, tCru);
+    const secJug = el("div"), secCru = el("div");
+    cuerpo.append(pestanas, msg, secJug, secCru);
+    const muestra = (q) => {
+      secJug.hidden = q !== "jug"; secCru.hidden = q !== "cru";
+      tJug.setAttribute("aria-pressed", String(q === "jug")); tCru.setAttribute("aria-pressed", String(q === "cru"));
+      tJug.style.borderColor = q === "jug" ? "#D9B25A" : ""; tCru.style.borderColor = q === "cru" ? "#D9B25A" : "";
+    };
+    const pide = async (metodo, ruta, cuerpoJson) => {
+      msg.textContent = "";
+      const r = await fetch(ruta, { method: metodo, headers: { "content-type": "application/json" }, body: cuerpoJson ? JSON.stringify(cuerpoJson) : undefined });
+      const y = await r.json().catch(() => ({}));
+      if (!r.ok) { msg.textContent = y.error || "No se pudo guardar."; return null; }
+      cambios = true; return y;
+    };
+    const selCuenta = (valor) => {
+      const s = el("select");
+      const o0 = el("option", "", "— Sin vincular —"); o0.value = ""; s.appendChild(o0);
+      datos.usuarios.forEach((u) => { const o = el("option", "", u.name + (u.nr_username ? " · NR: " + u.nr_username : "")); o.value = u.discord_id; o.setAttribute("translate", "no"); s.appendChild(o); });
+      s.value = valor || ""; s.setAttribute("aria-label", "Cuenta vinculada");
+      return s;
+    };
+    // Formulario de jugador (añadir o reemplazar).
+    const formJugador = (titulo, boton, alGuardar, alCancelar) => {
+      const f = el("form", "card");
+      f.appendChild(el("strong", "", titulo));
+      const fg = el("div", "fg"); fg.style.marginTop = "10px";
+      const campo = (et, nodo) => { const w = el("div"); const l = el("label", "", et); const id = "aj-" + Math.random().toString(36).slice(2, 8); l.htmlFor = id; nodo.id = id; w.append(l, nodo); fg.appendChild(w); return nodo; };
+      const i = (max) => { const x = el("input"); x.type = "text"; x.maxLength = max; x.autocomplete = "off"; x.setAttribute("translate", "no"); return x; };
+      const disc = campo("Nombre en Discord", i(60)), nom = campo("Nombre de pila (opcional)", i(60)), nr = campo("Usuario de New Recruit", i(60));
+      const cta = campo("Cuenta de la web (vacío = emparejar automáticamente)", selCuenta(""));
+      const acts = el("div", "acts"); acts.style.marginTop = "10px";
+      const ok = el("button", "apn-btn", boton); ok.type = "submit"; acts.appendChild(ok);
+      if (alCancelar) acts.appendChild(chip("Cancelar", alCancelar));
+      f.append(fg, acts);
+      f.onsubmit = async (ev) => { ev.preventDefault(); ok.disabled = true; const r = await alGuardar({ discord: disc.value, nombre: nom.value, nr_nombre: nr.value, discord_id: cta.value || null }); ok.disabled = false; if (r) f.reset(); };
+      return f;
+    };
+    function pintaJugadores() {
+      secJug.textContent = "";
+      const top = el("div", "acts"); top.style.marginBottom = "12px";
+      top.appendChild(chip("Emparejar automáticamente", async () => { const y = await pide("POST", "/api/admin/liga/emparejar"); if (y) { await carga(); msg.textContent = "Emparejados ahora: " + y.vinculados; } }));
+      secJug.appendChild(top);
+      secJug.appendChild(formJugador("Añadir jugador", "Añadir", async (b) => { const y = await pide("POST", "/api/admin/liga/jugador", b); if (y) { await carga(); msg.textContent = "Jugador añadido."; } return y; }));
+      const card = el("div", "card");
+      card.appendChild(el("p", "m", "Cuenta vinculada: con quién de la web es cada jugador. «Reemplazar»: otro jugador ocupa su sitio y se queda con sus partidas y resultados. «Quitar» solo si aún no tiene partidas."));
+      const t = el("table", "apil"); const tr = t.createTHead().insertRow();
+      ["Jugador", "New Recruit", "Cuenta vinculada", ""].forEach((x) => tr.appendChild(el("th", "", x)));
+      const tb = t.createTBody();
+      datos.jugadores.forEach((j) => {
         const fila = el("tr");
         const c1 = el("td", "", j.discord + (j.nombre ? " (" + j.nombre + ")" : "")); c1.setAttribute("translate", "no");
         const c2 = el("td", "", j.nr_nombre || "—"); c2.setAttribute("translate", "no");
-        const c3 = el("td");
-        const s = el("select");
-        const op = (v, txt) => { const o = el("option", "", txt); o.value = v; s.appendChild(o); return o; };
-        op("", "— Sin vincular —");
-        x.usuarios.forEach((u) => op(u.discord_id, u.name + (u.nr_username ? " · NR: " + u.nr_username : "")).setAttribute("translate", "no"));
-        s.value = j.discord_id || "";
-        s.setAttribute("aria-label", "Cuenta vinculada");
-        s.onchange = () => guarda(j, s.value || null);
+        const c3 = el("td"); const s = selCuenta(j.discord_id);
+        s.onchange = async () => { const y = await pide("POST", "/api/admin/liga/jugador/" + j.id, { discord_id: s.value || null }); if (y) { await carga(); msg.textContent = "Guardado."; } };
         c3.appendChild(s);
-        const c4 = el("td");
-        if (!j.discord_id && j.sugerido_id) c4.append(el("span", "sug", "Sugerencia: " + j.sugerido + " "), chip("Confirmar", () => guarda(j, j.sugerido_id)));
-        fila.append(c1, c2, c3, c4);
+        const c4 = el("td"); const a = el("div", "acts");
+        if (!j.discord_id && j.sugerido_id) a.append(el("span", "sug", "Sugerencia: " + j.sugerido + " "), chip("Confirmar", async () => { if (await pide("POST", "/api/admin/liga/jugador/" + j.id, { discord_id: j.sugerido_id })) carga(); }));
+        a.appendChild(chip("Reemplazar", () => {
+          const f = formJugador("Reemplazar a " + j.discord, "Reemplazar", async (b) => {
+            if (!confirm("¿Reemplazar a " + j.discord + " por " + b.discord + "? El nuevo jugador se queda con sus partidas y resultados.")) return null;
+            const y = await pide("POST", "/api/admin/liga/jugador/" + j.id + "/reemplazar", b); if (y) { await carga(); msg.textContent = "Jugador reemplazado."; } return y;
+          }, () => f.remove());
+          card.insertBefore(f, card.firstChild); f.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }));
+        if (!j.partidas) a.appendChild(chip("Quitar", async () => { if (!confirm("¿Quitar a " + j.discord + " de la liga?")) return; if (await pide("DELETE", "/api/admin/liga/jugador/" + j.id)) { await carga(); msg.textContent = "Jugador quitado."; } }));
+        c4.appendChild(a);
+        fila.append(c1, c2, c3, c4); tb.appendChild(fila);
+      });
+      const w = el("div"); w.style.overflowX = "auto"; w.appendChild(t);
+      card.appendChild(w); secJug.appendChild(card);
+    }
+    let rondaVista = 1;
+    function pintaCruces(partidas) {
+      secCru.textContent = "";
+      const nombre = new Map(datos.jugadores.map((j) => [j.id, j.discord]));
+      const cab = el("div", "fila card");
+      const lr = el("label", "", "Ronda"); lr.htmlFor = "aj-ronda";
+      const sr = el("select"); sr.id = "aj-ronda"; sr.style.maxWidth = "160px";
+      for (let r = 1; r <= (datos.fase.rondas || 19); r++) { const o = el("option", "", "Ronda " + r); o.value = r; sr.appendChild(o); }
+      sr.value = rondaVista; sr.onchange = () => { rondaVista = Number(sr.value); pintaCruces(partidas); };
+      const wr = el("div"); wr.append(lr, sr);
+      cab.append(wr, el("p", "m", "Solo se pueden cambiar las partidas sin resultado. Cada pareja se enfrenta una vez por fase."));
+      secCru.appendChild(cab);
+      const selJ = (v) => { const s = el("select"); const o0 = el("option", "", "—"); o0.value = ""; s.appendChild(o0); datos.jugadores.forEach((j) => { const o = el("option", "", j.discord); o.value = j.id; o.setAttribute("translate", "no"); s.appendChild(o); }); s.value = v || ""; return s; };
+      const card = el("div", "card");
+      const t = el("table", "apil"); const tr = t.createTHead().insertRow();
+      ["Mesa", "Jugador A", "Jugador B", ""].forEach((x) => tr.appendChild(el("th", "", x)));
+      const tb = t.createTBody();
+      const deRonda = partidas.filter((p) => p.ronda === rondaVista);
+      const enRonda = new Set(deRonda.flatMap((p) => [p.jugador_a, p.jugador_b]));
+      deRonda.forEach((p) => {
+        const fila = el("tr");
+        fila.appendChild(el("td", "", String(p.mesa) + (p.aplazada ? " · aplazada" : "")));
+        if (p.resultado) {
+          [p.jugador_a, p.jugador_b].forEach((x) => { const c = el("td", "", nombre.get(x) || "—"); c.setAttribute("translate", "no"); fila.appendChild(c); });
+          fila.appendChild(el("td", "m", "Con resultado"));
+        } else {
+          const a = selJ(p.jugador_a), b = selJ(p.jugador_b);
+          const ca = el("td"); ca.appendChild(a); const cb = el("td"); cb.appendChild(b);
+          const acc = el("td"); const ac = el("div", "acts");
+          ac.appendChild(chip("Guardar", async () => { if (await pide("PUT", "/api/admin/liga/partida/" + p.id, { jugador_a: Number(a.value), jugador_b: Number(b.value) })) { await cargaCruces(); msg.textContent = "Cruce guardado."; } }));
+          ac.appendChild(chip("Quitar", async () => { if (!confirm("¿Quitar la mesa " + p.mesa + " de la ronda " + p.ronda + "?")) return; if (await pide("DELETE", "/api/admin/liga/partida/" + p.id)) { await cargaCruces(); msg.textContent = "Cruce quitado."; } }));
+          acc.appendChild(ac); fila.append(ca, cb, acc);
+        }
         tb.appendChild(fila);
       });
+      // Nueva mesa en la ronda.
+      const nueva = el("tr");
+      const na = selJ(""), nb = selJ("");
+      nueva.appendChild(el("td", "m", "Nueva"));
+      const c1 = el("td"); c1.appendChild(na); const c2 = el("td"); c2.appendChild(nb);
+      const c3 = el("td"); c3.appendChild(chip("Añadir cruce", async () => { if (await pide("POST", "/api/admin/liga/partida", { ronda: rondaVista, jugador_a: Number(na.value), jugador_b: Number(nb.value) })) { await cargaCruces(); msg.textContent = "Cruce añadido."; } }));
+      nueva.append(c1, c2, c3); tb.appendChild(nueva);
+      const w = el("div"); w.style.overflowX = "auto"; w.appendChild(t); card.appendChild(w);
+      const libres = datos.jugadores.filter((j) => !enRonda.has(j.id)).map((j) => j.discord);
+      if (libres.length) { const l = el("p", "m", "Sin partida en esta ronda:"); const n = el("span", "", " " + libres.join(", ")); n.setAttribute("translate", "no"); l.appendChild(n); l.style.marginTop = "8px"; card.appendChild(l); }
+      secCru.appendChild(card);
     }
+    async function cargaCruces() {
+      try { const x = await (await fetch("/api/admin/liga/partidas")).json(); pintaCruces(x.partidas || []); }
+      catch (e) { secCru.textContent = ""; secCru.appendChild(el("p", "m", "No se pudo cargar.")); }
+    }
+    async function carga() {
+      try { datos = await (await fetch("/api/admin/liga/jugadores")).json(); } catch (e) { msg.textContent = "No se pudo cargar."; return; }
+      if (!datos.fase) { secJug.textContent = ""; msg.textContent = "Todavía no hay ninguna fase de la liga."; return; }
+      pintaJugadores(); await cargaCruces();
+    }
+    muestra("jug");
     carga();
     return d;
   }
