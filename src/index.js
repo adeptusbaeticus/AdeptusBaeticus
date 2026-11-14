@@ -518,6 +518,46 @@ function sugerenciasSocio(env, fila, miembros) {
   }
   return out.sort((a, b) => b.p - a.p).slice(0, 3);
 }
+// Actualiza el rol, el nombre y la foto de los socios de la web con la lista de miembros del servidor de Discord
+// (una llamada; necesita «Server Members Intent»). Quien ya no está en el servidor o no tiene rol del club no se toca,
+// pero se cuenta en el resumen. Se hace al pulsar «Vincular con Discord» y, sola, una vez a la semana (temporizador).
+// miembros: la lista ya leída (opcional). Devuelve { actualizados, sin_rol: [nombres] } o { error }.
+async function actualizaRoles(env, miembros) {
+  if (!miembros) {
+    const rm = await bot(env, `/guilds/${env.GUILD_ID}/members?limit=1000`);
+    if (!rm.ok) return { error: rm.status === 403 ? "intent" : "discord" };
+    miembros = (await rm.json()).filter((m) => m.user && !m.user.bot);
+  }
+  const porId = new Map(miembros.map((m) => [m.user.id, m]));
+  const us = (await env.DB.prepare("SELECT discord_id, name, avatar, role FROM users").all()).results;
+  const cambios = [], sinRol = [];
+  for (const u of us) {
+    const m = porId.get(u.discord_id);
+    const r = m ? roleOf(env, m.roles || []) : null;
+    if (!r) { sinRol.push(u.name); continue; }
+    const n = m.nick || m.user.global_name || m.user.username, a = m.user.avatar || null;
+    if (r !== u.role || n !== u.name || a !== (u.avatar || null)) cambios.push({ d: u.discord_id, r, n, a });
+  }
+  if (cambios.length) {
+    await env.DB.prepare(`UPDATE users SET role=json_extract(j.value,'$.r'), name=json_extract(j.value,'$.n'), avatar=json_extract(j.value,'$.a')
+      FROM json_each(?1) j WHERE users.discord_id=json_extract(j.value,'$.d')`).bind(JSON.stringify(cambios)).run();
+  }
+  const res = { actualizados: cambios.length, sin_rol: sinRol };
+  await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES ('discord:roles', ?1, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?1, actualizado=datetime('now')")
+    .bind(JSON.stringify(res)).run();
+  return res;
+}
+// Una vez a la semana (lo llama el temporizador cada minuto; solo actúa si han pasado 7 días).
+async function rolesSemanal(env) {
+  if (!env.DISCORD_BOT_TOKEN || !env.GUILD_ID) return;
+  const c = await env.DB.prepare("SELECT 1 FROM nr_cache WHERE clave='discord:roles' AND actualizado > datetime('now','-7 days')").first();
+  if (c) return;
+  const r = await actualizaRoles(env);
+  // Si Discord falla, se apunta igualmente para no reintentar cada minuto (vuelve a probar en un día).
+  if (r.error) await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES ('discord:roles', ?1, datetime('now','-6 days')) ON CONFLICT(clave) DO UPDATE SET datos=?1, actualizado=datetime('now','-6 days')")
+    .bind(JSON.stringify({ error: r.error })).run();
+}
+
 // Vincula filas del Excel con cuentas de Discord y crea su ficha en Miembros (sin conectar) si tienen rol del club.
 // lista: [{ s: id de la fila, d: discord_id, n: nombre, a: avatar, r: rol o null }]. Dos consultas para toda la lista.
 async function vinculaSocios(env, lista) {
@@ -1846,6 +1886,7 @@ export default {
     ctx.waitUntil((async () => {
       await ligaRecordatorios(env).catch(() => {});
       await procesaCola(env, 25).catch(() => {});
+      await rolesSemanal(env).catch(() => {});
     })());
   },
   async fetch(request, env, ctx) {
@@ -3227,7 +3268,11 @@ export default {
           completados: filas.filter((f) => f.completado_at).length,
           sin: filas.filter((f) => !f.discord_id).map((f) => ({ id: f.id, nombre: f.nombre, alias: f.discord_alias,
             sugerencias: extra.libresDe ? sugerenciasSocio(env, f, extra.libresDe) : undefined })), ...extra, libresDe: undefined }, { headers: noStore });
-        if (request.method === "GET") return informe({});
+        if (request.method === "GET") {
+          const ul = await env.DB.prepare("SELECT datos, actualizado FROM nr_cache WHERE clave='discord:roles'").first();
+          let roles = null; try { roles = ul ? { ...JSON.parse(ul.datos), fecha: ul.actualizado } : null; } catch (e) {}
+          return informe({ roles_ultima: roles });
+        }
         if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
         if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
         // Lista de miembros del servidor (una llamada; necesita «Server Members Intent» activado en el bot).
@@ -3252,6 +3297,8 @@ export default {
           } else if (libres.length > 1) dudosos.push({ nombre: f.nombre, alias: f.discord_alias, opciones: libres.map((m) => m.user.username) });
         }
         await vinculaSocios(env, lista);
+        // Roles, nombres y fotos de todos los socios al día (con la misma lista, sin otra llamada a Discord).
+        const roles = await actualizaRoles(env, miembros);
         // Con rol del club en Discord, pero sin datos (ni en el Excel ni inscritos con la web): tendrán que rellenarlos al entrar.
         const conDatos = new Set((await env.DB.prepare("SELECT discord_id FROM solicitudes WHERE estado='aprobada' UNION SELECT discord_id FROM socios_datos WHERE discord_id IS NOT NULL").all()).results.map((x) => x.discord_id));
         const fuera = miembros.filter((m) => roleOf(env, m.roles || []) && !conDatos.has(m.user.id)).map((m) => ({ nombre: m.nick || m.user.global_name || m.user.username, usuario: m.user.username }));
@@ -3261,7 +3308,7 @@ export default {
         // Se guarda esa lista (solo cuenta, usuario, nombre visible, apodo y rol) para poder revisar las parejas a mano.
         await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES ('discord:sin-datos', ?1, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?1, actualizado=datetime('now')")
           .bind(JSON.stringify(libresDe.map((m) => ({ id: m.user.id, usuario: m.user.username, visible: m.user.global_name || null, apodo: m.nick || null, rol: roleOf(env, m.roles || []) })))).run();
-        return informe({ nuevos: lista.length, sin_rol: sinRol, dudosos, fuera, libresDe });
+        return informe({ nuevos: lista.length, sin_rol: sinRol, dudosos, fuera, libresDe, roles });
       }
       // Vincular a mano una fila del Excel con una cuenta de Discord (desde las sugerencias).
       if (path === "/api/admin/socios/vincula" && request.method === "POST") {

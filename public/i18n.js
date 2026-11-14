@@ -158,6 +158,7 @@
     "Tu propio perfil se borra desde «Mis datos».": "Your own profile is deleted from “My details”.",
     "Editar datos y ficha": "Edit details and profile", "Borrar perfil": "Delete profile", "No se pudo borrar el perfil.": "Could not delete the profile.",
     "Ver ficha completa →": "See full profile →", "trofeo": "trophy", "trofeos": "trophies",
+    "Sin rol del club en Discord o fuera del servidor": "No club role in Discord or not on the server",
     "Jugadores": "Players", "Cruces": "Pairings", "Emparejar automáticamente": "Match automatically", "Añadir jugador": "Add player",
     "Añadir": "Add", "Jugador añadido.": "Player added.", "Reemplazar": "Replace", "Jugador reemplazado.": "Player replaced.", "Jugador quitado.": "Player removed.",
     "Cuenta vinculada: con quién de la web es cada jugador. «Reemplazar»: otro jugador ocupa su sitio y se queda con sus partidas y resultados. «Quitar» solo si aún no tiene partidas.": "Linked account: who each player is on the website. “Replace”: another player takes their place and keeps their games and results. “Remove” only if they have no games yet.",
@@ -474,6 +475,9 @@
 
   // Textos con datos variables (números, nombres): patrón completo → traducción.
   const RULES = [
+    [/^Roles actualizados ahora: (\d+) cambios$/, "Roles updated now: $1 changes"],
+    [/^Roles actualizados por última vez: ([\d: -]+) UTC \(se actualizan solos cada semana\)$/, "Roles last updated: $1 UTC (they update automatically every week)"],
+    [/^Sin rol del club en Discord o fuera del servidor \((\d+)\)$/, "No club role in Discord or not on the server ($1)"],
     [/^Ver la ficha de ([\s\S]+)$/, "See $1's profile"],
     [/^Emparejados ahora: (\d+)$/, "Matched now: $1"],
     [/^Reemplazar a ([\s\S]+)$/, "Replace $1"],

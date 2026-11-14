@@ -237,6 +237,14 @@ function pintaSocios(d) {
     });
     w.appendChild(ul); inf.appendChild(w);
   }
+  // Roles de Discord: al vincular (d.roles) o la última actualización automática semanal (d.roles_ultima).
+  const ro = d.roles || d.roles_ultima;
+  if (ro && !ro.error) {
+    const p = document.createElement("p"); p.style.margin = "4px 0";
+    p.textContent = d.roles ? "Roles actualizados ahora: " + ro.actualizados + " cambios" : "Roles actualizados por última vez: " + ro.fecha + " UTC (se actualizan solos cada semana)";
+    inf.appendChild(p);
+    lista("Sin rol del club en Discord o fuera del servidor", (ro.sin_rol || []).map((n) => ({ n })), (f) => f.n);
+  }
   lista("Con varias cuentas posibles", d.dudosos, (f) => (f.nombre || "—") + " · " + f.alias + " → " + f.opciones.join(", "));
   lista("En Discord con rol del club pero sin datos (los rellenarán al entrar)", d.fuera, (f) => f.nombre + " (" + f.usuario + ")");
 }

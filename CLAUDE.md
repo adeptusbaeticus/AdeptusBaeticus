@@ -92,6 +92,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Para los que quedan sin vincular, el bot propone hasta 3 cuentas parecidas (`sugerenciasSocio`: alias sin números ni
   signos, contenido o con 1-2 letras distintas, o su nombre real en el apodo) que el admin confirma en Admin
   (`/api/admin/socios/vincula`); nunca se vinculan solas.
+  Al vincular se actualizan también el rol, el nombre y la foto de todos los socios con la misma lista de miembros
+  (`actualizaRoles`); y el temporizador lo repite solo una vez a la semana (`rolesSemanal`, resumen en `nr_cache`
+  `discord:roles`; si Discord falla, vuelve a probar al día siguiente). A quien ya no está en el servidor o no tiene
+  rol del club no se le cambia nada: sale en Admin en «Sin rol del club en Discord o fuera del servidor».
   Al pulsar el botón se guarda en `nr_cache` (`discord:sin-datos`) la lista de cuentas del servidor sin datos (cuenta,
   usuario, nombre visible, apodo y rol) para revisar las parejas a mano.
 - Datos obligatorios al entrar: todo socio menos el admin que no se inscribió con la web y aún no ha completado sus datos
