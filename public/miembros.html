@@ -75,6 +75,13 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .adm-t .exist button{background:none;border:1px solid #6B6558;color:#F0A39E;border-radius:8px;min-height:36px;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px}
 .elo{display:inline-flex;align-items:center;gap:6px;background:#15171A;border:1px solid #2C3036;border-radius:999px;padding:2px 10px;font:600 12px Inter,sans-serif;color:#ECE7DC}
 .elo b{color:#F0CE82}
+/* Títulos del ELO del club */
+.elo b.t-Maestro,.rk b.t-Maestro,.abf-dat b.t-Maestro{color:#E0574C}
+.elo b.t-Oro,.rk b.t-Oro{color:#E8C25A}
+.elo b.t-Plata,.rk b.t-Plata{color:#C9CED6}
+.elo b.t-Bronce,.rk b.t-Bronce{color:#C98A4B}
+.elo b.t-Aprendiz,.rk b.t-Aprendiz{color:#9DB05C}
+.elo.cla{color:#A8A293}
 .rk{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px}
 .rk div{background:#15171A;border:1px solid #2C3036;border-radius:10px;padding:8px 6px;text-align:center}
 .rk b{display:block;font:700 22px Inter,sans-serif;color:#F0CE82}
@@ -265,7 +272,8 @@ function pintaGrid() {
     if (m.liga || m.elo) {
       const fila = el("span", "fc");
       if (m.liga) { const e = el("span", "elo"); e.append(el("b", "", "#" + m.liga.pos), "Liga"); fila.appendChild(e); }
-      if (m.elo) { const e = el("span", "elo"); e.append(el("b", "", "#" + m.elo.pos), "ELO " + m.elo.elo); fila.appendChild(e); }
+      if (m.elo && m.elo.clasificando) fila.appendChild(el("span", "elo cla", "Clasificando"));
+      else if (m.elo) { const e = el("span", "elo"); e.append(el("b", "t-" + m.elo.titulo, m.elo.titulo), "ELO " + m.elo.elo); fila.appendChild(e); }
       b.appendChild(fila);
     }
     b.appendChild(m.facciones.length ? chips(m.facciones, 3) : el("span", "sin", "Sin facciones"));
@@ -329,20 +337,19 @@ function ficha(m) {
     const a = el("a", "m", "Ver la Gran Liga"); a.href = "/gran-liga.html"; a.style.cssText = "display:inline-block;margin-top:8px";
     fi.appendChild(a);
   }
-  // Ranking ELO de la Gran Liga (New Recruit).
-  fi.appendChild(el("h3", "", "Ranking ELO de la Gran Liga"));
+  // ELO del club (propio): título y número; hasta 10 partidas, «Clasificando».
+  fi.appendChild(el("h3", "", "ELO del club"));
   if (m.elo) {
     const rk = el("div", "rk");
-    const dato = (v, et) => { const d = el("div"); d.append(el("b", "", v), el("span", "", et)); rk.appendChild(d); };
-    dato("#" + m.elo.pos, "de " + m.elo.total);
-    dato(String(m.elo.elo), "ELO");
+    const dato = (v, et, cls) => { const d = el("div"); d.append(el("b", cls || "", v), el("span", "", et)); rk.appendChild(d); };
+    if (m.elo.clasificando) dato("Clasificando", m.elo.partidas + " de " + m.elo.minimo + " partidas");
+    else { dato(m.elo.titulo, "#" + m.elo.pos + " de " + m.elo.total, "t-" + m.elo.titulo); dato(String(m.elo.elo), "ELO"); }
     dato(m.elo.v + "-" + m.elo.d + (m.elo.e ? "-" + m.elo.e : ""), m.elo.e ? "V-D-E" : "V-D");
     fi.appendChild(rk);
-    const a = el("a", "m", "Ver el ranking completo en New Recruit");
-    a.href = "https://www.newrecruit.eu/app/leaguedetails?id=" + encodeURIComponent(D.liga_nr); a.target = "_blank"; a.rel = "noopener";
-    a.style.cssText = "display:inline-block;margin-top:8px";
-    fi.appendChild(a);
-  } else fi.appendChild(el("p", "sin", "Todavía no aparece en el ranking."));
+  } else fi.appendChild(el("p", "sin", "Todavía no ha jugado ninguna partida de la Gran Liga."));
+  const nota = el("p", "m", "Empieza en 1500 y se mueve con cada partida de la Gran Liga desde 2026. Se muestra a partir de 10 partidas.");
+  nota.style.cssText = "margin:8px 0 0;font-size:13px";
+  fi.appendChild(nota);
   if (m.trofeos.length) {
     fi.appendChild(el("h3", "", "Trofeos"));
     const ul = el("ul", "trl");

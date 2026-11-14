@@ -178,7 +178,12 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Listas** de cada jugador. Se guardan, pero de momento no se publican.
 - **Resultados de New Recruit:** se leen solos (el servidor los consulta cada hora durante la fase, sin depender de las visitas) y una vez tras cada cierre
   de ronda. La web nunca escribe en New Recruit.
-- **Ranking ELO** de la liga de New Recruit, que se muestra en la ficha de Miembros.
+- **ELO del club** (propio, no el de New Recruit): todos empiezan en 1500 y cada partida de la Gran Liga lo mueve
+  (fórmula de Elo, K = 32), en orden desde la primera partida de la Gran Liga 2026 y siguiendo con la actual y las
+  siguientes; no cuentan las partidas perdidas por abandono. Se recalcula al llegar resultados y una vez al día.
+  Hasta 10 partidas sale «Clasificando»; después, el título y el número: **Maestro** (top 20 %), **Oro** (40 %),
+  **Plata** (60 %), **Bronce** (80 %) y **Aprendiz**. Se ve en Miembros (listado y ficha) y en la ficha rápida.
+  Preparado para sumar torneos puntuales más adelante.
 - **Calendario de la liga** para el móvil.
 - **Recordatorios por Discord** (mensaje privado del bot): tu partida de cada ronda y el aviso antes del cierre.
 - Ficha rápida de cada jugador al pasar el ratón por su nombre.

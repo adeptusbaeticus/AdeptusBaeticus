@@ -142,7 +142,8 @@
     const dat = el("div", "abf-dat");
     const dato = (b, t) => { const s = el("span"); s.append(el("b", "", b), " " + t); dat.appendChild(s); };
     if (m.liga) dato("#" + m.liga.pos, "Liga");
-    if (m.elo) dato(String(m.elo.elo), "ELO");
+    if (m.elo && m.elo.clasificando) dato("Clasificando", "ELO");
+    else if (m.elo) dato(m.elo.titulo + " " + m.elo.elo, "ELO");
     // Trofeos abajo a la derecha, en iconos (iguales que en Miembros): uno por puesto y tipo, con «×N» si se repite.
     if (m.trofeos && m.trofeos.length && window.abCopa) {
       const PUESTO = { 1: "1.º puesto", 2: "2.º puesto", 3: "3.º puesto" };

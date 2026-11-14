@@ -1648,11 +1648,8 @@ async function renovarUrls(env, urls) {
 const NR_API = "https://www.newrecruit.eu/api/";
 const NR_ESPERA_MIN = 15; // minutos mínimos entre dos consultas del mismo tipo
 
-// Ranking ELO de la liga del club en New Recruit. Su API oficial no tiene ligas: se usa la llamada interna
-// de su web (ladder_get_paginated), con permiso del propietario, solo cuando se actualizan los resultados de la
-// liga (como mucho cada 6 h, tras cada cierre, o a mano desde Admin) y nunca en una visita.
-const NR_ELO = { sistema: 827374861, liga: "6a8d9de5988fd3f424053719" };
-const ELO_CLAVE = "elo:" + NR_ELO.liga;
+// Llamadas internas de la web de New Recruit (su API oficial no las tiene), con permiso del propietario: solo para leer
+// una temporada pasada o el pod de un torneo al enlazar la liga (a mano, desde Administrar liga).
 async function nrRpc(metodo, params) {
   const key = [...crypto.getRandomValues(new Uint8Array(12))].map((b) => b.toString(16).padStart(2, "0")).join("");
   const r = await fetch("https://www.newrecruit.eu/api/rpc?m=" + encodeURIComponent(metodo), {
@@ -1666,36 +1663,6 @@ async function nrRpc(metodo, params) {
   if (d && d.error) throw new Error("New Recruit: " + d.error);
   return d;
 }
-async function eloSync(env) {
-  const res = await env.DB.prepare(
-    `INSERT INTO nr_cache (clave, intento) VALUES (?1, datetime('now'))
-     ON CONFLICT(clave) DO UPDATE SET intento=excluded.intento
-     WHERE nr_cache.intento IS NULL OR nr_cache.intento < datetime('now', ?2)`
-  ).bind(ELO_CLAVE, "-" + NR_ESPERA_MIN + " minutes").run();
-  if (!res.meta.changes) return { ok: false, error: "Se consultó hace poco" };
-  try {
-    const todos = [];
-    for (let pag = 0; pag < 5; pag++) {
-      const d = await nrRpc("ladder_get_paginated", [NR_ELO.sistema, NR_ELO.liga, 100, null, pag * 100, null]);
-      const es = (d && d.entries) || [];
-      todos.push(...es);
-      if (es.length < 100 || todos.length >= (d.total || 0)) break;
-    }
-    const lista = todos.map((e) => {
-      const x = ((e.elo || {})[NR_ELO.sistema] || {})[NR_ELO.liga] || {};
-      return { login: String(e.login || ""), elo: Math.round(Number(x.elo) || 0), v: x.wins || 0, d: x.losses || 0, e: x.draws || 0 };
-    }).filter((x) => x.login && x.elo).sort((a, b) => b.elo - a.elo);
-    lista.forEach((x, i) => { x.pos = i + 1; });
-    await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(ELO_CLAVE, JSON.stringify(lista)).run();
-    await avisoEstado(env, "elo", "el ranking ELO de New Recruit", null);
-    return { ok: true, jugadores: lista.length };
-  } catch (e) {
-    await env.DB.prepare("UPDATE nr_cache SET error=?2 WHERE clave=?1").bind(ELO_CLAVE, String(e.message || e).slice(0, 300)).run();
-    await avisoEstado(env, "elo", "el ranking ELO de New Recruit", String(e.message || e));
-    return { ok: false, error: String(e.message || e) };
-  }
-}
-
 // Sincroniza un dato de New Recruit ('tournament' o 'reports') de un torneo. Una sola petición,
 // sin reintentos; si otra sincronización reciente o en curso ya lo hizo, no consulta.
 async function nrSync(env, tipo, idTorneo) {
@@ -1730,8 +1697,8 @@ async function nrSync(env, tipo, idTorneo) {
       ? JSON.stringify(json, (k, v) => (k === "exported_list" || k === "report_list" || k === "scoring" ? undefined : v))
       : texto;
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(clave, guardar).run();
-    // Con los resultados nuevos, también el ranking ELO de la liga.
-    const elo = tipo === "reports" ? await eloSync(env).catch((e) => ({ ok: false, error: String(e.message || e) })) : null;
+    // Con los resultados nuevos se recalcula el ELO del club.
+    const elo = tipo === "reports" ? await eloCalcula(env).then((x) => ({ ok: true, jugadores: x.length })).catch((e) => ({ ok: false, error: String(e.message || e) })) : null;
     await avisoEstado(env, "nr-" + tipo, tipo === "reports" ? "la sincronización de resultados con New Recruit" : "la sincronización del torneo con New Recruit", null);
     return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json), liga, elo };
   } catch (e) {
@@ -1844,6 +1811,56 @@ async function ligaAuto(env, fase) {
   const ultima = madrid(c && c.actualizado);
   if (ultima && ultima > hace(LIGA_AUTO_HORAS) && ultima >= ultimoCierre) return;
   await nrSync(env, "reports", fase.nr_torneo);
+}
+
+// ===== ELO del club =====
+// Propio (no el de New Recruit): todos empiezan en 1500 y cada partida jugada lo mueve con la fórmula de Elo (K = 32;
+// victoria 1, empate 0,5, derrota 0). Se recalcula de cero, partida a partida en orden, cada vez que llegan resultados
+// de New Recruit y una vez al día, y se guarda en nr_cache (clave 'elo:club'). Hasta 10 partidas, «Clasificando».
+// Títulos por puesto entre los ya clasificados: Maestro (top 20 %), Oro (40 %), Plata (60 %), Bronce (80 %), Aprendiz.
+const ELO = { inicial: 1500, k: 32, minimo: 10, clave: "elo:club" };
+const ELO_TITULOS = [[0.2, "Maestro"], [0.4, "Oro"], [0.6, "Plata"], [0.8, "Bronce"], [1, "Aprendiz"]];
+// Partidas que cuentan, en orden. Cada una: { orden, a, b, pa, pb } (a y b: cuenta de la web, o el jugador de la liga
+// si no la tiene). Gran Liga: todas las fases (pasadas y en curso), desde la primera partida de la Gran Liga 2026,
+// por la fecha de su ronda y después ronda y mesa; no cuentan las perdidas por abandono (no se jugaron).
+async function eloPartidas(env) {
+  const liga = (await env.DB.prepare(
+    `SELECT f.inicio, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb
+     FROM liga_partidas p JOIN liga_fases f ON f.id=p.fase_id
+     JOIN liga_jugadores a ON a.id=p.jugador_a JOIN liga_jugadores b ON b.id=p.jugador_b
+     WHERE p.pv_a IS NOT NULL AND p.pv_b IS NOT NULL AND p.abandono IS NULL`
+  ).all()).results;
+  const n3 = (x) => String(x).padStart(3, "0");
+  const partidas = liga.map((p) => ({
+    orden: masDias(p.inicio.slice(0, 10), 14 * (p.ronda - 1)) + " " + p.inicio + " " + n3(p.ronda) + " " + n3(p.mesa),
+    a: p.da || "j" + p.ja, b: p.db || "j" + p.jb, pa: p.pv_a, pb: p.pv_b,
+  }));
+  // Torneos puntuales (todavía no): sus partidas se añadirían aquí con el mismo formato, con su fecha («YYYY-MM-DD …»)
+  // al principio de `orden` para que se intercalen con las de la liga por fecha.
+  return partidas.sort((x, y) => (x.orden < y.orden ? -1 : x.orden > y.orden ? 1 : 0));
+}
+async function eloCalcula(env) {
+  const t = new Map();
+  const de = (id) => { if (!t.has(id)) t.set(id, { id, elo: ELO.inicial, n: 0, v: 0, e: 0, d: 0 }); return t.get(id); };
+  for (const p of await eloPartidas(env)) {
+    const A = de(p.a), B = de(p.b);
+    const esperado = 1 / (1 + Math.pow(10, (B.elo - A.elo) / 400));
+    const res = p.pa > p.pb ? 1 : p.pa < p.pb ? 0 : 0.5;
+    const cambio = ELO.k * (res - esperado);
+    A.elo += cambio; B.elo -= cambio; A.n++; B.n++;
+    if (res === 1) { A.v++; B.d++; } else if (res === 0) { A.d++; B.v++; } else { A.e++; B.e++; }
+  }
+  const todos = [...t.values()].map((x) => ({ ...x, elo: Math.round(x.elo) }));
+  const clasif = todos.filter((x) => x.n >= ELO.minimo).sort((a, b) => b.elo - a.elo || b.n - a.n);
+  clasif.forEach((x, i) => { x.pos = i + 1; x.total = clasif.length; x.titulo = ELO_TITULOS.find(([q]) => (i + 1) / clasif.length <= q + 1e-9)[1]; });
+  await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now'), error=NULL")
+    .bind(ELO.clave, JSON.stringify(todos)).run();
+  return todos;
+}
+// Una vez al día (desde el temporizador), por si cambió algo sin pasar por la sincronización.
+async function eloDiario(env) {
+  const c = await env.DB.prepare("SELECT 1 FROM nr_cache WHERE clave=?1 AND actualizado > datetime('now','-1 day')").bind(ELO.clave).first();
+  if (!c) await eloCalcula(env);
 }
 
 // ===== Temporadas de la liga (admin): archivar la actual, lanzar la siguiente y enlazarla con New Recruit =====
@@ -1987,6 +2004,7 @@ export default {
       await ligaRecordatorios(env).catch(() => {});
       await procesaCola(env, 25).catch(() => {});
       await rolesSemanal(env).catch(() => {});
+      await eloDiario(env).catch(() => {});
       // Resultados de la Gran Liga desde New Recruit (fase en curso; `ligaAuto` decide si toca consultar).
       const fase = await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first().catch(() => null);
       if (fase) await ligaAuto(env, fase).catch(() => {});
@@ -3290,12 +3308,17 @@ export default {
       const { results } = await env.DB.prepare(
         "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username, conectado, alta FROM users ORDER BY name COLLATE NOCASE"
       ).all();
-      // ELO de la liga: por usuario de New Recruit (el de la ficha o el del jugador de la liga vinculado).
-      let elo = [];
-      try { elo = JSON.parse(((await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(ELO_CLAVE).first()) || {}).datos || "[]"); } catch (e) {}
-      const porLogin = new Map(elo.map((x) => [x.login.trim().toLowerCase(), x]));
-      const nrLiga = new Map((await env.DB.prepare("SELECT discord_id, nr_nombre FROM liga_jugadores WHERE discord_id IS NOT NULL AND nr_nombre IS NOT NULL").all()).results.map((j) => [j.discord_id, j.nr_nombre]));
-      const eloDe = (u) => porLogin.get(String(u.nr_username || "").trim().toLowerCase()) || porLogin.get(String(nrLiga.get(u.discord_id) || "").trim().toLowerCase()) || null;
+      // ELO del club (calculado al llegar resultados y una vez al día; si aún no está, se calcula ahora).
+      let elo = null;
+      try { elo = JSON.parse(((await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(ELO.clave).first()) || {}).datos || "null"); } catch (e) {}
+      if (!elo) elo = await eloCalcula(env).catch(() => []);
+      const porId = new Map(elo.map((x) => [x.id, x]));
+      const eloDe = (u) => {
+        const x = porId.get(u.discord_id);
+        if (!x) return null;
+        return x.n >= ELO.minimo ? { elo: x.elo, pos: x.pos, total: x.total, titulo: x.titulo, partidas: x.n, v: x.v, e: x.e, d: x.d }
+          : { clasificando: true, partidas: x.n, minimo: ELO.minimo, v: x.v, e: x.e, d: x.d };
+      };
       // Gran Liga (fase más reciente): clasificación como en la página de la liga (V → PV → DIF) y datos de cada jugador vinculado.
       const ligaDe = new Map();
       const fase = await env.DB.prepare("SELECT id, nombre FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
@@ -3337,7 +3360,7 @@ export default {
         let fac = [];
         try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
         const x = eloDe(u);
-        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
+        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
         if (!u.conectado) m.desconectado = true; // creado desde la web y aún sin iniciar sesión
         if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username,
           // La antigüedad cuenta desde la inscripción, pero solo se muestra a miembros y admin (no a aspirantes).
@@ -3346,7 +3369,7 @@ export default {
         return m;
       });
       const lista = [...ganadores.keys()].map((id) => { const x = tr.find((t) => t.id === id); return { id, nombre: x.nombre, puesto: x.puesto, modalidad: x.modalidad, fecha: x.fecha, ids: ganadores.get(id), miembros: ganadores.get(id).map((o) => nombreDe.get(o)).filter(Boolean) }; });
-      return Response.json({ sesion: !!s, yo: s ? s.id : null, admin: !!s && s.role === "admin", facciones: FACCIONES, liga_nr: NR_ELO.liga,
+      return Response.json({ sesion: !!s, yo: s ? s.id : null, admin: !!s && s.role === "admin", facciones: FACCIONES,
         trofeos: s && s.role === "admin" ? lista : undefined, miembros }, { headers: { ...noStore, vary: "cookie" } });
     }
     // Editar una ficha: cada socio la suya; el admin, todas.

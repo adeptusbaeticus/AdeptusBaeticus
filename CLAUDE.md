@@ -238,6 +238,11 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   temporada no se subieron listas ni facciones. Partidas perdidas por **abandono**: `liga_partidas.abandono` = `a`/`b`
   (quien abandonó; migración 0035): etiqueta «Abandono» en la partida y «Abandonó» junto a su nombre en la clasificación
   (en 2026, German y Vanesa en la ronda 1, 0 – 50).
-- Excepción autorizada por el propietario: el **ranking ELO** de la liga de New Recruit (no está en la API
-  oficial) se lee con la llamada interna `ladder_get_paginated` de su web, solo junto a la sincronización de
-  resultados (mismas esperas) y nunca en una visita. Se muestra en la ficha de Miembros.
+- **ELO del club** (propio; ya no se lee el de New Recruit): 1500 al empezar, fórmula de Elo con K = 32 (victoria 1,
+  empate 0,5), partida a partida en orden (`eloPartidas`: fecha de la ronda, fase, ronda y mesa; todas las fases desde
+  la Gran Liga 2026; sin las perdidas por abandono; jugador = su cuenta de la web o, sin ella, su fila de la liga).
+  `eloCalcula` lo rehace de cero tras cada sincronización de resultados y una vez al día (`eloDiario` en `scheduled`)
+  y lo guarda en `nr_cache` `elo:club`. Hasta `ELO.minimo` (10) partidas, «Clasificando»; después, título por puesto
+  entre los clasificados (`ELO_TITULOS`: Maestro top 20 %, Oro 40 %, Plata 60 %, Bronce 80 %, Aprendiz) y número.
+  `/api/miembros` lo da en `m.elo`. Torneos puntuales: preparado en `eloPartidas` (sus partidas con su fecha en
+  `orden`), de momento ninguno.
