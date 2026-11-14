@@ -63,7 +63,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Bendiciones (Emperador / Poderes Ruinosos): sellos de lacre colgados de los bordes de la tarjeta, un puñado (3) por
   voto, de arriba abajo, en zigzag y algo girados: con 10 votos cubren el lateral entero (`sellos()`, `sello()`; dibujo
   propio, con relieve de luz y sombra). Izquierda: **sellos de pureza** (lacre rojo con calavera en relieve y pergamino claro). Derecha: **sellos del
-  Caos** (lacre del color de cada dios por turnos, con la estrella de ocho puntas en relieve y pergamino chamuscado, que
+  Caos** (grimdark: cera apagada y sucia del color de cada dios por turnos —sangre seca, verde pútrido, azul casi negro
+  y morado amoratado—, con hollín y la estrella de hierro ennegrecido, con la estrella de ocho puntas en relieve y pergamino chamuscado, que
   se oscurecen hacia el negro con más votos). Los pergaminos se mecen ligeramente (pausados fuera de pantalla y con
   «reducir movimiento»). La rejilla deja hueco amplio entre publicaciones para que los sellos no se solapen. Marco: con
   5 de una facción aparece entero de ella; con 5 o más de las dos, se lo disputan según el porcentaje de votos. La
