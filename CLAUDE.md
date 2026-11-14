@@ -103,13 +103,24 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   el aviso «Completa tus datos de socio» (cuenta en el número y enlaza al formulario).
 - «Mis datos» (menú del usuario, `inscripcion.html?completar=1`): el socio revisa y edita cuando quiera sus datos (los
   suyos en `socios_datos` o, si se inscribió con la web, los de su solicitud aprobada) y su ficha de Miembros
-  (facciones, Instagram, Steam con «Conectar con Steam», New Recruit y BCP), que es lo que muestra Miembros; se guarda
-  todo junto (`/api/socio/datos` con `ficha`, `guardaFicha`). «Editar mi ficha» en Miembros lleva aquí; el admin
-  edita las fichas de los demás desde Miembros.
+  (facciones, Instagram, Steam, New Recruit y BCP), que es lo que muestra Miembros; se guarda
+  todo junto (`/api/socio/datos` con `ficha`, `guardaFicha`). «Editar mi ficha» en Miembros lleva aquí. Abajo,
+  «Borrar todos mis datos» (con confirmación, `/api/socio/borrar`): borra su perfil y cierra la sesión.
+- Admin en Miembros (ficha de otro socio): «Editar datos y ficha» abre la misma página con `?socio=ID`
+  (`/api/admin/miembros/:id/datos`; el admin no toca las condiciones ni marca los datos como completados) y «Borrar
+  perfil» (con confirmación, `DELETE /api/admin/miembros/:id`). `borraPerfil` borra ficha, datos, solicitudes,
+  inscripciones, partidas que creó, votos, bendiciones, trofeos y avisos, y quita su vínculo con la liga; las fotos de
+  la galería y los posts se quedan. Si su sesión sigue abierta, `/api/me` la cierra.
 - Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos); en la ficha de
   Miembros, «En el club desde».
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
   (migración 0030); en Miembros salen con la etiqueta «Desconectado» hasta su primer inicio de sesión, que lo pone a 1.
+
+## Administración
+
+- `admin.html`: bot de Discord, FAQ, sincronización con New Recruit y socios del Excel. Los eventos se administran en
+  el Calendario («Administrar eventos») y los vínculos de los jugadores de la liga en Gran Liga («Administrar
+  jugadores»): botones que solo ve el admin (`public/admin-paneles.js`, que abre un panel; el servidor comprueba el rol).
 
 ## Encuestas
 

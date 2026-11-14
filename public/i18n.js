@@ -143,6 +143,20 @@
     "Tus datos y tu ficha de Miembros están al día.": "Your details and your Members profile are up to date.", "Ver mi ficha": "See my profile",
     "Se recomienda tu ID de Steam (17 cifras), que no cambia aunque cambies de nombre. Para verlo: en Steam, pulsa tu nombre (arriba a la derecha) → «Detalles de la cuenta»; debajo del título aparece «ID de Steam: 76561198012345678». También vale el enlace a tu perfil o tu nombre de perfil.": "Your Steam ID (17 digits) is recommended, as it does not change even if you change your name. To find it: in Steam, click your name (top right) → “Account details”; under the title you will see “Steam ID: 76561198012345678”. A link to your profile or your profile name also works.",
     "Su ID de Steam (17 cifras), el enlace a su perfil o su nombre de perfil.": "Their Steam ID (17 digits), a link to their profile or their profile name.",
+    "Administración": "Administration", "Administrar eventos": "Manage events", "Administrar jugadores": "Manage players",
+    "Los eventos se administran desde el Calendario y los jugadores de la liga desde Gran Liga (con el botón de admin de cada página).": "Events are managed from the Calendar and league players from the Grand League (with the admin button on each page).",
+    "Datos de socio": "Member details", "Datos de socio · Adeptus Baeticus": "Member details · Adeptus Baeticus",
+    "Estás editando como admin los datos de": "As an admin, you are editing the details of", ". Las condiciones solo las puede aceptar el propio socio.": ". Only the member can accept the conditions.",
+    "Guardar datos": "Save details", "La del socio.": "The member's account.", "Solo las puede aceptar el propio socio.": "Only the member can accept them.",
+    "Los datos y la ficha de este socio están al día.": "This member's details and profile are up to date.", "Volver a Miembros": "Back to Members",
+    "Borrar mis datos": "Delete my details", "Borrar todos mis datos": "Delete all my details",
+    "Borra tu perfil de la web: tus datos de socio, tu ficha de Miembros, tus inscripciones, las partidas que creaste, tus votos y tus trofeos. Las fotos que subiste a la galería se quedan. No se puede deshacer.": "Deletes your website profile: your member details, your Members profile, your sign-ups, the games you created, your votes and your trophies. The photos you uploaded to the gallery stay. This cannot be undone.",
+    "¿Seguro que quieres borrar todos tus datos de la web? Se cerrará tu sesión y no se puede deshacer.": "Are you sure you want to delete all your details from the website? You will be logged out and this cannot be undone.",
+    "No se pudieron borrar tus datos.": "Could not delete your details.", "Datos borrados": "Details deleted",
+    "Hemos borrado tu perfil de la web y cerrado tu sesión.": "We have deleted your website profile and logged you out.",
+    "Falta la confirmación.": "Confirmation is missing.", "Solo para administradores": "Admins only",
+    "Tu propio perfil se borra desde «Mis datos».": "Your own profile is deleted from “My details”.",
+    "Editar datos y ficha": "Edit details and profile", "Borrar perfil": "Delete profile", "No se pudo borrar el perfil.": "Could not delete the profile.",
     "Completa tus datos de socio": "Complete your member details", "Faltan datos obligatorios": "Required details missing",
     "Completa tus datos": "Complete your details", "Tus datos": "Your details", "Guardar mis datos": "Save my details",
     "Antes de seguir usando la web, revisa tus datos de socio y completa lo que falte. Solo tendrás que hacerlo una vez.": "Before you keep using the website, check your member details and fill in anything missing. You only have to do this once.",
@@ -446,6 +460,7 @@
 
   // Textos con datos variables (números, nombres): patrón completo → traducción.
   const RULES = [
+    [/^¿Borrar por completo el perfil de ([\s\S]+)\? Se borrarán su ficha, sus datos de socio, sus inscripciones, sus partidas, sus votos y sus trofeos\. No se puede deshacer\.$/, "Delete $1's profile completely? Their profile, member details, sign-ups, games, votes and trophies will be deleted. This cannot be undone."],
     [/^(\d+) de (\d+) vinculados con Discord · (\d+) han completado sus datos$/, "$1 of $2 linked with Discord · $3 have completed their details"],
     [/^Vinculados ahora: (\d+) \((\d+) sin rol del club en Discord\)$/, "Linked now: $1 ($2 without a club role in Discord)"],
     [/^Vinculados ahora: (\d+)$/, "Linked now: $1"],

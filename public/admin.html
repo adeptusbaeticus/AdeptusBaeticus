@@ -74,27 +74,10 @@ table.lj select{min-width:220px}
     <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
     <span id="auth"></span>
   </div>
-  <h1>Administración de eventos</h1>
+  <h1>Administración</h1>
+  <p class="m">Los eventos se administran desde el Calendario y los jugadores de la liga desde Gran Liga (con el botón de admin de cada página).</p>
   <p id="gate" class="m">Cargando...</p>
   <div id="app" hidden>
-    <form id="f" class="card">
-      <div class="fg">
-        <div><label for="type">Tipo</label><select id="type"><option value="quedada">Quedada</option><option value="torneo">Torneo</option></select></div>
-        <div id="wmodo"><label for="modo">¿Dónde se juega?</label><select id="modo"><option value="fisico">Físico</option><option value="online">Online (TTS)</option></select></div>
-        <div><label for="title">Título</label><input id="title" required maxlength="120"></div>
-        <div><label for="starts">Fecha y hora</label><input id="starts" type="datetime-local" required></div>
-        <div><label for="loc">Lugar</label><input id="loc" maxlength="160"></div>
-        <div><label for="cap">Plazas (opcional)</label><input id="cap" type="number" min="1" max="1000"></div>
-        <div><label for="nr">Enlace o ID de New Recruit (torneos)</label><input id="nr" maxlength="80"></div>
-        <div><label for="status">Estado</label><select id="status"><option value="publicado">Publicado</option><option value="borrador">Borrador</option><option value="cancelado">Cancelado</option></select></div>
-        <div class="full"><label for="desc">Descripción</label><textarea id="desc" maxlength="1000"></textarea></div>
-      </div>
-      <p id="msg" class="m" style="min-height:20px;margin:12px 0 0"></p>
-      <div class="acts" style="margin-top:8px">
-        <button class="btn" type="submit" id="save">Crear evento</button>
-        <button class="chip" type="button" id="reset">Limpiar</button>
-      </div>
-    </form>
     <div class="card" style="margin-top:24px">
       <div class="row" style="margin:0">
         <div>
@@ -137,14 +120,6 @@ table.lj select{min-width:220px}
       </div>
       <div id="soinf" class="m" style="margin-top:8px"></div>
     </div>
-    <div class="card" style="margin-top:24px">
-      <strong>Jugadores de la Gran Liga</strong>
-      <p class="m" style="margin:4px 0 12px">Se vinculan solos al entrar con Discord si coinciden su apodo y su usuario de New Recruit. Aquí puedes confirmar las sugerencias o vincular a mano.</p>
-      <div style="overflow-x:auto"><table class="lj" id="lj"><thead><tr><th>Jugador</th><th>New Recruit</th><th>Cuenta vinculada</th><th></th></tr></thead><tbody></tbody></table></div>
-      <p class="m" id="ljmsg" style="margin:8px 0 0;min-height:20px"></p>
-    </div>
-    <h2>Eventos</h2>
-    <div id="list"></div>
   </div>
   <footer class="ft">
     <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
@@ -158,156 +133,6 @@ table.lj select{min-width:220px}
 <script src="/auth.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-let events = [], editing = null;
-
-function mkBtn(txt, fn) {
-  const b = document.createElement("button");
-  b.type = "button"; b.className = "chip"; b.textContent = txt; b.onclick = fn;
-  return b;
-}
-
-function renderList() {
-  const box = $("list");
-  box.textContent = "";
-  if (!events.length) { box.textContent = "No hay eventos."; return; }
-  events.forEach((e) => {
-    const row = document.createElement("div");
-    row.className = "row card";
-    const info = document.createElement("div");
-    const t = document.createElement("strong");
-    t.textContent = e.title;
-    t.setAttribute("translate", "no");
-    const m = document.createElement("div");
-    m.className = "m";
-    m.textContent = e.starts_at.replace("T", " ") + " · " + (e.type === "torneo" ? "Torneo" + (e.modo === "online" ? " online (TTS)" : "") : "Quedada") + " · " + e.status;
-    info.append(t, m);
-    const acts = document.createElement("div");
-    acts.className = "acts";
-    acts.append(mkBtn("Editar", () => edit(e)));
-    if (e.status !== "cancelado") acts.append(mkBtn("Cancelar evento", () => setStatus(e, "cancelado", "¿Cancelar este evento?")));
-    else acts.append(mkBtn("Publicar de nuevo", () => setStatus(e, "publicado")));
-    const panel = document.createElement("div");
-    panel.className = "regs";
-    panel.hidden = true;
-    if (e.type === "quedada") acts.append(mkBtn("Inscritos", () => toggleRegs(e, panel)));
-    row.append(info, acts, panel);
-    box.appendChild(row);
-  });
-}
-
-async function toggleRegs(e, panel) {
-  if (!panel.hidden) { panel.hidden = true; return; }
-  panel.hidden = false;
-  panel.textContent = "Cargando...";
-  let list;
-  try {
-    const r = await fetch("/api/admin/events/" + e.id + "/registrations");
-    if (!r.ok) throw new Error();
-    list = await r.json();
-  } catch (x) { panel.textContent = "No se pudo cargar la lista de inscritos."; return; }
-  panel.textContent = "";
-  const ins = list.filter((x) => x.status === "inscrito").length;
-  const head = document.createElement("div");
-  head.className = "row";
-  const sum = document.createElement("span");
-  sum.className = "m";
-  sum.textContent = "Inscritos: " + ins + (e.capacity ? " de " + e.capacity + " · Libres: " + Math.max(0, e.capacity - ins) : "") + " · En espera: " + (list.length - ins);
-  const csv = document.createElement("a");
-  csv.className = "chip";
-  csv.href = "/api/admin/events/" + e.id + "/registrations.csv";
-  csv.textContent = "Descargar CSV";
-  head.append(sum, csv);
-  panel.appendChild(head);
-  if (!list.length) {
-    const p = document.createElement("p");
-    p.className = "m"; p.textContent = "Todavía no hay inscritos.";
-    panel.appendChild(p);
-    return;
-  }
-  const t = document.createElement("table");
-  const tr = t.createTHead().insertRow();
-  ["#", "Nombre", "Usuario New Recruit", "Estado", "Actividad", "Partida", "Inscrito por", "Fecha de inscripción"].forEach((h) => {
-    const th = document.createElement("th"); th.textContent = h; tr.appendChild(th);
-  });
-  const tb = t.createTBody();
-  list.forEach((x, i) => {
-    const r = tb.insertRow();
-    const fecha = x.created_at ? new Date(x.created_at.replace(" ", "T") + "Z").toLocaleString("es-ES") : "";
-    [String(i + 1), x.name || "(sin nombre)", x.nr_username || "—", x.status === "inscrito" ? "Inscrito" : "Lista de espera", x.plan || "—", x.partida || "—", x.inscrito_por || "—", fecha]
-      .forEach((v) => { r.insertCell().textContent = v; });
-  });
-  const wrap = document.createElement("div");
-  wrap.style.overflowX = "auto";
-  wrap.appendChild(t);
-  panel.appendChild(wrap);
-}
-
-async function load() {
-  const r = await fetch("/api/admin/events");
-  if (!r.ok) { $("gate").hidden = false; $("gate").textContent = "No se pudieron cargar los eventos."; return; }
-  events = await r.json();
-  renderList();
-}
-
-// Las quedadas son siempre físicas: el selector de modalidad solo sale en los torneos.
-function syncModo() {
-  $("wmodo").hidden = $("type").value !== "torneo";
-  if ($("type").value !== "torneo") $("modo").value = "fisico";
-}
-$("type").addEventListener("change", syncModo);
-syncModo();
-
-function resetForm() {
-  editing = null;
-  $("f").reset();
-  syncModo();
-  $("save").textContent = "Crear evento";
-}
-
-function edit(e) {
-  editing = e.id;
-  $("type").value = e.type;
-  $("modo").value = e.modo || "fisico";
-  syncModo();
-  $("title").value = e.title;
-  $("starts").value = e.starts_at;
-  $("loc").value = e.location || "";
-  $("cap").value = e.capacity || "";
-  $("nr").value = e.nr_tournament_id || "";
-  $("status").value = e.status;
-  $("desc").value = e.description || "";
-  $("save").textContent = "Guardar cambios";
-  $("msg").textContent = "Editando: " + e.title;
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-async function send(id, data) {
-  $("msg").textContent = "";
-  const r = await fetch(id ? "/api/admin/events/" + id : "/api/admin/events", {
-    method: id ? "PUT" : "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!r.ok) { $("msg").textContent = "No se pudo guardar. Revisa los datos."; return false; }
-  return true;
-}
-
-async function setStatus(e, status, q) {
-  if (q && !confirm(q)) return;
-  if (await send(e.id, { ...e, status })) await load();
-}
-
-$("f").onsubmit = async (ev) => {
-  ev.preventDefault();
-  const ok = await send(editing, {
-    type: $("type").value, modo: $("modo").value, title: $("title").value, starts_at: $("starts").value,
-    location: $("loc").value, description: $("desc").value, capacity: $("cap").value,
-    nr_tournament_id: $("nr").value, status: $("status").value,
-  });
-  if (ok) { resetForm(); await load(); $("msg").textContent = "Guardado."; }
-};
-$("reset").onclick = () => { resetForm(); $("msg").textContent = ""; };
-
 async function discordStatus() {
   try {
     const d = await (await fetch("/api/admin/discord")).json();
@@ -365,52 +190,6 @@ async function nrSync(tipo, btn) {
 }
 $("nrt").onclick = () => nrSync("tournament", $("nrt"));
 $("nrr").onclick = () => nrSync("reports", $("nrr"));
-
-// Gran Liga: vínculos entre jugadores y cuentas de Discord de la web.
-async function ligaJugadores() {
-  const tb = $("lj").querySelector("tbody");
-  let d;
-  try { d = await (await fetch("/api/admin/liga/jugadores")).json(); } catch (e) { $("ljmsg").textContent = "No se pudo cargar."; return; }
-  tb.textContent = "";
-  if (!d.fase) { $("ljmsg").textContent = "Todavía no hay ninguna fase de la liga."; return; }
-  const guardar = async (j, did) => {
-    $("ljmsg").textContent = "";
-    const r = await fetch("/api/admin/liga/jugador/" + j.id, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discord_id: did }) });
-    const x = await r.json().catch(() => ({}));
-    $("ljmsg").textContent = r.ok ? "Guardado." : x.error || "No se pudo guardar.";
-    ligaJugadores();
-  };
-  d.jugadores.forEach((j) => {
-    const tr = document.createElement("tr");
-    const c1 = document.createElement("td");
-    c1.textContent = j.discord + (j.nombre ? " (" + j.nombre + ")" : "");
-    c1.setAttribute("translate", "no");
-    const c2 = document.createElement("td");
-    c2.textContent = j.nr_nombre || "—";
-    c2.setAttribute("translate", "no");
-    const c3 = document.createElement("td");
-    const sel = document.createElement("select");
-    const op = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); return o; };
-    op("", "— Sin vincular —");
-    d.usuarios.forEach((u) => op(u.discord_id, u.name + (u.nr_username ? " · NR: " + u.nr_username : "")).setAttribute("translate", "no"));
-    sel.value = j.discord_id || "";
-    sel.setAttribute("aria-label", "Cuenta vinculada");
-    sel.onchange = () => guardar(j, sel.value || null);
-    c3.appendChild(sel);
-    const c4 = document.createElement("td");
-    if (!j.discord_id && j.sugerido_id) {
-      const sp = document.createElement("span");
-      sp.className = "sug";
-      sp.textContent = "Sugerencia: " + j.sugerido + " ";
-      const b = document.createElement("button");
-      b.type = "button"; b.className = "chip"; b.textContent = "Confirmar";
-      b.onclick = () => guardar(j, j.sugerido_id);
-      c4.append(sp, b);
-    }
-    tr.append(c1, c2, c3, c4);
-    tb.appendChild(tr);
-  });
-}
 
 // Socios importados del Excel antiguo: cuántos están vinculados con su Discord y quién falta.
 function pintaSocios(d) {
@@ -486,7 +265,7 @@ $("dreg").onclick = async () => {
 };
 
 fetch("/api/me").then((r) => r.json()).then((me) => {
-  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; load(); discordStatus(); faqStatus(); nrStatus(); ligaJugadores(); socios(); }
+  if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; discordStatus(); faqStatus(); nrStatus(); socios(); }
   else $("gate").textContent = me && !me.invitado ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
 }).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
 </script>

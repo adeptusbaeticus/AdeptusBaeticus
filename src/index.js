@@ -445,7 +445,7 @@ const INSC_COMO = { instagram: "Instagram", discord: "Discord", amigo: "Un amigo
 
 // Valida los datos del formulario de inscripción (también los que completa un socio al entrar).
 // Devuelve { error } o { nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura, como }.
-function validaDatosSocio(b) {
+function validaDatosSocio(b, sinCondiciones) {
   const t = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
   const nombre = t(b.nombre, 100), email = t(b.email, 120).toLowerCase(), telefono = t(b.telefono, 25).replace(/[\s.-]/g, "");
   const juegos = Array.isArray(b.juegos) ? [...new Set(b.juegos.filter((x) => INSC_JUEGOS[x]))] : [];
@@ -456,8 +456,9 @@ function validaDatosSocio(b) {
   if (b.mayor_edad !== "si" && b.mayor_edad !== "no") return { error: "Indica si eres mayor de edad." };
   if (!INSC_EXP_JUEGO[b.experiencia_juego]) return { error: "Elige tu experiencia de juego." };
   if (!INSC_EXP_PINTURA[b.experiencia_pintura]) return { error: "Elige tu experiencia de pintura." };
-  if (b.acepta_estatutos !== true) return { error: "Tienes que aceptar los estatutos y el reglamento interno." };
-  if (b.consentimiento !== true) return { error: "Tienes que aceptar el tratamiento de tus datos." };
+  // Las condiciones solo las acepta el propio socio (el admin, al corregir sus datos, no las toca).
+  if (!sinCondiciones && b.acepta_estatutos !== true) return { error: "Tienes que aceptar los estatutos y el reglamento interno." };
+  if (!sinCondiciones && b.consentimiento !== true) return { error: "Tienes que aceptar el tratamiento de tus datos." };
   return { nombre, email, telefono, mayor_edad: b.mayor_edad === "si" ? 1 : 0, juegos: juegos.length ? JSON.stringify(juegos) : null,
     experiencia_juego: b.experiencia_juego, experiencia_pintura: b.experiencia_pintura,
     como: como ? (como === "otro" && comoOtro ? "Otro: " + comoOtro : INSC_COMO[como]) : null, juegosLista: juegos };
@@ -550,8 +551,28 @@ async function avisoDatos(env, s) {
   if (await tieneDatos(env, s.id)) return {};
   return s.role === "admin" ? { datos_pendientes: true } : { datos_pendientes: true, completar: true };
 }
+// Borra por completo el perfil de un socio en la web: ficha, datos de inscripción, inscripciones, partidas que creó,
+// votos, bendiciones, trofeos, notificaciones… y quita su vínculo con la liga. Las fotos de la galería y los posts se
+// quedan (son del club y están en Discord). Si sigue en Discord con rol del club y vuelve a entrar, empieza de cero.
+async function borraPerfil(env, id) {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM partida_players WHERE discord_id=?1 OR partida_id IN (SELECT id FROM partidas WHERE created_by=?1)").bind(id),
+    env.DB.prepare("DELETE FROM partidas WHERE created_by=?1").bind(id),
+    env.DB.prepare("DELETE FROM registrations WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM bendiciones WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM encuesta_votos WHERE discord_id=?1").bind(id),
+    env.DB.prepare("UPDATE encuestas SET created_by=NULL WHERE created_by=?1").bind(id),
+    env.DB.prepare("DELETE FROM trofeo_miembros WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM push_subs WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM dm_canales WHERE discord_id=?1").bind(id),
+    env.DB.prepare("UPDATE liga_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM socios_datos WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM solicitudes WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM users WHERE discord_id=?1").bind(id),
+  ]);
+}
 // Lo único de la API que puede usar un socio mientras le faltan sus datos (además de /api/inscripcion*).
-const SIN_DATOS_PERMITIDO = new Set(["/api/me", "/api/socio/datos", "/api/ver-como/salir", "/api/push/baja"]);
+const SIN_DATOS_PERMITIDO = new Set(["/api/me", "/api/socio/datos", "/api/socio/borrar", "/api/ver-como/salir", "/api/push/baja"]);
 // ¿Tiene que completar sus datos? Todos los socios menos el admin, hasta que los completen (o si se inscribieron con la web).
 async function faltanDatos(env, s) {
   if (!s || s.role === "admin") return false;
@@ -2605,6 +2626,8 @@ export default {
       let nr = null;
       if (s) {
         const row = await env.DB.prepare("SELECT nr_username FROM users WHERE discord_id=?1").bind(s.id).first();
+        // Perfil borrado (por el admin o por el propio socio): la sesión se cierra; si vuelve a entrar, empieza de cero.
+        if (!row && !s.admin) return Response.json(null, { headers: { "cache-control": "no-store", "set-cookie": `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` } });
         nr = row ? row.nr_username : null;
       }
       return Response.json(
@@ -2616,9 +2639,40 @@ export default {
 
     // Datos de inscripción del socio con sesión: los importados del Excel (o vacíos) para revisarlos y completar lo que
     // falte. Se piden al entrar hasta que los completa (`faltanDatos`).
-    if (path === "/api/socio/datos") {
+    // Borrar todos mis datos (con confirmación en la web): se borra el perfil y se cierra la sesión.
+    if (path === "/api/socio/borrar" && request.method === "POST") {
       const s = await readSession(env, request);
       if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      if (b.confirmo !== true) return Response.json({ error: "Falta la confirmación." }, { status: 400, headers: noStore });
+      await borraPerfil(env, s.id);
+      return Response.json({ ok: true }, { headers: { ...noStore, "set-cookie": `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` } });
+    }
+    // Admin: borrar por completo el perfil de otro socio (DELETE /api/admin/miembros/:id).
+    const bpm = path.match(/^\/api\/admin\/miembros\/(\d+)$/);
+    if (bpm && request.method === "DELETE") {
+      const s = await readSession(env, request);
+      if (!s || s.role !== "admin") return Response.json({ error: "Solo para administradores" }, { status: 403, headers: noStore });
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      if (bpm[1] === s.id) return Response.json({ error: "Tu propio perfil se borra desde «Mis datos»." }, { status: 400, headers: noStore });
+      if (!(await env.DB.prepare("SELECT 1 FROM users WHERE discord_id=?1").bind(bpm[1]).first())) return Response.json({ error: "Ese miembro no existe" }, { status: 404, headers: noStore });
+      await borraPerfil(env, bpm[1]);
+      return Response.json({ ok: true }, { headers: noStore });
+    }
+    // Hoja de datos del socio: la suya (/api/socio/datos) o, para el admin, la de cualquiera (/api/admin/miembros/:id/datos).
+    const adm = path.match(/^\/api\/admin\/miembros\/(\d+)\/datos$/);
+    if (path === "/api/socio/datos" || adm) {
+      const s0 = await readSession(env, request);
+      if (!s0) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (adm && s0.role !== "admin") return Response.json({ error: "Solo para administradores" }, { status: 403, headers: noStore });
+      let s = s0;
+      if (adm) {
+        const t = await env.DB.prepare("SELECT discord_id, name, role FROM users WHERE discord_id=?1").bind(adm[1]).first();
+        if (!t) return Response.json({ error: "Ese miembro no existe" }, { status: 404, headers: noStore });
+        s = { id: t.discord_id, name: t.name, role: t.role };
+      }
       if (request.method === "GET") {
         // Sus datos: los propios (Excel o ya completados) o, si se inscribió con la web, los de su solicitud aprobada.
         const d = (await env.DB.prepare(`SELECT nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura, como_conocio,
@@ -2638,29 +2692,35 @@ export default {
         return Response.json({ nombre: s.name, steam: u && u.steam, datos: d ? { nombre: d.nombre, email: d.email, telefono: d.telefono,
           mayor_edad: d.mayor_edad == null ? null : d.mayor_edad ? "si" : "no", juegos, experiencia_juego: d.experiencia_juego,
           experiencia_pintura: d.experiencia_pintura, como_conocio: como, como_otro: comoOtro, acepta_estatutos: d.acepta_estatutos === 1,
-          consentimiento: d.consentimiento === 1 } : null, completar: await faltanDatos(env, s), facciones: FACCIONES,
+          consentimiento: d.consentimiento === 1 } : null, completar: adm ? false : await faltanDatos(env, s), facciones: FACCIONES, admin: !!adm,
           ficha: u ? { facciones: fac, instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username } : null }, { headers: noStore });
       }
       if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
       if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
       let b = {};
       try { b = await request.json(); } catch (e) {}
-      const v = validaDatosSocio(b);
+      const v = validaDatosSocio(b, !!adm);
       if (v.error) return Response.json({ error: v.error }, { status: 400, headers: noStore });
       // Ficha de Miembros (facciones y cuentas), en el mismo formulario.
       if (b.ficha && typeof b.ficha === "object") {
         const e = await guardaFicha(env, s.id, b.ficha);
         if (e) return Response.json({ error: e }, { status: 400, headers: noStore });
       }
-      await env.DB.batch([
-        env.DB.prepare(`INSERT INTO socios_datos (discord_id, nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura,
+      const campos = [s.id, v.nombre, v.email, v.telefono, v.mayor_edad, v.juegos, v.experiencia_juego, v.experiencia_pintura, v.como];
+      const guarda = adm
+        // El admin corrige los datos; las condiciones y el «completado» siguen siendo cosa del socio.
+        ? env.DB.prepare(`INSERT INTO socios_datos (discord_id, nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura,
+            como_conocio, origen) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,'web')
+          ON CONFLICT(discord_id) DO UPDATE SET nombre=excluded.nombre, email=excluded.email, telefono=excluded.telefono, mayor_edad=excluded.mayor_edad,
+            juegos=excluded.juegos, experiencia_juego=excluded.experiencia_juego, experiencia_pintura=excluded.experiencia_pintura, como_conocio=excluded.como_conocio`)
+        : env.DB.prepare(`INSERT INTO socios_datos (discord_id, nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura,
             como_conocio, acepta_estatutos, consentimiento, alta, origen, completado_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,1,1,date('now'),'web',datetime('now'))
           ON CONFLICT(discord_id) DO UPDATE SET nombre=excluded.nombre, email=excluded.email, telefono=excluded.telefono, mayor_edad=excluded.mayor_edad,
             juegos=excluded.juegos, experiencia_juego=excluded.experiencia_juego, experiencia_pintura=excluded.experiencia_pintura,
-            como_conocio=excluded.como_conocio, acepta_estatutos=1, consentimiento=1, completado_at=excluded.completado_at`)
-          .bind(s.id, v.nombre, v.email, v.telefono, v.mayor_edad, v.juegos, v.experiencia_juego, v.experiencia_pintura, v.como),
-        env.DB.prepare("UPDATE users SET alta=COALESCE(alta, (SELECT alta FROM socios_datos WHERE discord_id=?1)) WHERE discord_id=?1").bind(s.id),
-      ]);
+            como_conocio=excluded.como_conocio, acepta_estatutos=1, consentimiento=1, completado_at=excluded.completado_at`);
+      const ops = [guarda.bind(...campos)];
+      if (!adm) ops.push(env.DB.prepare("UPDATE users SET alta=COALESCE(alta, (SELECT alta FROM socios_datos WHERE discord_id=?1)) WHERE discord_id=?1").bind(s.id));
+      await env.DB.batch(ops);
       return Response.json({ ok: true }, { headers: noStore });
     }
 

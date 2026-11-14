@@ -102,6 +102,8 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
 .ed .chk label{display:flex;align-items:center;gap:8px;font-weight:400;font-size:14px;margin:0;min-height:32px}
 .ed input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
 .err{color:#F0A39E;font-size:14px;min-height:20px;margin-top:10px}
+.btn.borrar{background:transparent;color:#F0A39E;border:1px solid #A3211B}
+.btn.borrar:hover{background:#2A1A1C}
 .aviso-ok{color:#C3CAA6;font-size:14px;margin:0 0 10px}
 .ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
 .ftl{display:flex;gap:20px;flex-wrap:wrap}
@@ -407,7 +409,23 @@ function ficha(m) {
   const acc = el("div", "acc");
   // Tu ficha se edita en «Mis datos»; el admin edita las de los demás aquí.
   if (m.editable && m.id === D.yo) { const e = el("a", "btn", "Editar mi ficha"); e.href = "/inscripcion.html?completar=1"; acc.appendChild(e); }
-  else if (m.editable) { const e = el("button", "btn", "Editar ficha"); e.type = "button"; e.onclick = () => editar(m); acc.appendChild(e); }
+  else if (m.editable && D.admin) {
+    // Admin: su hoja de datos y su ficha (en la misma página que «Mis datos») y borrar el perfil entero.
+    const e = el("a", "btn", "Editar datos y ficha"); e.href = "/inscripcion.html?completar=1&socio=" + encodeURIComponent(m.id); acc.appendChild(e);
+    const bo = el("button", "btn borrar", "Borrar perfil"); bo.type = "button";
+    bo.onclick = async () => {
+      if (!confirm("¿Borrar por completo el perfil de " + m.name + "? Se borrarán su ficha, sus datos de socio, sus inscripciones, sus partidas, sus votos y sus trofeos. No se puede deshacer.")) return;
+      bo.disabled = true;
+      try {
+        const r = await fetch("/api/admin/miembros/" + encodeURIComponent(m.id), { method: "DELETE" });
+        const x = await r.json().catch(() => ({}));
+        if (!r.ok) { alert(x.error || "No se pudo borrar el perfil."); bo.disabled = false; return; }
+        $("dlg").close();
+        await carga();
+      } catch (e) { alert("No se pudo borrar el perfil."); bo.disabled = false; }
+    };
+    acc.appendChild(bo);
+  }
   const c = el("button", "btn alt", "Cerrar"); c.type = "button"; c.onclick = () => $("dlg").close();
   acc.appendChild(c);
   fi.appendChild(acc);
