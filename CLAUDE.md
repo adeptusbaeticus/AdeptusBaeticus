@@ -30,7 +30,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   variables, no colores sueltos.
 - **Direcciones:** Cloudflare sirve las páginas sin `.html` (`/inscripcion.html` → `/inscripcion`): al comparar
   `location.pathname` aceptar las dos formas (`/^\/inscripcion(\.html)?$/`), o una redirección puede entrar en bucle.
-- **Roles en la web:** admin, miembro y aspirante. No hay «veterano»: el rol de Discord de veterano cuenta como miembro
+- **Roles en la web:** admin, miembro y aspirante. En las fichas (Miembros y ficha rápida) la foto lleva una corona de
+  laurel verde (miembro) o roja (admin) (`window.abLaurel` en `public/trofeos.js`); los aspirantes no llevan. No hay «veterano»: el rol de Discord de veterano cuenta como miembro
   (`roleOf`, y las sesiones antiguas en `leeSesion`); no mostrar «veterano» en ningún sitio.
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.

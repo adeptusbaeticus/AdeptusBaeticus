@@ -76,4 +76,46 @@ function copa(puesto, modalidad) {
   return sv;
 }
   window.abCopa = copa;
+
+  // Corona de laurel alrededor de la foto del socio: verde para los miembros y roja para el admin (los aspirantes no
+  // llevan). Dos ramas de hojas que suben desde un lazo abajo hasta casi arriba, dejando libre la parte de arriba.
+  function laurel(rol) {
+    const colores = { miembro: ["#9DB05C", "#5E6B36"], admin: ["#E0574C", "#7A1712"] }[rol];
+    if (!colores) return null;
+    const [hoja, oscuro] = colores;
+    const ns = "http://www.w3.org/2000/svg";
+    const sv = document.createElementNS(ns, "svg");
+    sv.setAttribute("viewBox", "0 0 100 100");
+    sv.setAttribute("class", "laurel");
+    sv.setAttribute("aria-hidden", "true");
+    const add = (tag, at, padre) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); (padre || sv).appendChild(e); return e; };
+    const R = 45, cx = 50, cy = 50, rad = (g) => (g * Math.PI) / 180;
+    const pto = (g, r) => [cx + r * Math.cos(rad(g)), cy + r * Math.sin(rad(g))];
+    for (const lado of [-1, 1]) {
+      // Ángulos en grados (0 = derecha, 90 = abajo): de abajo (cerca del lazo) hacia arriba por cada lado.
+      const g0 = 90 + lado * 12, g1 = 90 + lado * 140;
+      const [x0, y0] = pto(g0, R), [x1, y1] = pto(g1, R);
+      add("path", { d: `M${x0.toFixed(1)} ${y0.toFixed(1)}A${R} ${R} 0 0 ${lado > 0 ? 1 : 0} ${x1.toFixed(1)} ${y1.toFixed(1)}`, fill: "none", stroke: oscuro, "stroke-width": "1.6", "stroke-linecap": "round" });
+      const n = 9;
+      for (let i = 0; i < n; i++) {
+        const g = g0 + ((g1 - g0) * (i + 0.5)) / n;
+        const tam = 1 - i * 0.045; // hojas algo más pequeñas hacia la punta
+        for (const fuera of [1, -1]) {
+          const [x, y] = pto(g + lado * 3, R + fuera * 3.2);
+          // Hoja: elipse inclinada hacia la punta de la rama y hacia fuera o hacia dentro.
+          const giro = g + (lado > 0 ? 90 : -90) + fuera * lado * 32;
+          add("ellipse", { cx: x.toFixed(1), cy: y.toFixed(1), rx: (5.4 * tam).toFixed(2), ry: (2.3 * tam).toFixed(2), fill: hoja, stroke: oscuro, "stroke-width": "0.7",
+            transform: `rotate(${giro.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})` });
+        }
+      }
+      // Hoja de la punta.
+      const [xp, yp] = pto(g1 + lado * 4, R);
+      add("ellipse", { cx: xp.toFixed(1), cy: yp.toFixed(1), rx: "4.6", ry: "2", fill: hoja, stroke: oscuro, "stroke-width": "0.7", transform: `rotate(${(g1 + (lado > 0 ? 90 : -90)).toFixed(1)} ${xp.toFixed(1)} ${yp.toFixed(1)})` });
+    }
+    // Lazo abajo.
+    add("path", { d: "M50 95L44 99.5L45.5 93.5Z M50 95L56 99.5L54.5 93.5Z", fill: oscuro });
+    add("circle", { cx: "50", cy: "95", r: "2.6", fill: hoja, stroke: oscuro, "stroke-width": "0.8" });
+    return sv;
+  }
+  window.abLaurel = laurel;
 })();

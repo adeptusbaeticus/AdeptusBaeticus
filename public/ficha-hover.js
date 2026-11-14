@@ -13,6 +13,8 @@
 .abf-n:focus-visible{outline:2px solid #D9B25A;outline-offset:2px;border-radius:3px}
 .abf{position:absolute;z-index:60;width:300px;max-width:calc(100vw - 24px);box-sizing:border-box;background:#1F2328;border:1px solid #6B5A2E;border-radius:12px;padding:14px;color:#ECE7DC;font:400 14px/1.4 Inter,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.5);text-align:left}
 .abf-cab{display:flex;gap:12px;align-items:center}
+.abf-lau{position:relative;display:inline-flex;flex:none;margin:8px}
+.abf-lau .laurel{position:absolute;left:-17%;top:-17%;width:134%;height:134%;pointer-events:none;overflow:visible}
 .abf-cab>div:nth-child(2){flex:1;min-width:0}
 .abf-tro{display:flex;flex-wrap:wrap;gap:6px 12px;margin-left:auto;justify-content:flex-end;align-items:flex-end}
 .abf-tro .pila{position:relative;display:inline-block;flex:none}
@@ -54,6 +56,9 @@
     let av;
     if (m.avatar) { av = el("img", "abf-av"); av.src = "https://cdn.discordapp.com/avatars/" + m.id + "/" + m.avatar + ".png?size=128"; av.alt = ""; }
     else av = el("span", "abf-av", (m.name || "?").trim().charAt(0).toUpperCase());
+    // Corona de laurel del rol (verde: miembro; roja: admin).
+    const lau = window.abLaurel && window.abLaurel(m.role);
+    if (lau) { const w = el("span", "abf-lau"); w.append(av, lau); av = w; }
     const tx = el("div");
     const n = el("p", "abf-nom", m.name); n.setAttribute("translate", "no");
     tx.append(n, el("span", "abf-rol", ROL[m.role] || m.role));
