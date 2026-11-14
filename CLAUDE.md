@@ -33,6 +33,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **Roles en la web:** admin, miembro y aspirante. En las fichas (Miembros y ficha rápida) la foto lleva una corona de
   laurel verde (miembro) o roja (admin) (`window.abLaurel` en `public/trofeos.js`); los aspirantes no llevan. No hay «veterano»: el rol de Discord de veterano cuenta como miembro
   (`roleOf`, y las sesiones antiguas en `leeSesion`); no mostrar «veterano» en ningún sitio.
+- **Lista de funciones:** `FUNCIONES.md` describe todo lo que hace la web; al añadir, cambiar o quitar una función,
+  actualizarla.
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.
 
