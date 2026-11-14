@@ -18,6 +18,33 @@ async function hmac(secret, data) {
   return b64u(await crypto.subtle.sign("HMAC", key, enc.encode(data)));
 }
 
+// --- Inscripción: cifrado (AES-GCM) del permiso de Discord con una clave derivada del secreto de sesión,
+// y cookie firmada con la cuenta de Discord conectada mientras se rellena el formulario. ---
+async function claveTokens(env) {
+  const h = await crypto.subtle.digest("SHA-256", enc.encode("tokens-inscripcion:" + env.SESSION_SECRET));
+  return crypto.subtle.importKey("raw", h, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+async function cifra(env, texto) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const c = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await claveTokens(env), enc.encode(texto));
+  return b64u(iv) + "." + b64u(c);
+}
+async function descifra(env, s) {
+  const bytes = (x) => Uint8Array.from(atob(x.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  const [iv, c] = String(s || "").split(".");
+  const p = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes(iv) }, await claveTokens(env), bytes(c));
+  return new TextDecoder().decode(p);
+}
+const COOKIE_REG = "ab_reg";
+async function firmaReg(env, obj) { const body = toB64(JSON.stringify(obj)); return body + "." + (await hmac(env.SESSION_SECRET, body)); }
+async function leeReg(env, request) {
+  const m = (request.headers.get("cookie") || "").match(new RegExp(COOKIE_REG + "=([^;]+)"));
+  if (!m) return null;
+  const [body, sig] = m[1].split(".");
+  if (!body || !sig || sig !== (await hmac(env.SESSION_SECRET, body))) return null;
+  try { const o = JSON.parse(fromB64(body)); return o.exp > Date.now() / 1000 ? o : null; } catch (e) { return null; }
+}
+
 async function makeSession(env, user) {
   const body = toB64(JSON.stringify({ ...user, exp: user.exp || Math.floor(Date.now() / 1000) + MAX_AGE }));
   return body + "." + (await hmac(env.SESSION_SECRET, body));
@@ -397,6 +424,66 @@ async function syncNumeros(env, limit) {
   }
 }
 
+// --- Inscripción al club: opciones del formulario (clave → texto, también para el mensaje de Discord). ---
+const INSC_JUEGOS = { "40k": "Warhammer 40.000", combat_patrol: "Combat Patrol", necromunda: "Necromunda", bloodbowl: "Blood Bowl",
+  pintura: "Pintura y modelismo", otros: "Otros" };
+const INSC_EXP_JUEGO = {
+  nunca: "Nunca he jugado a juegos de miniaturas", otros: "He jugado a otros juegos de miniaturas, pero no a Warhammer",
+  demo: "He jugado alguna partida de prueba de Warhammer", aprendiendo: "Estoy aprendiendo las reglas (menos de 10 partidas)",
+  ocasional: "Juego de vez en cuando (alguna partida al mes)", habitual: "Juego con regularidad (varias partidas al mes)",
+  torneos: "Juego torneos o ligas",
+};
+const INSC_EXP_PINTURA = {
+  nunca: "Nunca he pintado miniaturas", empezando: "Estoy empezando (imprimación y colores base)",
+  basico: "Nivel básico (capas, lavados y pincel seco)", intermedio: "Nivel intermedio (iluminaciones, perfilados y peanas trabajadas)",
+  avanzado: "Nivel avanzado (degradados, efectos y nivel de concurso)",
+};
+const INSC_COMO = { instagram: "Instagram", discord: "Discord", amigo: "Un amigo o conocido", tienda: "En la tienda (2d6 Store)",
+  evento: "En un torneo o evento", blog: "El blog del club", otro: "Otro" };
+
+// Un admin pulsa «Aprobar» o «Rechazar» en el mensaje de la solicitud (#inner-circle-general). Al aprobar, el bot mete
+// al aspirante en el servidor con el rol de Aspirante (o se lo da si ya estaba). El permiso de Discord se borra al decidir.
+async function decideInscripcion(env, it, accion, id) {
+  const webhook = `${DAPI}/webhooks/${it.application_id}/${it.token}`;
+  const privado = (content) => fetch(webhook, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ content, flags: 64, allowed_mentions: { parse: [] } }) });
+  const cierraMensaje = (linea) => fetch(webhook + "/messages/@original", { method: "PATCH", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ content: ((it.message && it.message.content) || "").slice(0, 1700) + "\n\n" + linea, components: [], allowed_mentions: { parse: [] } }) });
+  const admin = it.member.user.id;
+  const sol = await env.DB.prepare("SELECT * FROM solicitudes WHERE id=?1").bind(id).first();
+  if (!sol) return privado("Esa solicitud ya no existe.");
+  if (sol.estado !== "pendiente") return cierraMensaje(sol.estado === "aprobada" ? "✅ Ya estaba aprobada." : "❌ Ya estaba rechazada.");
+  if (accion === "rechazar") {
+    await env.DB.prepare("UPDATE solicitudes SET estado='rechazada', token_cifrado=NULL, decidido_por=?2, decidido_at=datetime('now') WHERE id=?1").bind(id, admin).run();
+    return cierraMensaje(`❌ Rechazada por <@${admin}>.`);
+  }
+  // Aprobar: permiso nuevo con el que se guardó, y alta en el servidor con el rol de Aspirante.
+  let access = null;
+  try {
+    const t = await fetch("https://discord.com/api/oauth2/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: env.DISCORD_CLIENT_ID, client_secret: env.DISCORD_CLIENT_SECRET, grant_type: "refresh_token",
+        refresh_token: await descifra(env, sol.token_cifrado) }) });
+    if (t.ok) access = (await t.json()).access_token;
+  } catch (e) {}
+  let ok = false, nota = "";
+  if (access) {
+    const r = await bot(env, `/guilds/${env.GUILD_ID}/members/${sol.discord_id}`, { method: "PUT", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ access_token: access, roles: [env.ROLE_ASPIRANTE] }) });
+    if (r.status === 201) ok = true;
+    else if (r.status === 204) { // ya estaba en el servidor: solo se le da el rol
+      const rr = await bot(env, `/guilds/${env.GUILD_ID}/members/${sol.discord_id}/roles/${env.ROLE_ASPIRANTE}`, { method: "PUT" });
+      ok = rr.ok; if (!ok) nota = "no se pudo dar el rol (error " + rr.status + ")";
+    } else nota = "no se pudo añadir al servidor (error " + r.status + ")";
+  } else {
+    // Sin permiso válido (lo retiró o caducó): si ya está en el servidor, al menos se le da el rol.
+    const rr = await bot(env, `/guilds/${env.GUILD_ID}/members/${sol.discord_id}/roles/${env.ROLE_ASPIRANTE}`, { method: "PUT" });
+    ok = rr.ok; if (!ok) nota = "su permiso de Discord ya no es válido y no está en el servidor";
+  }
+  if (!ok) return privado(`⚠️ No se pudo dar acceso a <@${sol.discord_id}>: ${nota}. Revisa que el bot tenga los permisos «Gestionar roles» y «Crear invitación» y que su rol esté por encima de Aspirante, o dale el rol a mano.`);
+  await env.DB.prepare("UPDATE solicitudes SET estado='aprobada', token_cifrado=NULL, decidido_por=?2, decidido_at=datetime('now') WHERE id=?1").bind(id, admin).run();
+  return cierraMensaje(`✅ Aprobada por <@${admin}>: <@${sol.discord_id}> ya está en el servidor con el rol de Aspirante.`);
+}
+
 // --- Publicaciones de la galería: lo común a los comandos de Discord y al formulario de la web. ---
 // Las fotos viven en el mensaje del bot en #publicaciones-web; aquí solo se guarda la referencia.
 const EXT_IMG = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" };
@@ -652,6 +739,7 @@ const OG_PAGINAS = {
   "/miembros": ["Miembros · Adeptus Baeticus", "Los socios del club: sus facciones, su ranking y su palmarés."],
   "/faq": ["Reglas y FAQ · Adeptus Baeticus", "El reglamento del club y las dudas más habituales."],
   "/encuestas": ["Encuestas · Adeptus Baeticus", "Las votaciones del club."],
+  "/inscripcion": ["Inscripción · Adeptus Baeticus", "Únete al club de Warhammer Adeptus Baeticus en Málaga."],
 };
 const escAttr = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 // Etiquetas de la vista previa de una dirección (para un evento concreto, su nombre, fecha y lugar).
@@ -1561,6 +1649,16 @@ export default {
       try { it = JSON.parse(raw); } catch (e) { return new Response("JSON no válido", { status: 400 }); }
       if (it.type === 1) return Response.json({ type: 1 }); // PING de verificación
       const reply = (content) => Response.json({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] } } });
+      // Botones «Aprobar»/«Rechazar» de una solicitud de inscripción (solo admins).
+      const cid = String((it.data || {}).custom_id || "");
+      if (it.type === 3 && cid.startsWith("insc:")) {
+        const rol = it.member && it.guild_id === env.GUILD_ID ? roleOf(env, it.member.roles || []) : null;
+        if (rol !== "admin") return reply("Solo los admins pueden aprobar o rechazar inscripciones.");
+        const [, accion, id] = cid.split(":");
+        if (!["aprobar", "rechazar"].includes(accion)) return reply("Acción no soportada.");
+        ctx.waitUntil(decideInscripcion(env, it, accion, Number(id)).catch(() => {}));
+        return Response.json({ type: 6 }); // se actualiza el mensaje en segundo plano
+      }
       // 2 = comando, 4 = autocompletado, 5 = envío de una ventana (modal)
       if (![2, 4, 5].includes(it.type)) return reply("Acción no soportada.");
       const cmd = it.type === 5 ? String((it.data || {}).custom_id || "").split(":")[0] : (it.data || {}).name;
@@ -1843,6 +1941,66 @@ export default {
         }
       }
       return new Response("No encontrado", { status: 404 });
+    }
+
+    // Inscripción al club (formulario de inscripcion.html): GET estado, POST enviar, POST /salir (cambiar de cuenta).
+    if (path === "/api/inscripcion" || path === "/api/inscripcion/salir") {
+      const reg = await leeReg(env, request);
+      const err = (t, st = 400) => Response.json({ error: t }, { status: st, headers: noStore });
+      if (request.method !== "GET" && !sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      if (path === "/api/inscripcion/salir" && request.method === "POST") {
+        return Response.json({ ok: true }, { headers: { ...noStore, "set-cookie": `${COOKIE_REG}=; Path=/; Max-Age=0` } });
+      }
+      if (request.method === "GET") {
+        if (!reg) return Response.json({ conectado: false }, { headers: noStore });
+        const p = await env.DB.prepare("SELECT 1 FROM solicitudes WHERE discord_id=?1 AND estado='pendiente'").bind(reg.id).first();
+        return Response.json({ conectado: true, usuario: reg.usuario, nombre: reg.nombre, id: reg.id, avatar: reg.avatar, pendiente: !!p }, { headers: noStore });
+      }
+      if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+      if (!reg) return err("Conecta tu cuenta de Discord para enviar la inscripción.", 401);
+      let b = {};
+      try { b = await request.json(); } catch (e) { return err("Datos no válidos."); }
+      const t = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+      const nombre = t(b.nombre, 100), email = t(b.email, 120).toLowerCase(), telefono = t(b.telefono, 25).replace(/[\s.-]/g, "");
+      const juegos = Array.isArray(b.juegos) ? [...new Set(b.juegos.filter((x) => INSC_JUEGOS[x]))] : [];
+      const como = INSC_COMO[b.como_conocio] ? b.como_conocio : null, comoOtro = t(b.como_otro, 100);
+      if (nombre.length < 3) return err("Escribe tu nombre y apellidos.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return err("Escribe un correo electrónico válido.");
+      if (!/^\+?\d{9,15}$/.test(telefono)) return err("Escribe un teléfono válido (con prefijo si no es de España).");
+      if (b.mayor_edad !== "si" && b.mayor_edad !== "no") return err("Indica si eres mayor de edad.");
+      if (!INSC_EXP_JUEGO[b.experiencia_juego]) return err("Elige tu experiencia de juego.");
+      if (!INSC_EXP_PINTURA[b.experiencia_pintura]) return err("Elige tu experiencia de pintura.");
+      if (b.acepta_estatutos !== true) return err("Tienes que aceptar los estatutos y el reglamento interno.");
+      if (b.consentimiento !== true) return err("Tienes que aceptar el tratamiento de tus datos.");
+      const comoTexto = como ? (como === "otro" && comoOtro ? "Otro: " + comoOtro : INSC_COMO[como]) : null;
+      let id;
+      try {
+        const r = await env.DB.prepare(
+          `INSERT INTO solicitudes (discord_id, discord_usuario, nombre, email, telefono, mayor_edad, juegos, experiencia_juego, experiencia_pintura,
+             como_conocio, acepta_estatutos, consentimiento, token_cifrado) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,1,?11)`
+        ).bind(reg.id, reg.usuario, nombre, email, telefono, b.mayor_edad === "si" ? 1 : 0, juegos.length ? JSON.stringify(juegos) : null,
+          b.experiencia_juego, b.experiencia_pintura, comoTexto, reg.rt).run();
+        id = r.meta.last_row_id;
+      } catch (e) { return err("Ya tienes una solicitud pendiente. Un admin la revisará pronto.", 409); }
+      // Aviso a los admins en #inner-circle-general con los botones para aprobar o rechazar.
+      const texto = [`📝 **Nueva solicitud de inscripción** (n.º ${id})`, `**Nombre:** ${nombre}`, `**Discord:** <@${reg.id}> (${reg.usuario})`,
+        `**Correo:** ${email}`, `**Teléfono (WhatsApp):** ${telefono}`, `**Mayor de edad:** ${b.mayor_edad === "si" ? "Sí" : "No"}`,
+        `**Le interesa:** ${juegos.length ? juegos.map((x) => INSC_JUEGOS[x]).join(", ") : "—"}`,
+        `**Experiencia de juego:** ${INSC_EXP_JUEGO[b.experiencia_juego]}`, `**Experiencia de pintura:** ${INSC_EXP_PINTURA[b.experiencia_pintura]}`,
+        `**Nos conoció por:** ${comoTexto || "—"}`].join("\n");
+      ctx.waitUntil((async () => {
+        try {
+          const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
+          const c = rc.ok && (await rc.json()).find((x) => (x.type === 0 || x.type === 5) && normalCanal(x.name).includes(CANAL_AVISOS));
+          if (!c) return;
+          const m = await bot(env, `/channels/${c.id}/messages`, { method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ content: texto.slice(0, 1900), allowed_mentions: { parse: [] }, components: [{ type: 1, components: [
+              { type: 2, style: 3, label: "Aprobar", custom_id: "insc:aprobar:" + id },
+              { type: 2, style: 4, label: "Rechazar", custom_id: "insc:rechazar:" + id }] }] }) });
+          if (m.ok) { const mj = await m.json(); await env.DB.prepare("UPDATE solicitudes SET canal_id=?2, mensaje_id=?3 WHERE id=?1").bind(id, c.id, mj.id).run(); }
+        } catch (e) {}
+      })());
+      return Response.json({ ok: true }, { headers: { ...noStore, "set-cookie": `${COOKIE_REG}=; Path=/; Max-Age=0` } });
     }
 
     // Calendarios para el móvil: el del club (público) y el personal (enlace firmado, sin sesión para que
@@ -2141,6 +2299,17 @@ export default {
       });
     }
 
+    // Inscripción: conectar la cuenta de Discord del aspirante (mismo callback que el inicio de sesión; el «state»
+    // empieza por «r»). guilds.join permite al bot meterle en el servidor cuando un admin apruebe la solicitud.
+    if (path === "/auth/registro") {
+      const state = "r" + crypto.randomUUID();
+      const p = new URLSearchParams({ client_id: env.DISCORD_CLIENT_ID, response_type: "code", scope: "identify guilds.join",
+        redirect_uri: url.origin + "/auth/callback", state });
+      return new Response(null, { status: 302, headers: {
+        location: "https://discord.com/oauth2/authorize?" + p,
+        "set-cookie": `ab_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600` } });
+    }
+
     if (path === "/auth/callback") {
       const st = ((request.headers.get("cookie") || "").match(/ab_state=([^;]+)/) || [])[1];
       const code = url.searchParams.get("code");
@@ -2157,7 +2326,25 @@ export default {
         }),
       });
       if (!tok.ok) return back("e_token_" + tok.status + "_" + encodeURIComponent((await tok.text()).slice(0, 80)));
-      const { access_token } = await tok.json();
+      const tokens = await tok.json();
+      const { access_token } = tokens;
+      if (st.startsWith("r")) {
+        // Inscripción: se guarda la cuenta (y su permiso, cifrado) en una cookie firmada durante 1 hora.
+        const vuelve = (q) => { const h = new Headers({ location: url.origin + "/inscripcion.html" + (q ? "?" + q : "") }); h.append("set-cookie", "ab_state=; Path=/; Max-Age=0"); return h; };
+        const ur = await fetch("https://discord.com/api/users/@me", { headers: { authorization: "Bearer " + access_token } });
+        if (!ur.ok || !tokens.refresh_token) return new Response(null, { status: 302, headers: vuelve("error=discord") });
+        const u = await ur.json();
+        // ¿Ya es socio (tiene uno de los roles del club)? Entonces no necesita inscribirse.
+        if (env.DISCORD_BOT_TOKEN) {
+          const gm = await bot(env, `/guilds/${env.GUILD_ID}/members/${u.id}`);
+          if (gm.ok && roleOf(env, (await gm.json()).roles || [])) return new Response(null, { status: 302, headers: vuelve("ya=socio") });
+        }
+        const reg = await firmaReg(env, { id: u.id, usuario: u.username, nombre: u.global_name || u.username, avatar: u.avatar || null,
+          rt: await cifra(env, tokens.refresh_token), exp: Math.floor(Date.now() / 1000) + 3600 });
+        const h = vuelve("");
+        h.append("set-cookie", `${COOKIE_REG}=${reg}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`);
+        return new Response(null, { status: 302, headers: h });
+      }
       const mr = await fetch(`https://discord.com/api/users/@me/guilds/${env.GUILD_ID}/member`, {
         headers: { authorization: "Bearer " + access_token },
       });

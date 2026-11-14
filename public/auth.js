@@ -179,8 +179,8 @@
     (acc.querySelector("button") || cerrar).focus();
   }
 
-  // Quien entra con Discord sin ser del club: aviso claro con cómo unirse (formulario de registro).
-  const FORM_REGISTRO = "https://docs.google.com/forms/d/e/1FAIpQLSczIfv-On4CBaHXP3S-OxmiCbCmjOdVmkIADGmr1O2s3JJECQ/viewform";
+  // Quien entra con Discord sin ser del club: aviso claro con cómo unirse (página de inscripción).
+  const FORM_REGISTRO = "/inscripcion.html";
   function avisoNoMiembro(tipo) {
     const ov = document.createElement("div");
     ov.setAttribute("role", "dialog");
@@ -199,11 +199,11 @@
     if (tipo === "norole") {
       h.textContent = "Aún no tienes acceso";
       p1.textContent = "Tu cuenta está en el servidor de Discord del club, pero todavía no tiene ningún rol del club.";
-      p2.textContent = "Si ya rellenaste el formulario de registro, espera a que la administración te asigne el rol. Si no, rellénalo y te contactaremos.";
+      p2.textContent = "Si ya enviaste tu inscripción, espera a que un admin la apruebe. Si no, rellénala y entrarás con el rol de Aspirante.";
     } else {
       h.textContent = "Todavía no eres del club";
       p1.textContent = "Para entrar en la web tienes que formar parte del servidor de Discord de Adeptus Baeticus.";
-      p2.textContent = "¿Quieres unirte? Rellena el formulario de registro: te contactaremos y te invitaremos a nuestros eventos.";
+      p2.textContent = "¿Quieres unirte? Rellena la inscripción: cuando un admin la apruebe, entrarás en el servidor de Discord con el rol de Aspirante.";
     }
     const acc = document.createElement("div");
     acc.style.cssText = "display:flex;gap:10px;flex-wrap:wrap";
@@ -215,8 +215,8 @@
       acc.appendChild(b);
       return b;
     };
-    const f = btn("Rellenar el formulario de registro", true);
-    f.href = FORM_REGISTRO; f.target = "_blank"; f.rel = "noopener";
+    const f = btn("Rellenar la inscripción", true);
+    f.href = FORM_REGISTRO;
     const faq = btn("Ver las preguntas frecuentes", true);
     faq.href = "/faq.html";
     faq.style.background = "#1F2328"; faq.style.borderColor = "#6B6558"; faq.style.color = "#ECE7DC";
@@ -444,8 +444,23 @@
   // Si la página ya las había recibido antes de cargar este script.
   if (window.abEncuestas) recibeEncuestas(window.abEncuestas);
 
+  // Pestaña «Inscripción» en el menú principal, solo para quien no ha entrado (invitados).
+  function pestanaInscripcion(mostrar) {
+    const menu = document.querySelector(".nav .menu");
+    if (!menu) return;
+    let a = menu.querySelector("a.insc");
+    if (mostrar && !a) {
+      a = document.createElement("a");
+      a.className = "insc" + (/^\/inscripcion(\.html)?$/.test(location.pathname) ? " on" : "");
+      a.href = "/inscripcion.html";
+      a.textContent = "Inscripción";
+      menu.appendChild(a);
+    } else if (!mostrar && a) a.remove();
+  }
+
   function pinta(me) {
   ultimoMe = me;
+  pestanaInscripcion(!me || !!me.invitado);
   box.textContent = "";
   if (window.abI18n) box.appendChild(window.abI18n.selector());
   if (me && me.invitado) {

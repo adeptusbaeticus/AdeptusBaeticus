@@ -60,6 +60,18 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   exterior de los cuatro dioses muy oscuros (rojo, verde, azul y morado: excepción a «nunca azul»). Por encima de 10
   solo cambia el reparto del marco.
 
+## Inscripción
+
+- `inscripcion.html` sustituye al formulario de Google; la pestaña «Inscripción» solo sale a los invitados (`auth.js`),
+  y el aviso a quien entra sin ser socio enlaza aquí. El aspirante conecta su cuenta con «Conectar con Discord»
+  (`/auth/registro`, mismo callback que el login, scope `identify guilds.join`; si ya tiene rol del club se le avisa)
+  y rellena: nombre, correo, teléfono (WhatsApp), mayor de edad, intereses (opcional), experiencia de juego y de
+  pintura, cómo nos conoció (opcional), estatutos y consentimiento. Tabla `solicitudes` (migración 0028).
+- El bot publica la solicitud en #inner-circle-general con «Aprobar»/«Rechazar» (solo admins, interacción `insc:`);
+  al aprobar, mete al aspirante en el servidor con el rol de Aspirante (`decideInscripcion`). El permiso de Discord
+  (refresh token) se guarda cifrado (AES-GCM con clave derivada de `SESSION_SECRET`) y se borra al decidir.
+  El bot necesita «Gestionar roles» y «Crear invitación», y su rol por encima de Aspirante.
+
 ## Encuestas
 
 - Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí

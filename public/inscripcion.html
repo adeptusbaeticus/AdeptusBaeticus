@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inscripción · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#15171A">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Adeptus Baeticus">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.6 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px 64px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.nav{position:sticky;top:0;z-index:40;background:#15171A}
+html{scroll-padding-top:96px}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+.menu{display:flex;gap:24px;flex-wrap:wrap}
+.menu a{color:#ECE7DC;text-decoration:none;font-weight:500;padding:8px 0;border-bottom:2px solid transparent}
+.menu a:hover,.menu a.on{border-color:#D9B25A}
+h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
+.lead{color:#CFC9BA;margin:0 0 24px;max-width:680px}
+.m{color:#A8A293;font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;background:#A3211B;color:#fff;border:1px solid #A3211B;border-radius:8px;padding:10px 18px;min-height:44px;box-sizing:border-box;font:600 15px Inter,sans-serif;text-decoration:none}
+.btn:hover{background:#B8291F}
+.btn.alt{background:#1F2328;color:#ECE7DC;border-color:#6B6558}
+.btn.alt:hover{border-color:#D9B25A}
+.ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
+.ftl{display:flex;gap:20px;flex-wrap:wrap}
+.ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
+.ftl a:hover{color:#F0CE82;text-decoration:underline}
+@view-transition{navigation:auto}
+.nav{view-transition-name:cabecera}
+.ft{view-transition-name:pie}
+::view-transition-old(cabecera),::view-transition-new(cabecera){animation:none}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+@media (max-width:1200px){.menu{gap:14px}.menu a{font-size:15px}}
+@media (max-width:600px){.menu{display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:2px 18px}.menu a{font-size:14px;padding:6px 0}}
+@media (max-width:600px){.c{padding-left:16px;padding-right:16px}}
+@media (max-width:600px){h1{font-size:32px}}
+.wrap{max-width:760px}
+.intro{background:#1F2328;border:1px solid #2C3036;border-left:4px solid #D9B25A;border-radius:12px;padding:16px 20px;margin:0 0 24px}
+.intro p{margin:0 0 8px}.intro p:last-child{margin:0}
+.paso{background:#1F2328;border:1px solid #2C3036;border-radius:14px;padding:20px 22px;margin:0 0 18px}
+.paso h2{font:700 20px Cinzel,Georgia,serif;margin:0 0 10px}
+.discord{display:inline-flex;align-items:center;gap:10px;background:#A3211B;color:#fff;border:0;border-radius:8px;padding:10px 18px;min-height:44px;font:600 15px Inter,sans-serif;text-decoration:none}
+.cuenta{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cuenta img{width:40px;height:40px;border-radius:50%}
+.cuenta .ok{color:#9FD39B;font-weight:600}
+.cuenta button{background:none;border:0;color:#D9B25A;font:600 14px Inter,sans-serif;cursor:pointer;min-height:44px;padding:0 4px;text-decoration:underline}
+.fm{display:grid;gap:16px}
+.fm label.t,.fm legend{display:block;font-weight:600;font-size:15px;margin:0 0 6px;padding:0}
+.fm .ob{color:#F0A39E;margin-left:2px}
+.fm input[type=text],.fm input[type=email],.fm input[type=tel],.fm select{width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;color-scheme:dark}
+.fm fieldset{border:0;margin:0;padding:0}
+.fm .op{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid #2C3036;border-radius:8px;margin-bottom:6px;cursor:pointer;background:#15171A}
+.fm .op:hover{border-color:#6B6558}
+.fm .op input{width:18px;height:18px;margin-top:2px;accent-color:#D9B25A;flex:none}
+.fm .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+.fm .rejilla .op{margin:0}
+.fm .ay{font-size:13px;color:#A8A293;margin:4px 0 0}
+.fm .inval{border-color:#E0524A!important}
+.fm fieldset.inval{box-shadow:inset 3px 0 0 #E0524A;padding-left:10px}
+.fm .falta{color:#F0A39E;font-size:13px;margin:4px 0 0}
+.arriba{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.resumen{flex-basis:100%;padding:10px 12px;border-radius:8px;background:#2A1A1C;border:1px solid #7A1712;color:#F0A39E;font-size:14px}
+.resumen ul{margin:4px 0 0;padding-left:18px}
+.exito{background:#1F2328;border:1px solid #2C3036;border-left:4px solid #9FD39B;border-radius:12px;padding:20px 22px}
+.exito h2{font:700 22px Cinzel,Georgia,serif;margin:0 0 8px;color:#9FD39B}
+.avisos{flex-basis:100%}.avisos:empty{display:none}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <span id="auth"></span>
+  </div>
+  <h1>Inscripción</h1>
+  <div class="wrap">
+    <div class="intro">
+      <p>Únete a Adeptus Baeticus, el club de Warhammer de Málaga. Rellena la inscripción y, cuando un admin la apruebe, entrarás automáticamente en el servidor de Discord del club con el rol de Aspirante.</p>
+      <p>Primero conecta tu cuenta de Discord (así sabemos a quién dar acceso) y después rellena tus datos.</p>
+    </div>
+    <div id="estado"><p class="m">Cargando...</p></div>
+  </div>
+  <footer class="ft">
+    <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
+    <nav class="ftl" aria-label="Enlaces">
+      <a href="https://adeptus-baeticus.blogspot.com" target="_blank" rel="noopener">Blog</a>
+      <a href="https://www.instagram.com/adeptusbaeticus/" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a>
+    </nav>
+  </footer>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+// Opciones (mismas claves que el servidor).
+const JUEGOS = [["40k", "Warhammer 40.000"], ["combat_patrol", "Combat Patrol"], ["necromunda", "Necromunda"], ["bloodbowl", "Blood Bowl"], ["pintura", "Pintura y modelismo"], ["otros", "Otros"]];
+const EXP_JUEGO = [["nunca", "Nunca he jugado a juegos de miniaturas"], ["otros", "He jugado a otros juegos de miniaturas, pero no a Warhammer"],
+  ["demo", "He jugado alguna partida de prueba de Warhammer"], ["aprendiendo", "Estoy aprendiendo las reglas (menos de 10 partidas)"],
+  ["ocasional", "Juego de vez en cuando (alguna partida al mes)"], ["habitual", "Juego con regularidad (varias partidas al mes)"], ["torneos", "Juego torneos o ligas"]];
+const EXP_PINTURA = [["nunca", "Nunca he pintado miniaturas"], ["empezando", "Estoy empezando (imprimación y colores base)"],
+  ["basico", "Nivel básico (capas, lavados y pincel seco)"], ["intermedio", "Nivel intermedio (iluminaciones, perfilados y peanas trabajadas)"],
+  ["avanzado", "Nivel avanzado (degradados, efectos y nivel de concurso)"]];
+const COMO = [["", "— Elige una opción —"], ["instagram", "Instagram"], ["discord", "Discord"], ["amigo", "Un amigo o conocido"], ["tienda", "En la tienda (2d6 Store)"], ["evento", "En un torneo o evento"], ["blog", "El blog del club"], ["otro", "Otro"]];
+
+function avisoArriba(caja, texto) {
+  const p = el("div", "resumen", texto); p.setAttribute("role", "alert"); caja.appendChild(p);
+}
+
+async function carga() {
+  const box = $("estado");
+  const q = new URLSearchParams(location.search);
+  let d = { conectado: false };
+  try { d = await (await fetch("/api/inscripcion", { cache: "no-store" })).json(); } catch (e) {}
+  box.textContent = "";
+  if (q.get("ya") === "socio") {
+    const h = el("div", "exito");
+    h.append(el("h2", "", "Ya eres del club"), el("p", "", "Tu cuenta de Discord ya tiene un rol del club, así que no necesitas inscribirte."));
+    const a = el("a", "btn", "Entrar con Discord"); a.href = "/auth/login"; h.appendChild(a);
+    box.appendChild(h); return;
+  }
+  if (q.get("error")) avisoArriba(box, "No se pudo conectar con Discord. Inténtalo de nuevo.");
+  // Paso 1: conectar Discord
+  const p1 = el("section", "paso");
+  p1.appendChild(el("h2", "", "1. Tu cuenta de Discord"));
+  if (!d.conectado) {
+    p1.appendChild(el("p", "m", "Discord te pedirá permiso para que el bot del club pueda añadirte al servidor cuando se apruebe tu inscripción."));
+    const a = el("a", "discord", "Conectar con Discord"); a.href = "/auth/registro"; p1.appendChild(a);
+    box.appendChild(p1); return;
+  }
+  const c = el("div", "cuenta");
+  if (d.avatar) { const im = el("img"); im.src = "https://cdn.discordapp.com/avatars/" + d.id + "/" + d.avatar + ".png?size=64"; im.alt = ""; c.appendChild(im); }
+  const n = el("span", "", d.nombre + " (" + d.usuario + ")"); n.setAttribute("translate", "no");
+  const cambia = el("button", "", "Usar otra cuenta"); cambia.type = "button";
+  cambia.onclick = async () => { await fetch("/api/inscripcion/salir", { method: "POST" }).catch(() => {}); location.href = "/inscripcion.html"; };
+  c.append(el("span", "ok", "✓ Conectado:"), n, cambia);
+  p1.appendChild(c);
+  box.appendChild(p1);
+  if (d.pendiente) {
+    const h = el("div", "exito");
+    h.append(el("h2", "", "Solicitud enviada"), el("p", "", "Ya tienes una solicitud pendiente. Un admin la revisará pronto y entrarás en el servidor de Discord con el rol de Aspirante."));
+    box.appendChild(h); return;
+  }
+  box.appendChild(formulario());
+}
+
+function formulario() {
+  const sec = el("section", "paso");
+  sec.appendChild(el("h2", "", "2. Tus datos"));
+  const f = el("form", "fm"); f.noValidate = true;
+  const arriba = el("div", "arriba");
+  const ok = el("button", "btn", "Enviar inscripción"); ok.type = "submit";
+  const avisos = el("div", "avisos");
+  arriba.append(ok, avisos);
+  const campo = (id, etiqueta, nodo, obligatorio, ayuda) => {
+    const w = el("div");
+    const l = el("label", "t", etiqueta); l.htmlFor = id;
+    if (obligatorio) { const o = el("span", "ob", "*"); o.setAttribute("aria-hidden", "true"); l.appendChild(o); }
+    nodo.id = id; w.append(l, nodo);
+    if (ayuda) w.appendChild(el("p", "ay", ayuda));
+    return w;
+  };
+  const input = (tipo, max, auto) => { const i = el("input"); i.type = tipo; i.maxLength = max; if (auto) i.autocomplete = auto; return i; };
+  const nombre = input("text", 100, "name"), email = input("email", 120, "email"), tel = input("tel", 25, "tel");
+  tel.placeholder = "600 000 000";
+  const grupo = (leyenda, nombreG, opciones, tipo, obligatorio, rejilla) => {
+    const fs = el("fieldset");
+    const lg = el("legend", "", leyenda);
+    if (obligatorio) { const o = el("span", "ob", "*"); o.setAttribute("aria-hidden", "true"); lg.appendChild(o); }
+    fs.appendChild(lg);
+    const cont = rejilla ? el("div", "rejilla") : fs;
+    opciones.forEach(([v, t]) => {
+      const l = el("label", "op"); const i = el("input"); i.type = tipo; i.name = nombreG; i.value = v;
+      l.append(i, el("span", "", t)); cont.appendChild(l);
+    });
+    if (rejilla) fs.appendChild(cont);
+    return fs;
+  };
+  const wNombre = campo("i-nombre", "Nombre y apellidos", nombre, true);
+  const wEmail = campo("i-email", "Correo electrónico", email, true);
+  const wTel = campo("i-tel", "Teléfono", tel, true, "Para añadirte al canal de WhatsApp del club.");
+  const fsEdad = grupo("¿Eres mayor de edad?", "edad", [["si", "Sí"], ["no", "No"]], "radio", true, true);
+  const fsJuegos = grupo("¿Qué te interesa? (opcional)", "juegos", JUEGOS, "checkbox", false, true);
+  const fsJuego = grupo("Experiencia de juego", "expj", EXP_JUEGO, "radio", true);
+  const fsPintura = grupo("Experiencia de pintura", "expp", EXP_PINTURA, "radio", true);
+  const como = el("select"); COMO.forEach(([v, t]) => { const o = el("option", "", t); o.value = v; como.appendChild(o); });
+  const comoOtro = input("text", 100); comoOtro.placeholder = "¿Dónde?"; comoOtro.hidden = true; comoOtro.setAttribute("aria-label", "¿Dónde?");
+  como.onchange = () => { comoOtro.hidden = como.value !== "otro"; };
+  const wComo = campo("i-como", "¿Cómo nos has conocido? (opcional)", como, false); wComo.appendChild(comoOtro);
+  const casilla = (texto, enlace) => {
+    const l = el("label", "op"); const i = el("input"); i.type = "checkbox";
+    const t = el("span", "", texto);
+    if (enlace) { t.append(" "); const a = el("a", "", "(leer los estatutos)"); a.href = "/estatutos-adeptus-baeticus.pdf"; a.target = "_blank"; a.rel = "noopener"; t.appendChild(a); }
+    l.append(i, t); return [l, i];
+  };
+  const [lEst, cEst] = casilla("Acepto los estatutos y el reglamento interno del club.", true);
+  const [lDat, cDat] = casilla("Acepto que el club guarde estos datos para gestionar mi inscripción y contactar conmigo.");
+  const fsAcepta = el("fieldset"); fsAcepta.append(el("legend", "", "Condiciones"), lEst, lDat);
+  f.append(arriba, wNombre, wEmail, wTel, fsEdad, fsJuegos, fsJuego, fsPintura, wComo, fsAcepta);
+  sec.appendChild(f);
+
+  const limpia = () => { avisos.textContent = ""; f.querySelectorAll(".falta").forEach((x) => x.remove()); f.querySelectorAll(".inval").forEach((x) => x.classList.remove("inval")); };
+  f.addEventListener("change", () => { if (avisos.textContent) limpia(); });
+  const val = (n) => (f.querySelector("input[name=" + n + "]:checked") || {}).value || "";
+  f.onsubmit = async (ev) => {
+    ev.preventDefault(); limpia();
+    const fallos = [];
+    const telLimpio = tel.value.replace(/[\s.-]/g, "");
+    if (nombre.value.trim().length < 3) fallos.push(["Escribe tu nombre y apellidos.", wNombre, nombre]);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value.trim())) fallos.push(["Escribe un correo electrónico válido.", wEmail, email]);
+    if (!/^\+?\d{9,15}$/.test(telLimpio)) fallos.push(["Escribe un teléfono válido (con prefijo si no es de España).", wTel, tel]);
+    if (!val("edad")) fallos.push(["Indica si eres mayor de edad.", fsEdad]);
+    if (!val("expj")) fallos.push(["Elige tu experiencia de juego.", fsJuego]);
+    if (!val("expp")) fallos.push(["Elige tu experiencia de pintura.", fsPintura]);
+    if (!cEst.checked) fallos.push(["Tienes que aceptar los estatutos y el reglamento interno.", fsAcepta]);
+    if (!cDat.checked) fallos.push(["Tienes que aceptar el tratamiento de tus datos.", fsAcepta]);
+    if (fallos.length) {
+      const r = el("div", "resumen"); r.setAttribute("role", "alert");
+      r.appendChild(document.createTextNode(fallos.length === 1 ? "Falta un dato:" : "Faltan datos:"));
+      const ul = el("ul");
+      fallos.forEach(([t, donde, control]) => { ul.appendChild(el("li", "", t)); donde.appendChild(el("p", "falta", t)); (control || donde).classList.add("inval"); });
+      r.appendChild(ul); avisos.appendChild(r);
+      arriba.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+    ok.disabled = true;
+    try {
+      const r = await fetch("/api/inscripcion", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+        nombre: nombre.value, email: email.value, telefono: telLimpio, mayor_edad: val("edad"),
+        juegos: [...f.querySelectorAll("input[name=juegos]:checked")].map((x) => x.value),
+        experiencia_juego: val("expj"), experiencia_pintura: val("expp"), como_conocio: como.value || null,
+        como_otro: como.value === "otro" ? comoOtro.value : "", acepta_estatutos: cEst.checked, consentimiento: cDat.checked }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { avisoArriba(avisos, d.error || "No se pudo enviar la inscripción."); ok.disabled = false; return; }
+      const box = $("estado"); box.textContent = "";
+      const h = el("div", "exito");
+      h.append(el("h2", "", "¡Inscripción enviada!"), el("p", "", "Gracias. Un admin revisará tu solicitud y, cuando la apruebe, entrarás automáticamente en el servidor de Discord del club con el rol de Aspirante."));
+      box.appendChild(h);
+      box.scrollIntoView({ block: "start" });
+    } catch (e) { avisoArriba(avisos, "No se pudo enviar la inscripción. Revisa la conexión."); ok.disabled = false; }
+  };
+  return sec;
+}
+carga();
+</script>
+<script src="/i18n.js"></script>
+<script src="/auth.js"></script>
+</body>
+</html>
