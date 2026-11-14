@@ -34,6 +34,8 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fil input,.fil select{min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit}
 .fil input{flex:1 1 240px}
 .fil select{flex:0 1 220px}
+.ftro{min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit;cursor:pointer;white-space:nowrap}
+.ftro[aria-pressed=true]{border-color:#D9B25A;background:#3A3220;color:#F0CE82}
 .cerrado{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #A3211B;border-radius:12px;padding:12px 18px;margin:0 0 20px}
 .cerrado p{margin:0;flex:1 1 260px;font-size:15px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
@@ -135,6 +137,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
     <input type="search" id="busca" placeholder="Buscar por nombre..." aria-label="Buscar por nombre">
     <select id="frol" aria-label="Filtrar por rol"><option value="">Todos los roles</option></select>
     <select id="ffac" aria-label="Filtrar por facción"><option value="">Todas las facciones</option></select>
+    <button type="button" class="ftro" id="ftro" aria-pressed="false">🏆 Con trofeos</button>
     <button type="button" class="btn" id="btro" hidden>Asignar trofeos</button>
   </div>
   <div class="grid" id="grid"><p class="m">Cargando...</p></div>
@@ -293,8 +296,8 @@ function chips(fac, max) {
 function pintaGrid() {
   const g = $("grid");
   g.textContent = "";
-  const q = $("busca").value.trim().toLowerCase(), f = $("ffac").value, rl = $("frol").value;
-  const ms = D.miembros.filter((m) => (!q || m.name.toLowerCase().includes(q)) && (!f || m.facciones.includes(f)) && (!rl || m.role === rl));
+  const q = $("busca").value.trim().toLowerCase(), f = $("ffac").value, rl = $("frol").value, tro = $("ftro").getAttribute("aria-pressed") === "true";
+  const ms = D.miembros.filter((m) => (!q || m.name.toLowerCase().includes(q)) && (!f || m.facciones.includes(f)) && (!rl || m.role === rl) && (!tro || m.trofeos.length));
   $("nada").hidden = ms.length > 0;
   ms.forEach((m) => {
     const b = el("button", "mb" + (m.id === D.yo ? " yo" : ""));
@@ -608,6 +611,7 @@ async function carga() {
 $("busca").addEventListener("input", pintaGrid);
 $("ffac").onchange = pintaGrid;
 $("frol").onchange = pintaGrid;
+$("ftro").onclick = () => { const b = $("ftro"); b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); pintaGrid(); };
 $("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").close(); });
 carga().then(() => {
   // miembros.html#yo abre directamente tu ficha.
