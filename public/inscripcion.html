@@ -62,7 +62,11 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fm label.t,.fm legend{display:block;font-weight:600;font-size:15px;margin:0 0 6px;padding:0}
 .fm .ob{color:#F0A39E;margin-left:2px}
 .fm input[type=text],.fm input[type=email],.fm input[type=tel],.fm select{width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;color-scheme:dark}
+.fm input[readonly]{background:#1F2328;color:#CFC9BA;cursor:default}
 .fm fieldset{border:0;margin:0;padding:0}
+.steam{display:inline-flex;align-items:center;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #6B6558;background:#2A2D33;color:#E6DCC3;font:600 15px Inter,sans-serif;text-decoration:none}
+.cuenta+.cuenta{margin-top:10px}
+.cuenta a{color:#D9B25A}
 .fm .op{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid #2C3036;border-radius:8px;margin-bottom:6px;cursor:pointer;background:#15171A}
 .fm .op:hover{border-color:#6B6558}
 .fm .op input{width:18px;height:18px;margin-top:2px;accent-color:#D9B25A;flex:none}
@@ -135,7 +139,7 @@ async function carga() {
   if (q.get("error")) avisoArriba(box, "No se pudo conectar con Discord. Inténtalo de nuevo.");
   // Paso 1: conectar Discord
   const p1 = el("section", "paso");
-  p1.appendChild(el("h2", "", "1. Tu cuenta de Discord"));
+  p1.appendChild(el("h2", "", "1. Tus cuentas"));
   if (!d.conectado) {
     p1.appendChild(el("p", "m", "Discord te pedirá permiso para que el bot del club pueda añadirte a su servidor."));
     const a = el("a", "discord", "Conectar con Discord"); a.href = "/auth/registro"; p1.appendChild(a);
@@ -146,18 +150,30 @@ async function carga() {
   const n = el("span", "", d.nombre + " (" + d.usuario + ")"); n.setAttribute("translate", "no");
   const cambia = el("button", "", "Usar otra cuenta"); cambia.type = "button";
   cambia.onclick = async () => { await fetch("/api/inscripcion/salir", { method: "POST" }).catch(() => {}); location.href = "/inscripcion.html"; };
-  c.append(el("span", "ok", "✓ Conectado:"), n, cambia);
+  c.append(el("span", "ok", "✓ Discord:"), n, cambia);
   p1.appendChild(c);
+  // Steam (opcional): «Iniciar sesión a través de Steam»; la cuenta queda verificada.
+  const cs = el("div", "cuenta");
+  if (d.steam) {
+    const sn = el("a", "", d.steam.nombre); sn.href = "https://steamcommunity.com/profiles/" + d.steam.id + "/"; sn.target = "_blank"; sn.rel = "noopener"; sn.setAttribute("translate", "no");
+    const quita = el("button", "", "Quitar"); quita.type = "button";
+    quita.onclick = async () => { await fetch("/api/inscripcion/sin-steam", { method: "POST" }).catch(() => {}); location.href = "/inscripcion.html"; };
+    cs.append(el("span", "ok", "✓ Steam:"), sn, quita);
+  } else {
+    const a = el("a", "steam", "Conectar con Steam (opcional)"); a.href = "/auth/steam";
+    cs.append(a, el("span", "m", "Para partidas online con Tabletop Simulator."));
+  }
+  p1.appendChild(cs);
   box.appendChild(p1);
   if (d.pendiente) {
     const h = el("div", "exito");
     h.append(el("h2", "", "Solicitud enviada"), el("p", "", "Ya tienes una solicitud pendiente y ya estás en el servidor de Discord del club. Cuando un admin la apruebe, pasarás a Aspirante."));
     box.appendChild(h); return;
   }
-  box.appendChild(formulario());
+  box.appendChild(formulario(d));
 }
 
-function formulario() {
+function formulario(cuenta) {
   const sec = el("section", "paso");
   sec.appendChild(el("h2", "", "2. Tus datos"));
   const f = el("form", "fm"); f.noValidate = true;
@@ -192,6 +208,12 @@ function formulario() {
   const wNombre = campo("i-nombre", "Nombre y apellidos", nombre, true);
   const wEmail = campo("i-email", "Correo electrónico", email, true);
   const wTel = campo("i-tel", "Teléfono", tel, true, "Para añadirte al canal de WhatsApp del club.");
+  // Cuenta de Discord: la conectada en el paso 1 (no se puede cambiar aquí).
+  const disc = input("text", 60); disc.value = cuenta.usuario; disc.readOnly = true; disc.setAttribute("translate", "no");
+  const wDisc = campo("i-discord", "Cuenta de Discord", disc, true, "La que has conectado arriba. Para usar otra, pulsa «Usar otra cuenta».");
+  const steam = input("text", 80); steam.readOnly = true; steam.setAttribute("translate", "no");
+  steam.value = cuenta.steam ? cuenta.steam.nombre : "Sin conectar";
+  const wSteam = campo("i-steam", "Cuenta de Steam (opcional)", steam, false, cuenta.steam ? "La que has conectado arriba." : "Puedes conectarla arriba con «Conectar con Steam».");
   const fsEdad = grupo("¿Eres mayor de edad?", "edad", [["si", "Sí"], ["no", "No"]], "radio", true, true);
   const fsJuegos = grupo("¿Qué te interesa? (opcional)", "juegos", JUEGOS, "checkbox", false, true);
   const fsJuego = grupo("Experiencia de juego", "expj", EXP_JUEGO, "radio", true);
@@ -209,7 +231,7 @@ function formulario() {
   const [lEst, cEst] = casilla("Acepto los estatutos y el reglamento interno del club.", true);
   const [lDat, cDat] = casilla("Acepto que el club guarde estos datos para gestionar mi inscripción y contactar conmigo.");
   const fsAcepta = el("fieldset"); fsAcepta.append(el("legend", "", "Condiciones"), lEst, lDat);
-  f.append(arriba, wNombre, wEmail, wTel, fsEdad, fsJuegos, fsJuego, fsPintura, wComo, fsAcepta);
+  f.append(arriba, wNombre, wEmail, wTel, wDisc, wSteam, fsEdad, fsJuegos, fsJuego, fsPintura, wComo, fsAcepta);
   sec.appendChild(f);
 
   const limpia = () => { avisos.textContent = ""; f.querySelectorAll(".falta").forEach((x) => x.remove()); f.querySelectorAll(".inval").forEach((x) => x.classList.remove("inval")); };
