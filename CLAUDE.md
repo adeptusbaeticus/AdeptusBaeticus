@@ -60,6 +60,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Al buscar partida se puede marcar físico y online a la vez (`modo` `ambos`, migración 0027): icono partido por la
   mitad (mesa en dorado y ordenador en verde) y quien se une elige cómo se juega, que queda fijado para todos.
 
+- Cada modalidad de partida tiene su icono (`public/iconos-juego.js`, `iconoJuego()`): placas de esquinas cortadas
+  con letra Cinzel para Combat Patrol, 40k 1K y 40k 2K, máscara de gas (Necromunda) y balón con pinchos (Blood
+  Bowl). Dibujo propio: no usar logos, ilustraciones ni tipografías de Games Workshop (son marcas registradas).
+
 ## Gran Liga Adeptus
 
 - Edición = Fase I (ida) + Fase II (vuelta, cruces sorteados de nuevo); campeón de cada fase y global.

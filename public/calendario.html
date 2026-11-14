@@ -131,6 +131,20 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .modo{display:flex;align-items:center;gap:6px;color:#CFC9BA;margin:4px 0 8px}
 .modo .mo{margin:0}.modo .mo svg{width:16px;height:16px}
 .fld label.rad .mo{margin:0 2px}
+/* Iconos de modalidad de juego (iconos-juego.js) */
+.ij{display:inline-flex;vertical-align:-2px;margin-right:4px}
+.ij svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+#det h3 .ij{vertical-align:-3px;margin-right:6px}#det h3 .ij svg{width:22px;height:22px}
+.ag-i .tt strong .ij{display:inline-flex;vertical-align:-3px;margin-right:6px}.ag-i .tt strong .ij svg{width:17px;height:17px}
+/* Selector de modalidad con tarjetas */
+.juegos{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;border-radius:10px}
+.fld label.jg{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin:0;padding:10px 6px;min-height:72px;box-sizing:border-box;border:1px solid #6B6558;border-radius:10px;background:#15171A;cursor:pointer;font-weight:600;font-size:13px;text-align:center;line-height:1.25}
+.jg input{position:absolute;opacity:0;pointer-events:none}
+.jg .ij{margin:0}.jg .ij svg{width:30px;height:30px}
+.jg:hover{border-color:#D9B25A}
+.jg:has(input:checked){border-color:#D9B25A;background:#262219;color:#F0CE82;box-shadow:inset 0 0 0 1px #D9B25A}
+.jg:has(input:focus-visible){outline:2px solid #F0CE82;outline-offset:2px}
+.juegos[aria-invalid=true]{box-shadow:0 0 0 2px #E0524A}
 .fz .arriba{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
 .fz .arriba .btn{margin:0}
 .fz .resumen{flex-basis:100%;margin:2px 0 0;padding:10px 12px;border-radius:8px;background:#2A1A1C;border:1px solid #7A1712;color:#F0A39E;font-size:14px}
@@ -273,6 +287,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
     </nav>
   </footer>
 </div>
+<script src="/iconos-juego.js"></script>
 <script>
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const $ = (id) => document.getElementById(id);
@@ -500,6 +515,7 @@ function renderAgenda() {
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from : "";
         const sub = p.starts_at ? "Partida" : av ? "Partida · disponible " + av.from + "–" + av.to : "Partida";
         const b = fila("ag-p" + (p.status === "completa" || partidaCerrada(p) ? " ag-x" : ""), hora, CORTO[p.activity] + " · " + p.organiza, sub, false, p.modo);
+        const ija = iconoJuego(p.activity); if (ija) b.querySelector("strong").prepend(ija);
         b.onclick = () => { marca(b); showPartida(p); irAFicha(); };
         mete(dia, hora || "99", b);
       });
@@ -596,6 +612,7 @@ function render() {
         const av = p.availability.find((x) => x.date === key);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
         b.textContent = (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza;
+        const ijc = iconoJuego(p.activity); if (ijc) b.prepend(ijc);
         modosDe(p.modo).forEach((x) => modosDia.add(x));
         b.appendChild(cuadrosModo(p.modo));
         b.onclick = () => { showPartida(p); irAFicha(); };
@@ -976,7 +993,8 @@ function showPartida(p) {
     return x;
   };
   add("span", "lb", "Partida");
-  add("h3", "", partidaTitulo(p));
+  const tp = add("h3", "", partidaTitulo(p));
+  const ijf = iconoJuego(p.activity, true); if (ijf) tp.prepend(ijf);
   box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || (p.modo === "ambos" ? "" : "A decidir")));
   add("p", "m", "Organiza: " + p.organiza);
   if (p.starts_at) add("p", "", fechaLarga(p.starts_at.slice(0, 10)) + " · " + p.starts_at.slice(11, 16));
@@ -1133,7 +1151,20 @@ function openPartidaForm() {
 
   const f = document.createElement("form");
   f.className = "fz";
-  const act = mkSelect("bp-act", [["", "— Elige una modalidad —"]].concat(JUEGOS));
+  // Modalidad: tarjetas con icono (se comportan como un grupo de opciones; act.value es la elegida).
+  const act = document.createElement("div");
+  act.className = "juegos"; act.id = "bp-act"; act.tabIndex = -1;
+  act.setAttribute("role", "radiogroup"); act.setAttribute("aria-label", "Modalidad");
+  JUEGOS.forEach(([v]) => {
+    const l = document.createElement("label");
+    l.className = "jg";
+    const r = document.createElement("input");
+    r.type = "radio"; r.name = "bp-act"; r.value = v;
+    const t = document.createElement("span"); t.textContent = CORTO[v];
+    l.append(r, iconoJuego(v, true), t);
+    act.appendChild(l);
+  });
+  Object.defineProperty(act, "value", { get: () => (act.querySelector("input:checked") || {}).value || "" });
   const fmt = mkSelect("bp-fmt", [["1v1", "1vs1"], ["1v2", "1vs2"], ["2v2", "2vs2"]]);
   const side = mkSelect("bp-side", [["solo", "Voy solo (contra 2)"], ["pareja", "Voy en pareja (contra 1)"]]);
   const np = mkSelect("bp-np", [2, 3, 4, 5, 6, 7, 8, 9].map((x) => [String(x), String(x)]));
