@@ -90,7 +90,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
   <h1>Inscripción</h1>
   <div class="wrap">
     <div class="intro">
-      <p>Únete a Adeptus Baeticus, el club de Warhammer de Málaga. Rellena la inscripción y, cuando un admin la apruebe, entrarás automáticamente en el servidor de Discord del club con el rol de Aspirante.</p>
+      <p>Únete a Adeptus Baeticus, el club de Warhammer de Málaga. Al enviar la inscripción entrarás en el servidor de Discord del club como «Externo» y, cuando un admin la apruebe, pasarás a Aspirante y podrás ver los canales y usar la web.</p>
       <p>Primero conecta tu cuenta de Discord (así sabemos a quién dar acceso) y después rellena tus datos.</p>
     </div>
     <div id="estado"><p class="m">Cargando...</p></div>
@@ -137,7 +137,7 @@ async function carga() {
   const p1 = el("section", "paso");
   p1.appendChild(el("h2", "", "1. Tu cuenta de Discord"));
   if (!d.conectado) {
-    p1.appendChild(el("p", "m", "Discord te pedirá permiso para que el bot del club pueda añadirte al servidor cuando se apruebe tu inscripción."));
+    p1.appendChild(el("p", "m", "Discord te pedirá permiso para que el bot del club pueda añadirte a su servidor."));
     const a = el("a", "discord", "Conectar con Discord"); a.href = "/auth/registro"; p1.appendChild(a);
     box.appendChild(p1); return;
   }
@@ -151,7 +151,7 @@ async function carga() {
   box.appendChild(p1);
   if (d.pendiente) {
     const h = el("div", "exito");
-    h.append(el("h2", "", "Solicitud enviada"), el("p", "", "Ya tienes una solicitud pendiente. Un admin la revisará pronto y entrarás en el servidor de Discord con el rol de Aspirante."));
+    h.append(el("h2", "", "Solicitud enviada"), el("p", "", "Ya tienes una solicitud pendiente y ya estás en el servidor de Discord del club. Cuando un admin la apruebe, pasarás a Aspirante."));
     box.appendChild(h); return;
   }
   box.appendChild(formulario());
@@ -247,7 +247,7 @@ function formulario() {
       if (!r.ok) { avisoArriba(avisos, d.error || "No se pudo enviar la inscripción."); ok.disabled = false; return; }
       const box = $("estado"); box.textContent = "";
       const h = el("div", "exito");
-      h.append(el("h2", "", "¡Inscripción enviada!"), el("p", "", "Gracias. Un admin revisará tu solicitud y, cuando la apruebe, entrarás automáticamente en el servidor de Discord del club con el rol de Aspirante."));
+      h.append(el("h2", "", "¡Inscripción enviada!"), el("p", "", "Gracias. Ya estás en el servidor de Discord del club con el rol de Externo. Cuando un admin apruebe tu solicitud, pasarás a Aspirante y podrás ver los canales y entrar en la web."));
       box.appendChild(h);
       box.scrollIntoView({ block: "start" });
     } catch (e) { avisoArriba(avisos, "No se pudo enviar la inscripción. Revisa la conexión."); ok.disabled = false; }

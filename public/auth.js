@@ -199,11 +199,11 @@
     if (tipo === "norole") {
       h.textContent = "Aún no tienes acceso";
       p1.textContent = "Tu cuenta está en el servidor de Discord del club, pero todavía no tiene ningún rol del club.";
-      p2.textContent = "Si ya enviaste tu inscripción, espera a que un admin la apruebe. Si no, rellénala y entrarás con el rol de Aspirante.";
+      p2.textContent = "Si ya enviaste tu inscripción, espera a que un admin la apruebe. Si no, rellénala.";
     } else {
       h.textContent = "Todavía no eres del club";
       p1.textContent = "Para entrar en la web tienes que formar parte del servidor de Discord de Adeptus Baeticus.";
-      p2.textContent = "¿Quieres unirte? Rellena la inscripción: cuando un admin la apruebe, entrarás en el servidor de Discord con el rol de Aspirante.";
+      p2.textContent = "¿Quieres unirte? Rellena la inscripción: cuando un admin la apruebe, pasarás a Aspirante y podrás entrar en la web.";
     }
     const acc = document.createElement("div");
     acc.style.cssText = "display:flex;gap:10px;flex-wrap:wrap";

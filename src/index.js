@@ -441,8 +441,48 @@ const INSC_EXP_PINTURA = {
 const INSC_COMO = { instagram: "Instagram", discord: "Discord", amigo: "Un amigo o conocido", tienda: "En la tienda (2d6 Store)",
   evento: "En un torneo o evento", blog: "El blog del club", otro: "Otro" };
 
-// Un admin pulsa «Aprobar» o «Rechazar» en el mensaje de la solicitud (#inner-circle-general). Al aprobar, el bot mete
-// al aspirante en el servidor con el rol de Aspirante (o se lo da si ya estaba). El permiso de Discord se borra al decidir.
+// Rol «Externo» del servidor (se busca por su nombre; se guarda 1 día). Quien solo tiene ese rol no ve nada en
+// Discord y en la web es invitado (no es un rol del club).
+async function rolExterno(env) {
+  const c = await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave='discord:rol-externo' AND actualizado > datetime('now','-1 day')").first();
+  if (c && c.datos) return c.datos;
+  const r = await bot(env, `/guilds/${env.GUILD_ID}/roles`);
+  if (!r.ok) return null;
+  const rol = (await r.json()).find((x) => normalCanal(x.name) === "externo");
+  if (!rol) return null;
+  await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES ('discord:rol-externo', ?1, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?1, actualizado=datetime('now')").bind(rol.id).run();
+  return rol.id;
+}
+// Permiso de Discord nuevo a partir del guardado (cifrado). Devuelve { access, rt } (rt = nuevo permiso cifrado) o null.
+async function permisoDiscord(env, cifrado) {
+  if (!cifrado) return null;
+  try {
+    const t = await fetch("https://discord.com/api/oauth2/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: env.DISCORD_CLIENT_ID, client_secret: env.DISCORD_CLIENT_SECRET, grant_type: "refresh_token",
+        refresh_token: await descifra(env, cifrado) }) });
+    if (!t.ok) return null;
+    const j = await t.json();
+    return { access: j.access_token, rt: j.refresh_token ? await cifra(env, j.refresh_token) : null };
+  } catch (e) { return null; }
+}
+// Al enviar la inscripción: el bot mete al aspirante en el servidor con el rol Externo. Si lo consigue, el permiso de
+// Discord ya no hace falta y se borra. Devuelve una línea para el mensaje de los admins.
+async function entraComoExterno(env, sol) {
+  const ext = await rolExterno(env);
+  const p = await permisoDiscord(env, sol.token_cifrado);
+  if (!p) return "⚠️ No se pudo meter en el servidor (permiso de Discord no válido).";
+  const r = await bot(env, `/guilds/${env.GUILD_ID}/members/${sol.discord_id}`, { method: "PUT", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ access_token: p.access, roles: ext ? [ext] : [] }) });
+  let ok = r.status === 201 || r.status === 204;
+  if (r.status === 204 && ext) ok = (await bot(env, `/guilds/${env.GUILD_ID}/members/${sol.discord_id}/roles/${ext}`, { method: "PUT" })).ok;
+  // Si no se pudo, se guarda el permiso renovado para intentarlo al aprobar.
+  await env.DB.prepare("UPDATE solicitudes SET token_cifrado=?2 WHERE id=?1").bind(sol.id, ok ? null : p.rt).run();
+  if (!ok) return `⚠️ No se pudo meter en el servidor (error ${r.status}): revisa los permisos del bot.`;
+  return ext ? "🚪 Ya está en el servidor con el rol Externo." : "🚪 Ya está en el servidor (no existe el rol «Externo»: créalo para que no vea nada).";
+}
+
+// Un admin pulsa «Aprobar» o «Rechazar» en el mensaje de la solicitud (#inner-circle-general). Al aprobar, se le quita
+// Externo y se le da Aspirante (si aún no estaba en el servidor, se le mete). Al rechazar, se le saca del servidor.
 async function decideInscripcion(env, it, accion, id) {
   const webhook = `${DAPI}/webhooks/${it.application_id}/${it.token}`;
   const privado = (content) => fetch(webhook, { method: "POST", headers: { "content-type": "application/json" },
@@ -453,35 +493,28 @@ async function decideInscripcion(env, it, accion, id) {
   const sol = await env.DB.prepare("SELECT * FROM solicitudes WHERE id=?1").bind(id).first();
   if (!sol) return privado("Esa solicitud ya no existe.");
   if (sol.estado !== "pendiente") return cierraMensaje(sol.estado === "aprobada" ? "✅ Ya estaba aprobada." : "❌ Ya estaba rechazada.");
+  const ext = await rolExterno(env);
+  const miembro = `/guilds/${env.GUILD_ID}/members/${sol.discord_id}`;
   if (accion === "rechazar") {
+    const k = await bot(env, miembro, { method: "DELETE" }); // fuera del servidor (404: ya no estaba)
     await env.DB.prepare("UPDATE solicitudes SET estado='rechazada', token_cifrado=NULL, decidido_por=?2, decidido_at=datetime('now') WHERE id=?1").bind(id, admin).run();
-    return cierraMensaje(`❌ Rechazada por <@${admin}>.`);
+    return cierraMensaje(`❌ Rechazada por <@${admin}>` + (k.ok || k.status === 404 ? "; ya no está en el servidor." : `. No se le pudo sacar del servidor (error ${k.status}): hazlo a mano.`));
   }
-  // Aprobar: permiso nuevo con el que se guardó, y alta en el servidor con el rol de Aspirante.
-  let access = null;
-  try {
-    const t = await fetch("https://discord.com/api/oauth2/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ client_id: env.DISCORD_CLIENT_ID, client_secret: env.DISCORD_CLIENT_SECRET, grant_type: "refresh_token",
-        refresh_token: await descifra(env, sol.token_cifrado) }) });
-    if (t.ok) access = (await t.json()).access_token;
-  } catch (e) {}
-  let ok = false, nota = "";
-  if (access) {
-    const r = await bot(env, `/guilds/${env.GUILD_ID}/members/${sol.discord_id}`, { method: "PUT", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ access_token: access, roles: [env.ROLE_ASPIRANTE] }) });
-    if (r.status === 201) ok = true;
-    else if (r.status === 204) { // ya estaba en el servidor: solo se le da el rol
-      const rr = await bot(env, `/guilds/${env.GUILD_ID}/members/${sol.discord_id}/roles/${env.ROLE_ASPIRANTE}`, { method: "PUT" });
-      ok = rr.ok; if (!ok) nota = "no se pudo dar el rol (error " + rr.status + ")";
-    } else nota = "no se pudo añadir al servidor (error " + r.status + ")";
-  } else {
-    // Sin permiso válido (lo retiró o caducó): si ya está en el servidor, al menos se le da el rol.
-    const rr = await bot(env, `/guilds/${env.GUILD_ID}/members/${sol.discord_id}/roles/${env.ROLE_ASPIRANTE}`, { method: "PUT" });
-    ok = rr.ok; if (!ok) nota = "su permiso de Discord ya no es válido y no está en el servidor";
+  // Aprobar: rol de Aspirante (y fuera Externo). Si ya no estaba en el servidor, se le mete con el permiso guardado.
+  let r = await bot(env, `${miembro}/roles/${env.ROLE_ASPIRANTE}`, { method: "PUT" });
+  let ok = r.ok, nota = r.ok ? "" : "error " + r.status;
+  if (r.status === 404) {
+    const p = await permisoDiscord(env, sol.token_cifrado);
+    if (p) {
+      const j = await bot(env, miembro, { method: "PUT", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ access_token: p.access, roles: [env.ROLE_ASPIRANTE] }) });
+      ok = j.status === 201; nota = ok ? "" : "no se pudo meter en el servidor (error " + j.status + ")";
+    } else nota = "ya no está en el servidor y su permiso de Discord no es válido";
   }
-  if (!ok) return privado(`⚠️ No se pudo dar acceso a <@${sol.discord_id}>: ${nota}. Revisa que el bot tenga los permisos «Gestionar roles» y «Crear invitación» y que su rol esté por encima de Aspirante, o dale el rol a mano.`);
+  if (!ok) return privado(`⚠️ No se pudo dar el rol de Aspirante a <@${sol.discord_id}>: ${nota}. Revisa que el bot tenga «Gestionar roles» y que su rol esté por encima de Aspirante, o dale el rol a mano.`);
+  if (ext) await bot(env, `${miembro}/roles/${ext}`, { method: "DELETE" }).catch(() => {});
   await env.DB.prepare("UPDATE solicitudes SET estado='aprobada', token_cifrado=NULL, decidido_por=?2, decidido_at=datetime('now') WHERE id=?1").bind(id, admin).run();
-  return cierraMensaje(`✅ Aprobada por <@${admin}>: <@${sol.discord_id}> ya está en el servidor con el rol de Aspirante.`);
+  return cierraMensaje(`✅ Aprobada por <@${admin}>: <@${sol.discord_id}> ya tiene el rol de Aspirante.`);
 }
 
 // --- Publicaciones de la galería: lo común a los comandos de Discord y al formulario de la web. ---
@@ -1983,13 +2016,17 @@ export default {
         id = r.meta.last_row_id;
       } catch (e) { return err("Ya tienes una solicitud pendiente. Un admin la revisará pronto.", 409); }
       // Aviso a los admins en #inner-circle-general con los botones para aprobar o rechazar.
-      const texto = [`📝 **Nueva solicitud de inscripción** (n.º ${id})`, `**Nombre:** ${nombre}`, `**Discord:** <@${reg.id}> (${reg.usuario})`,
+      let texto = [`📝 **Nueva solicitud de inscripción** (n.º ${id})`, `**Nombre:** ${nombre}`, `**Discord:** <@${reg.id}> (${reg.usuario})`,
         `**Correo:** ${email}`, `**Teléfono (WhatsApp):** ${telefono}`, `**Mayor de edad:** ${b.mayor_edad === "si" ? "Sí" : "No"}`,
         `**Le interesa:** ${juegos.length ? juegos.map((x) => INSC_JUEGOS[x]).join(", ") : "—"}`,
         `**Experiencia de juego:** ${INSC_EXP_JUEGO[b.experiencia_juego]}`, `**Experiencia de pintura:** ${INSC_EXP_PINTURA[b.experiencia_pintura]}`,
         `**Nos conoció por:** ${comoTexto || "—"}`].join("\n");
       ctx.waitUntil((async () => {
         try {
+          // Primero entra en el servidor con el rol Externo; luego el aviso a los admins, con cómo ha ido.
+          let entrada = "";
+          try { entrada = await entraComoExterno(env, { id, discord_id: reg.id, token_cifrado: reg.rt }); } catch (e) { entrada = "⚠️ No se pudo meter en el servidor."; }
+          texto = texto + "\n" + entrada;
           const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
           const c = rc.ok && (await rc.json()).find((x) => (x.type === 0 || x.type === 5) && normalCanal(x.name).includes(CANAL_AVISOS));
           if (!c) return;

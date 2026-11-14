@@ -67,10 +67,12 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   (`/auth/registro`, mismo callback que el login, scope `identify guilds.join`; si ya tiene rol del club se le avisa)
   y rellena: nombre, correo, teléfono (WhatsApp), mayor de edad, intereses (opcional), experiencia de juego y de
   pintura, cómo nos conoció (opcional), estatutos y consentimiento. Tabla `solicitudes` (migración 0028).
-- El bot publica la solicitud en #inner-circle-general con «Aprobar»/«Rechazar» (solo admins, interacción `insc:`);
-  al aprobar, mete al aspirante en el servidor con el rol de Aspirante (`decideInscripcion`). El permiso de Discord
-  (refresh token) se guarda cifrado (AES-GCM con clave derivada de `SESSION_SECRET`) y se borra al decidir.
-  El bot necesita «Gestionar roles» y «Crear invitación», y su rol por encima de Aspirante.
+- Al enviar, el bot mete al aspirante en el servidor con el rol «Externo» (se busca por su nombre; no ve nada en
+  Discord y en la web sigue siendo invitado) y publica la solicitud en #inner-circle-general con «Aprobar»/«Rechazar»
+  (solo admins, interacción `insc:`, `decideInscripcion`): al aprobar se le quita Externo y se le da Aspirante; al
+  rechazar se le saca del servidor. El permiso de Discord (refresh token) va cifrado (AES-GCM con clave derivada de
+  `SESSION_SECRET`) y se borra en cuanto entra en el servidor (o al decidir). El bot necesita «Gestionar roles»,
+  «Crear invitación» y «Expulsar miembros», y su rol por encima de Externo y Aspirante.
 
 ## Encuestas
 
