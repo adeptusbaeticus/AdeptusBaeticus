@@ -473,6 +473,44 @@ function aliasDiscord(txt) {
   return String(txt || "").split("/").map((a) => a.trim().replace(/^@/, "").replace(/#\d{4}$/, "").replace(/@[^@\s]+\.[a-z]{2,}$/i, "").trim().toLowerCase())
     .filter((a) => a.length >= 2);
 }
+// Posibles cuentas de Discord para un socio sin vincular: alias parecido (sin números ni signos, uno dentro del
+// otro o con pocas letras distintas) o su nombre real en el apodo («Silvermane (Sergio)»). Hasta 3, de más a menos parecida.
+function sugerenciasSocio(env, fila, miembros) {
+  const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const nucleo = (x) => norm(x).replace(/\d+$/, "");
+  const lev = (a, b) => {
+    if (Math.abs(a.length - b.length) > 3) return 99;
+    let p = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const c = [i];
+      for (let j = 1; j <= b.length; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      p = c;
+    }
+    return p[b.length];
+  };
+  const alias = aliasDiscord(fila.discord_alias).map(nucleo).filter((a) => a.length >= 3);
+  const partes = String(fila.nombre || "").split(/\s+/).map(norm).filter((x) => x.length >= 3);
+  const out = [];
+  for (const m of miembros) {
+    const claves = [m.user.username, m.user.global_name, m.nick, sinParentesis(m.nick), sinParentesis(m.user.global_name)].filter(Boolean).map(nucleo).filter((k) => k.length >= 3);
+    let p = 0;
+    for (const a of alias) for (const k of claves) {
+      if (a === k) p = Math.max(p, 0.95);
+      else if (Math.min(a.length, k.length) >= 4 && (a.includes(k) || k.includes(a))) p = Math.max(p, 0.8);
+      else if (a.length >= 5) { const d = lev(a, k); if (d <= (a.length >= 8 ? 2 : 1)) p = Math.max(p, 0.7); }
+    }
+    // Nombre real: nombre y apellido dentro del apodo o del nombre visible.
+    const texto = norm([m.nick, m.user.global_name, m.user.username].filter(Boolean).join(" "));
+    if (partes.length >= 2 && texto.includes(partes[0]) && partes.slice(1).some((x) => texto.includes(x))) p = Math.max(p, 0.85);
+    else if (partes.length) {
+      // Solo el nombre de pila, entre paréntesis en el apodo («Archerus (Ismael)»): coincidencia floja.
+      const entre = [m.nick, m.user.global_name].map((x) => (/\(([^)]*)\)/.exec(x || "") || [])[1]).filter(Boolean).map(norm);
+      if (entre.some((x) => x === partes[0] || (x.length >= 4 && x.startsWith(partes[0])))) p = Math.max(p, 0.5);
+    }
+    if (p >= 0.5) out.push({ p, id: m.user.id, usuario: m.user.username, nombre: m.nick || m.user.global_name || m.user.username, rol: roleOf(env, m.roles || []) });
+  }
+  return out.sort((a, b) => b.p - a.p).slice(0, 3);
+}
 // Vincula filas del Excel con cuentas de Discord y crea su ficha en Miembros (sin conectar) si tienen rol del club.
 // lista: [{ s: id de la fila, d: discord_id, n: nombre, a: avatar, r: rol o null }]. Dos consultas para toda la lista.
 async function vinculaSocios(env, lista) {
@@ -3105,7 +3143,8 @@ export default {
         const filas = (await env.DB.prepare("SELECT id, discord_id, discord_alias, nombre, completado_at FROM socios_datos WHERE origen='excel' ORDER BY nombre COLLATE NOCASE").all()).results;
         const informe = (extra) => Response.json({ total: filas.length, vinculados: filas.filter((f) => f.discord_id).length,
           completados: filas.filter((f) => f.completado_at).length,
-          sin: filas.filter((f) => !f.discord_id).map((f) => ({ nombre: f.nombre, alias: f.discord_alias })), ...extra }, { headers: noStore });
+          sin: filas.filter((f) => !f.discord_id).map((f) => ({ id: f.id, nombre: f.nombre, alias: f.discord_alias,
+            sugerencias: extra.libresDe ? sugerenciasSocio(env, f, extra.libresDe) : undefined })), ...extra, libresDe: undefined }, { headers: noStore });
         if (request.method === "GET") return informe({});
         if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
         if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
@@ -3135,7 +3174,26 @@ export default {
         const conDatos = new Set((await env.DB.prepare("SELECT discord_id FROM solicitudes WHERE estado='aprobada' UNION SELECT discord_id FROM socios_datos WHERE discord_id IS NOT NULL").all()).results.map((x) => x.discord_id));
         const fuera = miembros.filter((m) => roleOf(env, m.roles || []) && !conDatos.has(m.user.id)).map((m) => ({ nombre: m.nick || m.user.global_name || m.user.username, usuario: m.user.username }));
         const sinRol = lista.filter((x) => !x.r).length;
-        return informe({ nuevos: lista.length, sin_rol: sinRol, dudosos, fuera });
+        // Para los que siguen sin vincular: posibles cuentas entre los miembros que aún no tienen ficha vinculada.
+        const libresDe = miembros.filter((m) => !usados.has(m.user.id) && !conDatos.has(m.user.id));
+        return informe({ nuevos: lista.length, sin_rol: sinRol, dudosos, fuera, libresDe });
+      }
+      // Vincular a mano una fila del Excel con una cuenta de Discord (desde las sugerencias).
+      if (path === "/api/admin/socios/vincula" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        const fila = Number(b.fila), did = String(b.discord_id || "");
+        if (!Number.isInteger(fila) || !/^\d{5,25}$/.test(did)) return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
+        const f = await env.DB.prepare("SELECT id, discord_id FROM socios_datos WHERE id=?1 AND origen='excel'").bind(fila).first();
+        if (!f) return Response.json({ error: "Ese socio no existe" }, { status: 404, headers: noStore });
+        if (f.discord_id) return Response.json({ error: "Ese socio ya está vinculado" }, { status: 409, headers: noStore });
+        if (await env.DB.prepare("SELECT 1 FROM socios_datos WHERE discord_id=?1").bind(did).first()) return Response.json({ error: "Esa cuenta de Discord ya está vinculada con otro socio" }, { status: 409, headers: noStore });
+        const gm = await bot(env, `/guilds/${env.GUILD_ID}/members/${did}`);
+        if (!gm.ok) return Response.json({ error: "Esa cuenta ya no está en el servidor de Discord" }, { status: 404, headers: noStore });
+        const m = await gm.json();
+        await vinculaSocios(env, [{ s: f.id, d: did, n: m.nick || m.user.global_name || m.user.username, a: m.user.avatar || null, r: roleOf(env, m.roles || []) }]);
+        return Response.json({ ok: true }, { headers: noStore });
       }
 
       // Usuarios de la web (para «ver como»).

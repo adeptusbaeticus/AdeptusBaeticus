@@ -429,7 +429,35 @@ function pintaSocios(d) {
     p.textContent = "Vinculados ahora: " + d.nuevos + (d.sin_rol ? " (" + d.sin_rol + " sin rol del club en Discord)" : "");
     inf.appendChild(p);
   }
-  lista("Sin vincular", d.sin, (f) => (f.nombre || "—") + " · Discord: " + (f.alias || "—"));
+  // Sin vincular: con las cuentas parecidas que propone el bot (tras «Vincular con Discord») para confirmarlas.
+  if (d.sin && d.sin.length) {
+    const conSug = d.sin.filter((f) => f.sugerencias && f.sugerencias.length).length;
+    const w = document.createElement("details"); w.open = conSug > 0;
+    const sm = document.createElement("summary");
+    sm.textContent = "Sin vincular (" + d.sin.length + ")" + (conSug ? " · posibles coincidencias: " + conSug : ""); w.appendChild(sm);
+    const ul = document.createElement("ul"); ul.style.margin = "6px 0";
+    d.sin.forEach((f) => {
+      const li = document.createElement("li"); li.style.margin = "4px 0";
+      const t = document.createElement("span"); t.textContent = (f.nombre || "—") + " · Discord: " + (f.alias || "—"); t.setAttribute("translate", "no");
+      li.appendChild(t);
+      (f.sugerencias || []).forEach((g) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.style.margin = "4px 0 0 8px";
+        b.textContent = "Vincular con " + g.nombre + " (" + g.usuario + ")" + (g.rol ? "" : " · sin rol del club");
+        b.title = g.p >= 0.9 ? "Coincidencia casi exacta" : g.p >= 0.7 ? "Coincidencia probable" : "Coincidencia dudosa";
+        b.onclick = async () => {
+          if (!confirm("¿Vincular a " + (f.nombre || f.alias) + " con la cuenta de Discord " + g.usuario + "?")) return;
+          b.disabled = true;
+          const r = await fetch("/api/admin/socios/vincula", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fila: f.id, discord_id: g.id }) });
+          const x = await r.json().catch(() => ({}));
+          if (!r.ok) { b.disabled = false; alert(x.error || "No se pudo vincular."); return; }
+          li.textContent = "✓ " + (f.nombre || f.alias) + " → " + g.usuario; li.setAttribute("translate", "no");
+        };
+        li.appendChild(b);
+      });
+      ul.appendChild(li);
+    });
+    w.appendChild(ul); inf.appendChild(w);
+  }
   lista("Con varias cuentas posibles", d.dudosos, (f) => (f.nombre || "—") + " · " + f.alias + " → " + f.opciones.join(", "));
   lista("En Discord con rol del club pero sin datos (los rellenarán al entrar)", d.fuera, (f) => f.nombre + " (" + f.usuario + ")");
 }

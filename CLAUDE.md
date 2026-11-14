@@ -86,6 +86,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   la lista de miembros del servidor (una llamada; el bot necesita «Server Members Intent») y crea su ficha sin conectar;
   al iniciar sesión también se vincula por su usuario, nombre visible o apodo, también sin lo que va entre paréntesis
   («Silvermane (Sergio)» → «Silvermane», `sinParentesis`), solo con una coincidencia única.
+  Para los que quedan sin vincular, el bot propone hasta 3 cuentas parecidas (`sugerenciasSocio`: alias sin números ni
+  signos, contenido o con 1-2 letras distintas, o su nombre real en el apodo) que el admin confirma en Admin
+  (`/api/admin/socios/vincula`); nunca se vinculan solas.
 - Datos obligatorios al entrar: todo socio menos el admin que no se inscribió con la web y aún no ha completado sus datos
   (`faltanDatos`, `completar` en `/api/me`) va a `inscripcion.html?completar=1` (`auth.js`) hasta guardarlos
   (`/api/socio/datos`, misma validación que la inscripción, `validaDatosSocio`); vienen rellenos con lo del Excel.
