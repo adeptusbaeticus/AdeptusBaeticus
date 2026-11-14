@@ -31,7 +31,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   hasta que pulsas «Aceptar». La lista se abre sola la primera vez que lo ves en cada visita.
 
 ### Efectos de Navidad
-- Los activa y desactiva el admin con un interruptor en Admin: nieve ligera cayendo, nieve acumulada encima de las
+- **Automáticos** del 8 de diciembre a las 00:00 al 8 de enero a las 00:00 (hora de España), y en Admin se pueden
+  poner «Siempre activados» o «Desactivados»: nieve ligera cayendo, nieve acumulada encima de las
   tarjetas (blog, galería, miembros, encuestas de Inicio, rondas de la liga, eventos del calendario, desplegables
   de la FAQ y el reglamento…) y una tira de luces bajo el menú en los colores del Emperador y de los cuatro
   dioses del Caos. Todo decorativo y sin tapar nada (no recibe clics); con «reducir movimiento» no cae nieve.
@@ -275,7 +276,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Página Admin:**
   - **Bot de Discord:** estado y registro de los comandos (`/publicar`, `/editar`, `/borrar`, `/añadir-post`,
     `/editar-post`, `/borrar-post`).
-  - **Efectos de Navidad:** interruptor, para todos por igual.
+  - **Efectos de Navidad:** «Automático» (8 de diciembre – 7 de enero), «Siempre activados» o «Desactivados».
   - **FAQ:** estado y «Actualizar FAQ desde Discord».
   - **New Recruit:** estado de la copia local y sincronización manual del torneo y de los resultados, con 15 minutos
     de espera mínima.

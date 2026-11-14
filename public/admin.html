@@ -36,12 +36,11 @@ textarea{min-height:80px}
 .full{grid-column:1/-1}
 .btn{background:#A3211B;color:#fff;border:0;border-radius:8px;padding:12px 20px;font:600 15px Inter,sans-serif;cursor:pointer;min-height:44px}
 .chip{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:8px 16px;min-height:44px;font:500 14px Inter,sans-serif;cursor:pointer}
-.sw{position:relative;width:64px;height:36px;flex:none;border-radius:999px;border:1px solid #6B6558;background:#2A2F36;cursor:pointer;padding:0}
-.sw span{position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;background:#A8A293;transition:left .2s,background .2s}
-.sw[aria-checked=true]{background:#343B20;border-color:#7C8A4C}
-.sw[aria-checked=true] span{left:31px;background:#D9B25A}
-.sw:disabled{opacity:.5;cursor:default}
-@media (prefers-reduced-motion:reduce){.sw span{transition:none}}
+.modos{display:flex;flex-wrap:wrap;border:1px solid #6B6558;border-radius:10px;overflow:hidden}
+.modos button{min-height:44px;padding:8px 14px;border:0;border-left:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:500 14px Inter,sans-serif;cursor:pointer}
+.modos button:first-child{border-left:0}
+.modos button[aria-checked=true]{background:#343B20;color:#F0CE82;font-weight:700}
+.modos button:disabled{cursor:default}
 .row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
 a.chip{display:inline-flex;align-items:center;box-sizing:border-box;text-decoration:none}
@@ -88,9 +87,13 @@ table.lj select{min-width:220px}
       <div class="row" style="margin:0">
         <div>
           <strong>Efectos de Navidad</strong>
-          <div class="m" id="navstat">Nieve ligera, nieve sobre las tarjetas y luces en el menú, para todos.</div>
+          <div class="m" id="navstat">Nieve ligera, nieve sobre las tarjetas y luces en el menú, para todos. En automático, del 8 de diciembre al 7 de enero (con «¡Feliz año!» del 1 al 7 de enero).</div>
         </div>
-        <button class="sw" type="button" id="navsw" role="switch" aria-checked="false" aria-label="Efectos de Navidad" disabled><span></span></button>
+        <div class="modos" id="navmodo" role="radiogroup" aria-label="Efectos de Navidad">
+          <button type="button" role="radio" aria-checked="false" data-m="auto" disabled>Automático</button>
+          <button type="button" role="radio" aria-checked="false" data-m="si" disabled>Siempre activados</button>
+          <button type="button" role="radio" aria-checked="false" data-m="no" disabled>Desactivados</button>
+        </div>
       </div>
       <p class="m" id="navmsg" style="margin:8px 0 0;min-height:20px"></p>
     </div>
@@ -160,31 +163,32 @@ async function discordStatus() {
     $("dreg").disabled = !d.bot_token;
   } catch (e) { $("dstat").textContent = "No se pudo comprobar."; }
 }
-// Efectos de Navidad: iguales para todos mientras estén activados.
+// Efectos de Navidad: automático (8 dic – 7 ene), siempre o nunca; iguales para todos.
+const navBotones = () => [...document.querySelectorAll("#navmodo button")];
+const navMarca = (m) => navBotones().forEach((b) => b.setAttribute("aria-checked", String(b.dataset.m === m)));
 async function navidad() {
-  const sw = $("navsw");
   try {
     const d = await (await fetch("/api/admin/navidad")).json();
-    sw.setAttribute("aria-checked", String(!!d.navidad));
-    sw.disabled = false;
+    navMarca(d.navidad);
+    navBotones().forEach((b) => { b.disabled = false; });
   } catch (e) { $("navmsg").textContent = "No se pudo comprobar."; }
 }
-$("navsw").onclick = async () => {
-  const sw = $("navsw"), si = sw.getAttribute("aria-checked") !== "true";
-  sw.disabled = true;
+navBotones().forEach((bt) => { bt.onclick = async () => {
+  if (bt.getAttribute("aria-checked") === "true") return;
+  navBotones().forEach((b) => { b.disabled = true; });
   $("navmsg").textContent = "";
   try {
-    const r = await fetch("/api/admin/navidad", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ activo: si }) });
+    const r = await fetch("/api/admin/navidad", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ modo: bt.dataset.m }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || "No se pudo guardar.");
-    sw.setAttribute("aria-checked", String(d.navidad));
-    $("navmsg").textContent = d.navidad ? "Activados para todos." : "Desactivados para todos.";
+    navMarca(d.navidad);
+    $("navmsg").textContent = { auto: "Automático: del 8 de diciembre al 7 de enero.", si: "Activados para todos.", no: "Desactivados para todos." }[d.navidad];
     // El resto de páginas de esta visita usan ya el valor nuevo.
     try { sessionStorage.setItem("ab_ajustes", JSON.stringify({ t: Date.now(), d: { navidad: d.navidad } })); } catch (e) {}
     if (window.abAjustes) window.abAjustes({ navidad: d.navidad });
   } catch (e) { $("navmsg").textContent = e.message || "No se pudo guardar."; }
-  sw.disabled = false;
-};
+  navBotones().forEach((b) => { b.disabled = false; });
+}; });
 // FAQ: copia del canal #preguntas-frecuentes (se renueva sola cada 6 h; aquí, al momento).
 async function faqStatus() {
   try {

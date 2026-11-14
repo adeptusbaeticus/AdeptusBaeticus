@@ -598,6 +598,8 @@ async function ajuste(env, clave) {
 }
 // Notificaciones tipo anuncio (tabla `anuncios`): salen en la servocalavera hasta que el socio las acepta.
 // `anunciaATodos` da una a cada socio que no tenga ya una sin aceptar de ese tipo (una sola consulta).
+// Modo de los efectos de Navidad: "auto" (por defecto), "si" o "no" ("1"/"0" de antes del modo automático).
+const modoNavidad = (v) => (v === "si" || v === "1" ? "si" : v === "no" || v === "0" ? "no" : "auto");
 async function anunciaATodos(env, tipo, titulo, texto) {
   const r = await env.DB.prepare(
     `INSERT INTO anuncios (discord_id, tipo, titulo, texto)
@@ -2689,7 +2691,7 @@ export default {
     // Ajustes públicos de la web (también para invitados): de momento, si están puestos los efectos de Navidad.
     if (path === "/api/ajustes" && request.method === "GET") {
       // `desde`: cuándo se activó; quien los quitó en una activación anterior los vuelve a ver al activarse de nuevo.
-      return Response.json({ navidad: (await ajuste(env, "navidad")) === "1" }, { headers: noStore }); // sin caché del navegador
+      return Response.json({ navidad: modoNavidad(await ajuste(env, "navidad")) }, { headers: noStore }); // sin caché del navegador
     }
     // Aceptar una notificación tipo anuncio (desaparece de la servocalavera).
     const anm = path.match(/^\/api\/anuncios\/(\d+)\/acepta$/);
@@ -2699,17 +2701,19 @@ export default {
       await env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE id=?1 AND discord_id=?2 AND aceptado IS NULL").bind(Number(anm[1]), s.id).run();
       return Response.json({ ok: true }, { headers: noStore });
     }
-    // Efectos de Navidad (solo admin): iguales para todos mientras estén activados (nadie puede quitarlos para sí).
+    // Efectos de Navidad (solo admin): «auto» (por defecto: del 8 de diciembre al 7 de enero, hora de Madrid; la web
+    // lo decide con la fecha), «si» (siempre) o «no». Iguales para todos.
     if (path === "/api/admin/navidad") {
       const s = await readSession(env, request);
       if (!s || s.role !== "admin") return Response.json({ error: "Solo para administradores" }, { status: 403, headers: noStore });
-      if (request.method === "GET") return Response.json({ navidad: (await ajuste(env, "navidad")) === "1" }, { headers: noStore });
+      if (request.method === "GET") return Response.json({ navidad: modoNavidad(await ajuste(env, "navidad")) }, { headers: noStore });
       if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
       if (request.headers.get("origin") && request.headers.get("origin") !== url.origin) return new Response("Prohibido", { status: 403 });
       const b = await request.json().catch(() => ({}));
-      const activo = b.activo === true;
-      await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('navidad', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(activo ? "1" : "0").run();
-      return Response.json({ ok: true, navidad: activo }, { headers: noStore });
+      const modo = ["auto", "si", "no"].includes(b.modo) ? b.modo : null;
+      if (!modo) return Response.json({ error: "Modo no válido" }, { status: 400, headers: noStore });
+      await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('navidad', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(modo).run();
+      return Response.json({ ok: true, navidad: modo }, { headers: noStore });
     }
 
     if (path === "/api/me") {

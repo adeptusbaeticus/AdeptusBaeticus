@@ -662,7 +662,7 @@
   }
   }
 
-  // Efectos de Navidad: los activa y quita el admin, iguales para todos (`/api/ajustes`, guardado 2 minutos en esta
+  // Efectos de Navidad: automáticos en su temporada o forzados por el admin, iguales para todos (`/api/ajustes`, guardado 2 minutos en esta
   // visita). Los efectos están en /navidad.js.
   const AJ_KEY = "ab_ajustes";
   let navidadWeb = false;
@@ -675,11 +675,25 @@
     sc.onload = () => { if (window.abNavidad) window.abNavidad.aplica(navidadWeb); };
     document.head.appendChild(sc);
   }
-  function ajustes(d) {
+  // Modo «auto»: del 8 de diciembre a las 00:00 al 8 de enero a las 00:00, hora de Madrid. Se mira cada minuto, así que
+  // empieza y acaba justo a medianoche aunque la página esté abierta.
+  let modoNavidad = "auto";
+  function enTemporada() {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", month: "numeric", day: "numeric" })
+      .formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return (+p.month === 12 && +p.day >= 8) || (+p.month === 1 && +p.day <= 7);
+  }
+  function revisaNavidad() {
     const antes = navidadWeb;
-    navidadWeb = !!(d && d.navidad);
+    navidadWeb = modoNavidad === "si" || (modoNavidad === "auto" && enTemporada());
     if (antes !== navidadWeb) aplicaNavidad();
   }
+  function ajustes(d) {
+    const m = d && d.navidad;
+    modoNavidad = m === "si" || m === true ? "si" : m === "no" || m === false ? "no" : "auto";
+    revisaNavidad();
+  }
+  setInterval(revisaNavidad, 60000);
   window.abAjustes = ajustes; // Admin lo llama al cambiar el interruptor, para verlo al momento.
   (function () {
     let c = null;
