@@ -60,14 +60,15 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Borrar en la web (autor o admin) borra también el mensaje de Discord. Lo común está en `pubCrear`, `pubAnadir` y
   `pubBorrar`.
 
-- Bendiciones (Emperador / Poderes Ruinosos): cada publicación gana, por cada voto (1-10), un **sello de pureza** en el
-  borde izquierdo (lacre rojo con calavera en relieve y pergaminos) o un **símbolo del Caos** en el derecho (estrella de
-  ocho puntas de hierro con el brillo de un dios, por turnos, y pergaminos chamuscados, que se oscurecen hacia el negro
-  con más votos), colgados de arriba abajo (`sellos()`, `selloPureza()`, `simboloCaos()`; dibujo propio). Los pergaminos
-  se mecen ligeramente (pausados fuera de pantalla y con «reducir movimiento»). Marco: con 5 de una facción aparece
-  entero de ella; con 5 o más de las dos, se lo disputan según el porcentaje de votos. La parte del Emperador es dorada y
-  la del Caos es de un color entero que va alternando rojo, verde, azul y morado (los cuatro dioses: excepción a «nunca
-  azul»; `--cc` animada con `@property`). Por encima de 10 solo cambia el reparto del marco.
+- Bendiciones (Emperador / Poderes Ruinosos): sellos de lacre colgados de los bordes de la tarjeta, un puñado (3) por
+  voto, de arriba abajo, en zigzag y algo girados: con 10 votos cubren el lateral entero (`sellos()`, `sello()`; dibujo
+  propio). Izquierda: **sellos de pureza** (lacre rojo con calavera en relieve y pergamino claro). Derecha: **sellos del
+  Caos** (lacre del color de cada dios por turnos, con la estrella de ocho puntas en relieve y pergamino chamuscado, que
+  se oscurecen hacia el negro con más votos). Los pergaminos se mecen ligeramente (pausados fuera de pantalla y con
+  «reducir movimiento»). La rejilla deja hueco amplio entre publicaciones para que los sellos no se solapen. Marco: con
+  5 de una facción aparece entero de ella; con 5 o más de las dos, se lo disputan según el porcentaje de votos. La
+  parte del Emperador es dorada y la del Caos es de un color entero que va alternando rojo, verde, azul y morado (los
+  cuatro dioses: excepción a «nunca azul»; `--cc` animada con `@property`). Por encima de 10 solo cambia el reparto.
 
 ## Inscripción
 

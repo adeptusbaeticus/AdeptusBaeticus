@@ -34,8 +34,9 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .lead{color:#CFC9BA;margin:0 0 32px;max-width:640px}
 .lead code{background:#1F2328;border:1px solid #2C3036;border-radius:6px;padding:1px 6px;font-size:14px}
 .m{color:#A8A293;font-size:14px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:40px 56px}
-@media (max-width:600px){.grid{gap:32px}}
+/* Separación amplia: los sellos y símbolos de las bendiciones sobresalen por los lados y por debajo de cada tarjeta. */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:64px 84px;padding:0 26px}
+@media (max-width:600px){.grid{gap:56px;padding:0 6px}}
 .post{background:#1F2328;border:1px solid #2C3036;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
 .post .foto{position:relative;display:block;border:0;padding:0;background:#2A2F36;cursor:zoom-in;aspect-ratio:1/1;width:100%}
 .post .n{position:absolute;top:8px;right:8px;background:rgba(21,23,26,.85);color:#ECE7DC;border-radius:999px;padding:2px 10px;font:600 13px Inter,sans-serif}
@@ -103,15 +104,15 @@ dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
 .marco{position:relative;border-radius:12px;--es:0px;--eb:0px;--eo:0;--rs:0px;--rb:0px;--ro:0}
 .marco>.post{position:relative;z-index:1;height:100%;box-sizing:border-box}
 .marco::before,.marco::after{content:"";position:absolute;pointer-events:none;z-index:0;border-radius:18px;transition:opacity .4s,filter .4s}
-/* Sellos de pureza (Emperador, a la izquierda) y símbolos del Caos (a la derecha), colgados del borde de la tarjeta:
+/* Sellos de pureza (Emperador, a la izquierda) y sellos del Caos (a la derecha), colgados del borde de la tarjeta:
    uno más por cada bendición (1-10), de arriba abajo. Sus pergaminos se mecen ligeramente. */
 .sellos{position:absolute;top:0;bottom:0;width:40px;z-index:2;pointer-events:none}
 .sellos.izq{left:-20px}.sellos.der{right:-20px}
-.sellos svg{position:absolute;left:0;width:40px;height:80px;overflow:visible;filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))}
+.sellos svg{position:absolute;left:0;width:40px;height:80px;overflow:visible;filter:drop-shadow(0 2px 2px rgba(0,0,0,.55));
+  transform:translateX(var(--x)) rotate(var(--g0)) scale(var(--e));transform-origin:20px 16px}
 .sellos .tiras{transform-box:view-box;transform-origin:20px 16px;animation:vaiven var(--d) ease-in-out var(--r) infinite alternate}
 @keyframes vaiven{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
 .sellos.pausa .tiras{animation-play-state:paused}
-.sellos .glifo{filter:drop-shadow(0 0 3px var(--g))}
 @media (prefers-reduced-motion:reduce){.sellos .tiras{animation:none}}
 @media (max-width:600px){.sellos{width:26px}.sellos.izq{left:-13px}.sellos.der{right:-13px}.sellos svg{width:26px;height:52px}}
 html,body{overflow-x:clip}
@@ -444,7 +445,7 @@ function tarjeta(p) {
 
 let data = { sesion: false, publicaciones: [] };
 
-// Sellos de pureza (Emperador) y símbolos del Caos: uno por bendición (1-10), colgados del borde de la tarjeta de arriba
+// Sellos de pureza (Emperador) y sellos del Caos: un puñado por bendición (1-10), colgados del borde de la tarjeta de arriba
 // abajo, con pergaminos que se mecen. Dibujo propio (SVG con DOM).
 const NS_SVG = "http://www.w3.org/2000/svg";
 const svgEl = (tag, at, padre) => { const x = document.createElementNS(NS_SVG, tag); for (const k in at) x.setAttribute(k, at[k]); if (padre) padre.appendChild(x); return x; };
@@ -464,42 +465,39 @@ function tiras(g, az, papel, borde, tinta, chamuscado) {
     if (chamuscado) svgEl("path", { d: `M${x0} ${y0 + l - 6}L${x0 + w} ${y0 + l - 5}`, stroke: "#000", "stroke-width": "3", opacity: ".35", "stroke-linecap": "round" }, g);
   });
 }
-// Sello de pureza: lacre rojo de borde irregular, con un anillo y una calavera en relieve, y sus pergaminos.
-function selloPureza(az) {
+// Sello de lacre de borde irregular con su relieve y sus pergaminos. Pureza (Emperador): lacre rojo con una calavera y
+// pergamino claro. Caos: lacre del color de un dios con la estrella de ocho puntas y pergamino chamuscado; con más
+// bendiciones (k de 0 a 1) el lacre y el pergamino se oscurecen hacia el negro.
+function sello(az, caos, color, k) {
   const sv = svgEl("svg", { viewBox: "0 0 40 80", "aria-hidden": "true" });
   const id = "s" + Math.random().toString(36).slice(2, 8);
+  const base = caos ? oscurece(color, k * 0.55) : "#A3211B";
+  const claro = caos ? oscurece(color, k * 0.35) : "#E0574C", hondo = oscurece(base, 0.55), filo = caos ? oscurece(color, k * 0.2) : "#F08A80";
   const defs = svgEl("defs", {}, sv);
   const rg = svgEl("radialGradient", { id, cx: "38%", cy: "32%", r: "70%" }, defs);
-  svgEl("stop", { offset: "0", "stop-color": "#E0574C" }, rg); svgEl("stop", { offset: ".55", "stop-color": "#A3211B" }, rg); svgEl("stop", { offset: "1", "stop-color": "#5C1210" }, rg);
-  tiras(svgEl("g", { class: "tiras" }, sv), az, "#EADFC2", "#B8A57A", "#7A6440", false);
+  svgEl("stop", { offset: "0", "stop-color": claro }, rg); svgEl("stop", { offset: ".55", "stop-color": base }, rg); svgEl("stop", { offset: "1", "stop-color": hondo }, rg);
+  if (caos) tiras(svgEl("g", { class: "tiras" }, sv), az, oscurece("#8A7458", 0.25 + k * 0.5), "#2A1F18", "#1A120C", true);
+  else tiras(svgEl("g", { class: "tiras" }, sv), az, "#EADFC2", "#B8A57A", "#7A6440", false);
   // Lacre: círculo con el borde ondulado.
   let d = "";
-  for (let k = 0; k <= 24; k++) { const a = (k / 24) * Math.PI * 2, r = 13 + (k % 2 ? 1.2 : -0.4) + (az() - 0.5) * 1.4; d += (k ? "L" : "M") + (20 + r * Math.cos(a)).toFixed(1) + " " + (16 + r * Math.sin(a)).toFixed(1); }
-  svgEl("path", { d: d + "Z", fill: `url(#${id})`, stroke: "#4A0E0C", "stroke-width": "0.8" }, sv);
-  svgEl("circle", { cx: "20", cy: "16", r: "9", fill: "none", stroke: "#5C1210", "stroke-width": "1.2", opacity: ".8" }, sv);
-  svgEl("circle", { cx: "20", cy: "16", r: "9", fill: "none", stroke: "#F08A80", "stroke-width": "0.5", opacity: ".5", "stroke-dasharray": "2 1.5" }, sv);
-  // Calavera en relieve.
-  svgEl("path", { d: "M15.6 15.2c0-3 2-4.8 4.4-4.8s4.4 1.8 4.4 4.8c0 1.5-.6 2.4-1.4 3v1.6h-6v-1.6c-.8-.6-1.4-1.5-1.4-3z", fill: "#7A1712", stroke: "#F08A80", "stroke-width": "0.45", "stroke-opacity": ".6" }, sv);
-  svgEl("circle", { cx: "18.3", cy: "15.4", r: "1.1", fill: "#3D0A08" }, sv); svgEl("circle", { cx: "21.7", cy: "15.4", r: "1.1", fill: "#3D0A08" }, sv);
-  svgEl("path", { d: "M18.6 19.8v-1.4M20 19.8v-1.4M21.4 19.8v-1.4", stroke: "#3D0A08", "stroke-width": "0.5" }, sv);
-  return sv;
-}
-// Símbolo del Caos: estrella de ocho puntas (aro con ocho flechas) de hierro oscuro, con el brillo del color de su
-// dios, y pergaminos chamuscados. Con más bendiciones, el hierro y el pergamino se oscurecen hacia el negro.
-function simboloCaos(az, color, k) {
-  const sv = svgEl("svg", { viewBox: "0 0 40 80", "aria-hidden": "true" });
-  sv.style.setProperty("--g", color);
-  tiras(svgEl("g", { class: "tiras" }, sv), az, oscurece("#8A7458", 0.25 + k * 0.5), "#2A1F18", "#1A120C", true);
-  const g = svgEl("g", { class: "glifo" }, sv);
-  const hierro = oscurece("#5A5A64", 0.2 + k * 0.6);
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2 - Math.PI / 2, c = Math.cos(a), sn = Math.sin(a), px = -sn, py = c;
-    const P = (r, w) => (20 + c * r + px * w).toFixed(2) + " " + (16 + sn * r + py * w).toFixed(2);
-    // Flecha: asta desde el aro y punta triangular.
-    svgEl("path", { d: `M${P(4, -0.9)}L${P(10.5, -0.9)}L${P(10.5, -2.6)}L${P(15, 0)}L${P(10.5, 2.6)}L${P(10.5, 0.9)}L${P(4, 0.9)}Z`, fill: hierro, stroke: color, "stroke-width": "0.7", "stroke-linejoin": "round" }, g);
+  for (let q = 0; q <= 24; q++) { const a = (q / 24) * Math.PI * 2, r = 13 + (q % 2 ? 1.2 : -0.4) + (az() - 0.5) * 1.4; d += (q ? "L" : "M") + (20 + r * Math.cos(a)).toFixed(1) + " " + (16 + r * Math.sin(a)).toFixed(1); }
+  svgEl("path", { d: d + "Z", fill: `url(#${id})`, stroke: oscurece(base, 0.7), "stroke-width": "0.8" }, sv);
+  svgEl("circle", { cx: "20", cy: "16", r: "9", fill: "none", stroke: hondo, "stroke-width": "1.2", opacity: ".8" }, sv);
+  svgEl("circle", { cx: "20", cy: "16", r: "9", fill: "none", stroke: filo, "stroke-width": "0.5", opacity: ".5", "stroke-dasharray": "2 1.5" }, sv);
+  if (caos) {
+    // Estrella de ocho puntas en relieve: ocho flechas desde un aro.
+    for (let q = 0; q < 8; q++) {
+      const a = (q / 8) * Math.PI * 2 - Math.PI / 2, c = Math.cos(a), sn = Math.sin(a), px = -sn, py = c;
+      const P = (r, w) => (20 + c * r + px * w).toFixed(2) + " " + (16 + sn * r + py * w).toFixed(2);
+      svgEl("path", { d: `M${P(2.4, -0.45)}L${P(5.6, -0.45)}L${P(5.6, -1.4)}L${P(8, 0)}L${P(5.6, 1.4)}L${P(5.6, 0.45)}L${P(2.4, 0.45)}Z`, fill: hondo, stroke: filo, "stroke-width": "0.35", "stroke-opacity": ".6" }, sv);
+    }
+    svgEl("circle", { cx: "20", cy: "16", r: "2.5", fill: hondo, stroke: filo, "stroke-width": "0.4", "stroke-opacity": ".6" }, sv);
+  } else {
+    // Calavera en relieve.
+    svgEl("path", { d: "M15.6 15.2c0-3 2-4.8 4.4-4.8s4.4 1.8 4.4 4.8c0 1.5-.6 2.4-1.4 3v1.6h-6v-1.6c-.8-.6-1.4-1.5-1.4-3z", fill: "#7A1712", stroke: filo, "stroke-width": "0.45", "stroke-opacity": ".6" }, sv);
+    svgEl("circle", { cx: "18.3", cy: "15.4", r: "1.1", fill: "#3D0A08" }, sv); svgEl("circle", { cx: "21.7", cy: "15.4", r: "1.1", fill: "#3D0A08" }, sv);
+    svgEl("path", { d: "M18.6 19.8v-1.4M20 19.8v-1.4M21.4 19.8v-1.4", stroke: "#3D0A08", "stroke-width": "0.5" }, sv);
   }
-  svgEl("circle", { cx: "20", cy: "16", r: "4.6", fill: hierro, stroke: color, "stroke-width": "0.9" }, g);
-  svgEl("circle", { cx: "20", cy: "16", r: "1.8", fill: color, opacity: ".9" }, g);
   return sv;
 }
 // Solo se mecen los pergaminos que están en pantalla.
@@ -510,9 +508,14 @@ function sellos(lado, n, semilla, oscuridad) {
   f.setAttribute("aria-hidden", "true");
   if (verSellos) verSellos.observe(f);
   const az = azarSello(semilla || 1);
-  for (let i = 0; i < n; i++) {
-    const sv = lado === "izq" ? selloPureza(az) : simboloCaos(az, DIOSES[i % 4], oscuridad);
-    sv.style.top = "calc(" + (2 + i * 9.4) + "% - 4px)";
+  // Un puñado por bendición (3): con 10 cubren el lateral entero, de arriba abajo, en zigzag y algo girados.
+  const POR = 3, MAX = 10 * POR, total = n * POR, movil = matchMedia("(max-width:600px)").matches;
+  for (let i = 0; i < total; i++) {
+    const sv = lado === "izq" ? sello(az, false) : sello(az, true, DIOSES[i % 4], oscuridad);
+    sv.style.top = "calc(" + ((i / (MAX - 1)) * 100).toFixed(2) + "% * 1 - " + ((i / (MAX - 1)) * (movil ? 40 : 56) + 8).toFixed(1) + "px)";
+    sv.style.setProperty("--x", ((i % 2 ? -1 : 1) * (movil ? 4 : 7) + (az() - 0.5) * (movil ? 3 : 5)).toFixed(1) + "px");
+    sv.style.setProperty("--g0", ((az() - 0.5) * 26).toFixed(1) + "deg");
+    sv.style.setProperty("--e", (0.82 + az() * 0.24).toFixed(2));
     const t = sv.querySelector(".tiras");
     t.style.setProperty("--d", (2.2 + az() * 1.6).toFixed(2) + "s");
     t.style.setProperty("--r", (-az() * 3).toFixed(2) + "s");
@@ -533,7 +536,7 @@ function aura(m, p) {
   lado(p.ruinosos, "r");
   m.querySelectorAll(".sellos").forEach((x) => x.remove());
   if (p.emperador > 0) m.appendChild(sellos("izq", Math.min(10, p.emperador), p.id * 7 + 1, 0));
-  // Los símbolos del Caos se oscurecen hacia el negro (Chaos Undivided) según suben las bendiciones.
+  // Los sellos del Caos se oscurecen hacia el negro (Chaos Undivided) según suben las bendiciones.
   const nr = Math.min(10, p.ruinosos || 0), k = nr ? (nr - 1) / 9 : 0;
   DIOSES.forEach((c, i) => m.style.setProperty("--c" + (i + 1), oscurece(c, k * 0.5)));
   if (nr > 0) m.appendChild(sellos("der", nr, p.id * 13 + 5, k));
