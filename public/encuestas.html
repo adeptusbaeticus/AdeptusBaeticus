@@ -259,7 +259,7 @@ function formulario(e = null) {
   wo.appendChild(mas);
   const radios = (nombre, opciones, def) => { const w = el("div", "rads"); opciones.forEach(([v, t]) => { const l = el("label"); const i = el("input"); i.type = "radio"; i.name = nombre; i.value = v; i.checked = v === def; l.append(i, t); w.appendChild(l); }); return w; };
   campo("¿Para quién?", radios("f-para", [["aspirantes", "Aspirantes y miembros"], ["miembros", "Solo miembros"]], e ? e.para : "miembros"),
-    "«Miembros» incluye a veteranos y admin.");
+    "«Miembros» incluye al admin.");
   campo("Tipo de voto", radios("f-mult", [["0", "Una opción"], ["1", "Varias opciones"]], e && e.multiple ? "1" : "0"));
   const bloqueado = !!(e && e.votos === "secretos" && e.votantes);
   const wv = campo("Votos", radios("f-votos", [["secretos", "Secretos"], ["publicos", "Públicos"]], e ? e.votos : "secretos"),

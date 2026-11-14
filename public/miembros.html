@@ -155,7 +155,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
 let D = null;
-const ROL = { admin: "Admin", veterano: "Veterano", miembro: "Miembro", aspirante: "Aspirante" };
+const ROL = { admin: "Admin", miembro: "Miembro", aspirante: "Aspirante" };
 // Facciones agrupadas para el formulario.
 const GRUPOS = [
   ["Imperium", ["Adepta Sororitas", "Adeptus Custodes", "Adeptus Mechanicus", "Astra Militarum", "Black Templars", "Blood Angels", "Dark Angels", "Deathwatch", "Grey Knights", "Imperial Agents", "Imperial Knights", "Space Marines", "Space Wolves"]],

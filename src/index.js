@@ -58,6 +58,8 @@ async function leeSesion(env, request) {
   if (!body || !sig || sig !== (await hmac(env.SESSION_SECRET, body))) return null;
   try {
     const u = JSON.parse(fromB64(body));
+    // En la web ya no hay «veterano» (es miembro): las sesiones antiguas que lo traigan cuentan como miembro.
+    if (u.role === "veterano") u.role = "miembro";
     return u.exp > Date.now() / 1000 ? u : null;
   } catch (e) {
     return null;
@@ -72,7 +74,7 @@ async function readSession(env, request) {
 
 function roleOf(env, roles) {
   if (roles.includes(env.ROLE_ADMIN)) return "admin";
-  if (roles.includes(env.ROLE_VETERANO)) return "veterano";
+  if (roles.includes(env.ROLE_VETERANO)) return "miembro"; // el rol de Discord de veterano cuenta como miembro en la web
   if (roles.includes(env.ROLE_MIEMBRO)) return "miembro";
   if (roles.includes(env.ROLE_ASPIRANTE)) return "aspirante";
   return null;
@@ -1985,14 +1987,14 @@ export default {
     }
 
     // Encuestas del club, solo para socios con sesión. Cada una va dirigida a «aspirantes» (aspirantes y
-    // miembros) o a «miembros» (miembros, veteranos y admin). El admin las crea, edita, cierra y borra.
+    // miembros) o a «miembros» (miembros y admin). El admin las crea, edita, cierra y borra.
     if (path === "/api/encuestas" || path.startsWith("/api/encuestas/") || path.startsWith("/api/admin/encuestas")) {
       const s = await readSession(env, request);
       const admin = !!s && s.role === "admin";
       const ahora = nowLocal();
       if (request.method !== "GET" && !sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
       const err = (t, st = 400) => Response.json({ error: t }, { status: st, headers: noStore });
-      const esMiembro = !!s && ["miembro", "veterano", "admin"].includes(s.role);
+      const esMiembro = !!s && ["miembro", "admin"].includes(s.role);
       // Encuestas que puede ver y votar quien hace la petición (sin sesión, ninguna).
       const paras = !s ? [] : esMiembro ? ["aspirantes", "miembros"] : ["aspirantes"];
       const abiertaSQL = "(cierra IS NULL OR cierra > ?2)";
@@ -2102,7 +2104,7 @@ export default {
             ).bind(eid));
             // Si pasa a ser solo de miembros, se quitan los votos de quien ya no puede votar.
             if (para === "miembros") st.push(env.DB.prepare(
-              "DELETE FROM encuesta_votos WHERE encuesta_id=?1 AND discord_id NOT IN (SELECT discord_id FROM users WHERE role IN ('miembro','veterano','admin'))"
+              "DELETE FROM encuesta_votos WHERE encuesta_id=?1 AND discord_id NOT IN (SELECT discord_id FROM users WHERE role IN ('miembro','admin'))"
             ).bind(eid));
             await env.DB.batch(st);
           } else {
@@ -2112,7 +2114,7 @@ export default {
             await env.DB.batch(ops.map((o, i) => env.DB.prepare("INSERT INTO encuesta_opciones (encuesta_id, texto, orden) VALUES (?1, ?2, ?3)").bind(eid, o.texto, i)));
             // Aviso solo a quien puede votarla.
             const a = para === "miembros"
-              ? (await env.DB.prepare("SELECT discord_id FROM users WHERE role IN ('miembro','veterano','admin')").all()).results.map((x) => x.discord_id)
+              ? (await env.DB.prepare("SELECT discord_id FROM users WHERE role IN ('miembro','admin')").all()).results.map((x) => x.discord_id)
               : null;
             ctx.waitUntil(notifica(env, { tipo: "encuestas", a, excepto: s.id, titulo: "Nueva encuesta del club", texto: pregunta + (cierra ? " · Cierra el " + fechaCorta(cierra) : ""), url: "/encuestas.html#e" + eid }).catch(() => {}));
           }
@@ -2364,8 +2366,8 @@ export default {
         r.puedo_borrar = admin || !!r.es_mia;
         delete r.mi_emperador; delete r.mi_ruinosos; delete r.es_mia;
       });
-      // Pueden subir fotos desde la web los miembros (también veteranos y admin), no los aspirantes.
-      const puedeSubir = !!s && ["miembro", "veterano", "admin"].includes(s.role);
+      // Pueden subir fotos desde la web los miembros (y el admin), no los aspirantes.
+      const puedeSubir = !!s && ["miembro", "admin"].includes(s.role);
       // Sin caché: las fotos nuevas, editadas o borradas tienen que verse al momento.
       return Response.json({ sesion: !!s, puede_subir: puedeSubir, publicaciones: results }, { headers: noStore });
     }
@@ -2380,7 +2382,7 @@ export default {
       if (!s) return err("Entra con Discord para subir fotos", 401);
       if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
       if (!env.DISCORD_BOT_TOKEN) return err("El bot aún no está configurado. Avisa a un admin.", 503);
-      const esMiembro = ["miembro", "veterano", "admin"].includes(s.role);
+      const esMiembro = ["miembro", "admin"].includes(s.role);
       // Lee la foto de la petición (una por petición; el navegador ya la ha reducido).
       const leeFoto = async () => {
         if (Number(request.headers.get("content-length") || 0) > MAX_FOTO + 64 * 1024) return { error: "Cada foto puede ocupar como máximo 10 MB." };

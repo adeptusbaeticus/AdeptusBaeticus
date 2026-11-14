@@ -30,6 +30,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   variables, no colores sueltos.
 - **Direcciones:** Cloudflare sirve las páginas sin `.html` (`/inscripcion.html` → `/inscripcion`): al comparar
   `location.pathname` aceptar las dos formas (`/^\/inscripcion(\.html)?$/`), o una redirección puede entrar en bucle.
+- **Roles en la web:** admin, miembro y aspirante. No hay «veterano»: el rol de Discord de veterano cuenta como miembro
+  (`roleOf`, y las sesiones antiguas en `leeSesion`); no mostrar «veterano» en ningún sitio.
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
   añadir datos nuevos.
 
@@ -50,7 +52,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Las fotos se guardan en Discord: cada publicación es un mensaje del bot en #publicaciones-web (hasta 10 fotos) y la
   web solo guarda la referencia (`publicaciones`) y renueva los enlaces de Discord antes de que caduquen. Cada una tiene
   su número (#N), el mismo en la web y en Discord (baja si se borra una anterior).
-- Se publica con `/publicar` en Discord o con «Subir fotos» en la web (solo miembros, veteranos y admin): el navegador
+- Se publica con `/publicar` en Discord o con «Subir fotos» en la web (solo miembros y admin): el navegador
   reduce cada foto y las envía de una en una (`/api/galeria/publicar`, `/api/galeria/:id/foto`, `/fin` para el aviso).
   Borrar en la web (autor o admin) borra también el mensaje de Discord. Lo común está en `pubCrear`, `pubAnadir` y
   `pubBorrar`.
@@ -113,7 +115,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 
 - Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí
   mismo (migraciones 0023 a 0025). Solo para socios con sesión (los invitados no las ven).
-  Cada encuesta es para `aspirantes` (aspirantes y miembros) o `miembros` (miembros, veteranos y admin), sin
+  Cada encuesta es para `aspirantes` (aspirantes y miembros) o `miembros` (miembros y admin), sin
   encuestas públicas; cierre opcional; votos `secretos` o `publicos` (se ve quién vota qué) y resultados
   `siempre`, `al_votar` o `al_cerrar`. Una encuesta con votos secretos no puede pasar a votos públicos.
 - Si hay encuestas abiertas, junto al usuario sale una servocalavera con una papeleta (`auth.js`) con el número
