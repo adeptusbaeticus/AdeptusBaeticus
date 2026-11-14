@@ -121,7 +121,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - En Galería (autor de cada publicación) y Gran Liga (jugadores vinculados) el nombre muestra la ficha del socio al
   pasar el ratón, con el foco del teclado o al tocarlo en el móvil (`public/ficha-hover.js`, `window.abFicha(el, id)`;
   datos de `/api/miembros`, guardados 5 minutos en `sessionStorage`). «Ver ficha completa» abre `miembros.html#m<ID>`.
-  Los trofeos salen en iconos abajo a la derecha, en la fila de liga y ELO; el dibujo del trofeo es común (`public/trofeos.js`, `window.abCopa`).
+  Los trofeos salen en iconos abajo a la derecha, en la fila de liga y ELO (iguales en cascada de hasta 4, «×N» si hay más); el dibujo del trofeo es común (`public/trofeos.js`, `window.abCopa`).
 
 ## Administración
 
