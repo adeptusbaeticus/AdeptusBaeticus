@@ -242,6 +242,8 @@
     "Esa cuenta ya no está en el servidor de Discord": "That account is no longer on the Discord server",
     "Desconectados": "Not connected",
     "🏆 Con trofeos": "🏆 With trophies",
+    "Todos los miembros": "All members", "Mostrar y ordenar": "Show and sort",
+    "Antigüedad: de más a menos": "Seniority: longest first", "Antigüedad: de menos a más": "Seniority: newest first",
     "Socios importados del Excel": "Members imported from the spreadsheet", "Vincular con Discord": "Link with Discord",
     "No hay socios importados.": "There are no imported members.", "Vinculando...": "Linking...", "No se pudo vincular.": "Could not link.",
     "El bot no puede leer la lista de miembros: activa «Server Members Intent» en el portal de desarrolladores de Discord (Bot → Privileged Gateway Intents).": "The bot cannot read the member list: turn on “Server Members Intent” in the Discord developer portal (Bot → Privileged Gateway Intents).",

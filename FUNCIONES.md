@@ -185,15 +185,16 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 ## 7. Miembros
 - Listado de socios con foto, **corona de laurel** (verde para los miembros, roja para el admin), nombre, rol,
   facciones, puesto en la liga, ELO y trofeos.
-- **Buscar** por nombre y **filtrar** por rol, por facción, **«Con trofeos»** y **«Desconectados»** (socios creados
-  que aún no han entrado en la web).
+- **Buscar** por nombre y **filtrar** por rol y por facción. Un desplegable «Mostrar y ordenar» agrupa: **«Con trofeos»**
+  (los que más tienen primero), **«Desconectados»** (socios creados que aún no han entrado en la web) y **antigüedad de
+  más a menos** o **de menos a más** (con sesión).
 - **Ficha completa** de cada socio:
   - facciones;
   - estadísticas en la Gran Liga (puesto, partidas, victorias y derrotas, puntos de victoria, diferencia y facciones
     usadas);
   - ranking ELO;
   - **trofeos** (en cascada si se repiten);
-  - **Antigüedad**: «En el club desde mayo de 2025 · 1 año y 6 meses», y en la **corona de laurel** cada medio año en el club dora un par de hojas, de abajo hacia arriba,
+  - **Antigüedad** (desde la inscripción; solo miembros y admin): «En el club desde mayo de 2025 · 1 año y 6 meses», y en la **corona de laurel** cada medio año en el club dora un par de hojas, de abajo hacia arriba,
     junto a la foto (también en el listado y en la ficha rápida).
   - Para socios con sesión, además, sus **cuentas**: Discord, Instagram, Steam, New Recruit y BCP.
 - **Editar mi ficha:** lleva a «Mis datos».

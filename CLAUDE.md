@@ -125,7 +125,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   perfil» (con confirmación, `DELETE /api/admin/miembros/:id`). `borraPerfil` borra ficha, datos, solicitudes,
   inscripciones, partidas que creó, votos, bendiciones, trofeos y avisos, y quita su vínculo con la liga; las fotos de
   la galería y los posts se quedan. Si su sesión sigue abierta, `/api/me` la cierra.
-- Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos). Antigüedad en la
+- Fecha de registro: `users.alta` (del Excel, de la solicitud aprobada o de cuando completa sus datos). Antigüedad (contada desde la inscripción; solo se muestra a miembros y admin, `/api/miembros` no envía `alta` de aspirantes) en la
   ficha de Miembros («En el club desde mayo de 2025 · 1 año y 6 meses») y en la ficha rápida, y en la corona de laurel
   cada medio año completo dora un par de hojas (una por lado), de abajo hacia arriba (`window.abLaurel(rol, alta)`,
   `window.abAntiguedad` y `window.abAniosClub` en `public/trofeos.js`; solo con sesión).

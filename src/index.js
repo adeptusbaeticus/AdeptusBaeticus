@@ -3207,7 +3207,9 @@ export default {
         const x = eloDe(u);
         const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x ? { elo: x.elo, pos: x.pos, total: elo.length, v: x.v, d: x.d, e: x.e } : null, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
         if (!u.conectado) m.desconectado = true; // creado desde la web y aún sin iniciar sesión
-        if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username, alta: u.alta || null });
+        if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username,
+          // La antigüedad cuenta desde la inscripción, pero solo se muestra a miembros y admin (no a aspirantes).
+          alta: u.role === "miembro" || u.role === "admin" ? u.alta || null : null });
         m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
         return m;
       });
