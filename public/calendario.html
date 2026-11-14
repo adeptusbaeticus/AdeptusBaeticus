@@ -100,6 +100,8 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .ley{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:#A8A293}
 .ley span{display:inline-flex;align-items:center;gap:6px}
 .ley i{display:inline-block;width:14px;height:14px;border-radius:4px}
+.ley .mq{display:inline-flex;width:18px;height:18px}
+.ley .mq .mo svg{width:12px;height:12px}
 .disp{margin:0 0 8px;padding-left:20px}
 .dia{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 .dia .rad{text-transform:capitalize;min-width:130px}
@@ -243,6 +245,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
         <span><i class="q"></i>Quedada</span><span><i class="t2"></i>Torneo</span><span class="solo-cal"><i class="pt"></i>Partida</span>
         <span class="solo-cal"><i class="lg"></i>Ronda de la Gran Liga (pulsa para verla)</span>
         <span>Color claro: abierto · oscuro: completo o cerrado</span>
+        <span class="ley-mo" data-modo="fisico">Físico</span><span class="ley-mo" data-modo="online">Online (TTS)</span><span class="ley-mo" data-modo="ambos">Físico u online (TTS)</span>
       </div>
     </div>
     <div class="b"><div class="card" id="det"><p class="m">Selecciona un evento del calendario.</p></div></div>
@@ -380,6 +383,16 @@ function lineaModo(modo, lugar) {
   if (lugar) { const l = document.createElement("span"); l.textContent = lugar; if (lugar !== "A decidir") l.setAttribute("translate", "no"); p.append("·", l); }
   return p;
 }
+
+// Leyenda: el cuadrado de cada modalidad delante de su nombre (el texto ya lo explica).
+document.querySelectorAll("#ley .ley-mo").forEach((x) => {
+  const q = cuadroModo(x.dataset.modo);
+  q.querySelector(".mo").removeAttribute("role");
+  q.querySelector(".mo").removeAttribute("aria-label");
+  q.querySelector(".mo").removeAttribute("title");
+  q.setAttribute("aria-hidden", "true");
+  x.prepend(q);
+});
 
 function renderLista() {
   const box = $("lista");
