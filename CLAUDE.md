@@ -146,7 +146,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 
 - `admin.html`: efectos de Navidad, bot de Discord, FAQ, sincronización con New Recruit y socios del Excel. Los eventos se administran en
   el Calendario («Administrar eventos») y los vínculos de los jugadores de la liga en Gran Liga («Administrar
-  jugadores»): botones que solo ve el admin (`public/admin-paneles.js`, que abre un panel; el servidor comprueba el rol).
+  liga»): botones que solo ve el admin (`public/admin-paneles.js`, que abre un panel; el servidor comprueba el rol).
 
 ## Navidad y anuncios
 
@@ -208,7 +208,16 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **Los resultados solo vienen de New Recruit** (única fuente de verdad): la web no puede escribir allí, así
   que no se editan ni se ponen resultados desde la web (se probó y se quitó, migración 0017).
   Las sanciones no se reflejan en la web (ni en la clasificación ni en los avisos del bot).
-- «Administrar jugadores» (Gran Liga, solo admin; `admin-paneles.js`):
+- «Administrar liga» (Gran Liga, solo admin; `admin-paneles.js`):
+  - **Temporada:** con liga en curso, su estado, «Enlazar emparejamientos con New Recruit» y «Archivar liga» (solo con
+    todas las partidas jugadas; guarda `puesto_final` por victorias, PV y diferencia, `ligaClasificacion`, y `fin`).
+    Sin liga en curso, el formulario «Nueva liga» (`/api/admin/liga/nueva`): enlace del torneo de New Recruit (que ya
+    tiene que estar creado allí, con los jugadores apuntados), nombre, número de jugadores, los socios elegidos con su
+    usuario de New Recruit y la fecha de inicio (domingo; la ronda 1 empieza a las 22:00). «Lanzar liga» crea la fase
+    (`edicion` = fecha de inicio), los jugadores y un todos contra todos al azar (`ligaRoundRobin`, método del círculo;
+    con número impar descansa uno por ronda), todo en pocas consultas (`json_each`). Después, «Enlazar» (`ligaEnlazaNr`)
+    lee el pod con `tourny_get` (la API oficial no da las partidas; excepción autorizada por el propietario, solo a
+    mano y como mucho cada 2 minutos) y enlaza jugadores (por usuario de NR) y cruces (por la pareja).
   - **Jugadores:** cuenta de la web de cada jugador (con «Emparejar automáticamente», `ligaEmpareja`: nombre de
     Discord = apodo sin paréntesis o alias del Excel, o usuario de New Recruit, solo con un candidato único); añadir
     jugador; «Reemplazar» (el sustituto se queda con la fila, sus partidas y resultados; el `id_participant` del

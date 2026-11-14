@@ -1846,6 +1846,81 @@ async function ligaAuto(env, fase) {
   await nrSync(env, "reports", fase.nr_torneo);
 }
 
+// ===== Temporadas de la liga (admin): archivar la actual, lanzar la siguiente y enlazarla con New Recruit =====
+// Clasificación de una fase con sus resultados: victorias, después PV a favor y después diferencia.
+async function ligaClasificacion(env, faseId) {
+  const js = (await env.DB.prepare("SELECT id, discord FROM liga_jugadores WHERE fase_id=?1").bind(faseId).all()).results;
+  const ps = (await env.DB.prepare("SELECT jugador_a, jugador_b, pv_a, pv_b FROM liga_partidas WHERE fase_id=?1 AND pv_a IS NOT NULL AND pv_b IS NOT NULL").bind(faseId).all()).results;
+  const t = new Map(js.map((j) => [j.id, { id: j.id, discord: j.discord, v: 0, pv: 0, contra: 0 }]));
+  for (const p of ps) for (const [id, mio, suyo] of [[p.jugador_a, p.pv_a, p.pv_b], [p.jugador_b, p.pv_b, p.pv_a]]) {
+    const x = t.get(id); if (!x) continue;
+    x.pv += mio; x.contra += suyo; if (mio > suyo) x.v++;
+  }
+  return [...t.values()].sort((a, b) => b.v - a.v || b.pv - a.pv || (b.pv - b.contra) - (a.pv - a.contra) || a.discord.localeCompare(b.discord));
+}
+// Emparejamientos todos contra todos (método del círculo) con los jugadores en orden aleatorio. Con un número impar,
+// cada ronda descansa uno. Devuelve [{ r, m, a, b }] (ronda, mesa y los dos jugadores), con mesas y lados al azar.
+function ligaRoundRobin(ids) {
+  const azar = (l) => { for (let i = l.length - 1; i > 0; i--) { const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1); [l[i], l[j]] = [l[j], l[i]]; } return l; };
+  const l = azar([...ids]);
+  if (l.length % 2) l.push(null);
+  const n = l.length, out = [];
+  for (let r = 0; r < n - 1; r++) {
+    const ronda = [];
+    for (let i = 0; i < n / 2; i++) {
+      const a = l[i], b = l[n - 1 - i];
+      if (a != null && b != null) ronda.push(crypto.getRandomValues(new Uint8Array(1))[0] & 1 ? [a, b] : [b, a]);
+    }
+    azar(ronda).forEach(([a, b], k) => out.push({ r: r + 1, m: k + 1, a, b }));
+    l.splice(1, 0, l.pop()); // el primero fijo; el resto gira
+  }
+  return out;
+}
+// Enlaza cada cruce de la liga en curso con su partida del «pod» de New Recruit, por la pareja de jugadores. Su API
+// oficial no da las partidas de un torneo: se lee la página pública del torneo (llamada interna `tourny_get`, con
+// permiso del propietario), solo cuando el admin lo pide y como mucho cada 2 minutos.
+async function ligaEnlazaNr(env, fase) {
+  const r = await env.DB.prepare(
+    `INSERT INTO nr_cache (clave, intento) VALUES (?1, datetime('now'))
+     ON CONFLICT(clave) DO UPDATE SET intento=excluded.intento WHERE nr_cache.intento IS NULL OR nr_cache.intento < datetime('now', '-2 minutes')`
+  ).bind("pod:" + fase.nr_torneo).run();
+  if (!r.meta.changes) return { error: "Se consultó hace menos de 2 minutos. Espera un poco." };
+  let t;
+  try { t = await nrRpc("tourny_get", [fase.nr_torneo]); } catch (e) { return { error: "New Recruit no respondió: " + String(e.message || e).slice(0, 150) }; }
+  if (!t || !Array.isArray(t.participant_list)) return { error: "New Recruit no devolvió el torneo. ¿Es correcto el enlace?" };
+  const norm = (x) => String(x || "").trim().toLowerCase();
+  const nrPorNombre = new Map(t.participant_list.map((p) => [norm(p.name), p._id]));
+  const js = (await env.DB.prepare("SELECT id, discord, nr_nombre, nr_participante FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
+  // Jugadores: su id de New Recruit por su usuario (los que ya lo tienen se quedan como están).
+  const nuevos = [];
+  for (const j of js) if (!j.nr_participante && nrPorNombre.has(norm(j.nr_nombre))) { j.nr_participante = nrPorNombre.get(norm(j.nr_nombre)); nuevos.push({ id: j.id, p: j.nr_participante }); }
+  const usados = new Set(js.map((j) => j.nr_participante).filter(Boolean));
+  const sinNr = js.filter((j) => !j.nr_participante).map((j) => ({ discord: j.discord, nr_nombre: j.nr_nombre || "" }));
+  const nrLibres = t.participant_list.filter((p) => !usados.has(p._id)).map((p) => p.name);
+  // Cruces: la partida de New Recruit con la misma pareja.
+  const clave = (a, b) => (a < b ? a + "|" + b : b + "|" + a);
+  const nrPar = new Map();
+  for (const m of t.matches || []) { const [a, b] = m.participants || []; if (a && b) nrPar.set(clave(a, b), m._id); }
+  const porJ = new Map(js.map((j) => [j.id, j.nr_participante]));
+  const ps = (await env.DB.prepare("SELECT id, ronda, mesa, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1").bind(fase.id).all()).results;
+  const enl = [], sinEnlace = [];
+  const nombre = new Map(js.map((j) => [j.id, j.discord]));
+  for (const p of ps) {
+    const a = porJ.get(p.jugador_a), b = porJ.get(p.jugador_b), m = a && b ? nrPar.get(clave(a, b)) : null;
+    if (m) enl.push({ id: p.id, m }); else sinEnlace.push({ ronda: p.ronda, mesa: p.mesa, a: nombre.get(p.jugador_a), b: nombre.get(p.jugador_b) });
+  }
+  // Todo en dos consultas (límite de consultas por ejecución del plan gratuito).
+  const ops = [];
+  if (nuevos.length) ops.push(env.DB.prepare(
+    `UPDATE liga_jugadores SET nr_participante=(SELECT json_extract(value,'$.p') FROM json_each(?2) WHERE json_extract(value,'$.id')=liga_jugadores.id)
+     WHERE fase_id=?1 AND id IN (SELECT json_extract(value,'$.id') FROM json_each(?2))`).bind(fase.id, JSON.stringify(nuevos)));
+  if (enl.length) ops.push(env.DB.prepare(
+    `UPDATE liga_partidas SET nr_partida=(SELECT json_extract(value,'$.m') FROM json_each(?2) WHERE json_extract(value,'$.id')=liga_partidas.id)
+     WHERE fase_id=?1 AND id IN (SELECT json_extract(value,'$.id') FROM json_each(?2))`).bind(fase.id, JSON.stringify(enl)));
+  if (ops.length) await env.DB.batch(ops);
+  return { ok: true, enlazadas: enl.length, total: ps.length, sin_enlace: sinEnlace.slice(0, 60), jugadores_sin_nr: sinNr, nr_libres: nrLibres };
+}
+
 // Empareja los jugadores sin cuenta de una fase con los usuarios de la web: por su nombre de Discord igual al apodo
 // del usuario (sin lo que va entre paréntesis), o a su alias del Excel, o por su usuario de New Recruit; solo si hay
 // un único candidato libre. Devuelve cuántos ha vinculado.
@@ -2052,10 +2127,10 @@ export default {
     // Gran Liga (pública): fase, jugadores, calendario y resultados (sin las listas, que se piden aparte).
     if (path === "/api/liga" && request.method === "GET") {
       // Todas las fases: la en curso y las ligas pasadas (`terminada`, con sus fechas para la lista de «Ligas pasadas»).
-      const fases = (await env.DB.prepare("SELECT id, nombre, edicion, fase, terminada, inicio, fin FROM liga_fases ORDER BY edicion DESC, fase DESC").all()).results;
+      const fases = (await env.DB.prepare("SELECT id, nombre, edicion, fase, terminada, inicio, fin FROM liga_fases ORDER BY terminada, inicio DESC, fase DESC").all()).results;
       const pedida = Number(url.searchParams.get("fase")) || null;
       const fase = await env.DB.prepare(
-        pedida ? "SELECT * FROM liga_fases WHERE id=?1" : "SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1"
+        pedida ? "SELECT * FROM liga_fases WHERE id=?1" : "SELECT * FROM liga_fases ORDER BY terminada, inicio DESC, fase DESC LIMIT 1"
       ).bind(...(pedida ? [pedida] : [])).first();
       if (!fase) return Response.json({ fases, fase: null }, { headers: { "cache-control": "public, max-age=120" } });
       const jugadores = (await env.DB.prepare("SELECT id, discord, nombre, discord_id, puesto_final FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
@@ -3468,6 +3543,95 @@ export default {
       }
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
+      // Temporada: estado de la liga en curso (o ninguna) y los socios para lanzar la siguiente.
+      if (path === "/api/admin/liga/temporada" && request.method === "GET") {
+        const fase = await env.DB.prepare("SELECT id, nombre, nr_torneo, inicio, rondas FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+        let estado = null;
+        if (fase) estado = await env.DB.prepare(
+          `SELECT count(*) AS total, sum(pv_a IS NOT NULL AND pv_b IS NOT NULL) AS jugadas, sum(nr_partida IS NOT NULL) AS enlazadas FROM liga_partidas WHERE fase_id=?1`
+        ).bind(fase.id).first();
+        const usuarios = fase ? [] : (await env.DB.prepare("SELECT discord_id, name, role, nr_username FROM users ORDER BY name COLLATE NOCASE").all()).results;
+        return Response.json({ fase, estado, usuarios, hoy: nowLocal().slice(0, 10) }, { headers: noStore });
+      }
+      // Archivar la liga en curso: solo con todas sus partidas jugadas. Se guarda su clasificación final.
+      if (path === "/api/admin/liga/archivar" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        const fase = await env.DB.prepare("SELECT id FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+        if (!fase) return Response.json({ error: "No hay ninguna liga en curso" }, { status: 400, headers: noStore });
+        const e = await env.DB.prepare("SELECT count(*) AS total, sum(pv_a IS NULL OR pv_b IS NULL) AS faltan FROM liga_partidas WHERE fase_id=?1").bind(fase.id).first();
+        if (!e.total) return Response.json({ error: "La liga no tiene partidas" }, { status: 400, headers: noStore });
+        if (e.faltan) return Response.json({ error: e.faltan === 1 ? "Falta 1 partida por jugar" : "Faltan " + e.faltan + " partidas por jugar" }, { status: 409, headers: noStore });
+        const cl = await ligaClasificacion(env, fase.id);
+        await env.DB.batch([
+          env.DB.prepare(`UPDATE liga_jugadores SET puesto_final=(SELECT key + 1 FROM json_each(?2) WHERE value=liga_jugadores.id) WHERE fase_id=?1`)
+            .bind(fase.id, JSON.stringify(cl.map((x) => x.id))),
+          env.DB.prepare("UPDATE liga_fases SET terminada=1, fin=?2 WHERE id=?1").bind(fase.id, nowLocal().slice(0, 10)),
+        ]);
+        return Response.json({ ok: true, campeon: cl[0] ? cl[0].discord : null }, { headers: noStore });
+      }
+      // Lanzar la siguiente liga (solo si no hay ninguna en curso). Se da por hecho que el torneo ya está creado en
+      // New Recruit con sus jugadores apuntados: aquí solo se enlaza (su id) y se crea el calendario del club.
+      if (path === "/api/admin/liga/nueva" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        if (await env.DB.prepare("SELECT 1 FROM liga_fases WHERE terminada=0").first())
+          return Response.json({ error: "Antes hay que archivar la liga en curso" }, { status: 409, headers: noStore });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const err = (m) => Response.json({ error: m }, { status: 400, headers: noStore });
+        const nr = (/(?:[?&]id=)?([0-9a-f]{24})/i.exec(String(b.nr || "")) || [])[1];
+        if (!nr) return err("Pega el enlace del torneo en New Recruit");
+        const nombre = String(b.nombre || "").trim().replace(/\s+/g, " ");
+        if (nombre.length < 3 || nombre.length > 80) return err("Escribe el nombre de la liga");
+        const n = Number(b.numero);
+        if (!Number.isInteger(n) || n < 3 || n > 40) return err("El número de jugadores tiene que estar entre 3 y 40");
+        const lista = Array.isArray(b.jugadores) ? b.jugadores : [];
+        if (lista.length !== n) return err("Elige exactamente " + n + " jugadores");
+        const ini = String(b.inicio || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ini) || isNaN(new Date(ini + "T12:00:00Z")) || new Date(ini + "T12:00:00Z").getUTCDay() !== 0)
+          return err("La fecha de inicio tiene que ser un domingo");
+        if (await env.DB.prepare("SELECT 1 FROM liga_fases WHERE nr_torneo=?1").bind(nr).first()) return err("Ese torneo de New Recruit ya está en otra liga");
+        const ids = lista.map((x) => String((x && x.discord_id) || ""));
+        if (new Set(ids).size !== n) return err("Hay jugadores repetidos");
+        const us = (await env.DB.prepare("SELECT discord_id, name FROM users WHERE discord_id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(ids)).all()).results;
+        if (us.length !== n) return err("Algún jugador no es socio de la web");
+        const porId = new Map(us.map((u) => [u.discord_id, u]));
+        const jugadores = [], nrs = new Set(), nombres = new Set();
+        for (const x of lista) {
+          const u = porId.get(String(x.discord_id));
+          const nrn = String(x.nr_nombre || "").trim().slice(0, 60);
+          if (!nrn) return err("Falta el usuario de New Recruit de " + u.name);
+          if (nrs.has(nrn.toLowerCase())) return err("Hay dos jugadores con el mismo usuario de New Recruit");
+          nrs.add(nrn.toLowerCase());
+          // Como en la liga actual: el apodo de Discord y, entre paréntesis, el nombre de pila.
+          const disc = (sinParentesis(u.name) || u.name).slice(0, 60), pila = ((/\(([^)]+)\)/.exec(u.name) || [])[1] || "").trim() || null;
+          if (nombres.has(disc.toLowerCase())) return err("Hay dos jugadores con el mismo nombre: " + disc);
+          nombres.add(disc.toLowerCase());
+          jugadores.push({ d: disc, n: pila, nr: nrn, id: u.discord_id });
+        }
+        const rondas = n % 2 ? n : n - 1;
+        const cruces = ligaRoundRobin(ids);
+        const ins = await env.DB.prepare("INSERT INTO liga_fases (edicion, fase, nombre, nr_torneo, inicio, rondas) VALUES (?1, 1, ?2, ?3, ?4, ?5)")
+          .bind(ini, nombre, nr, ini + "T22:00", rondas).run();
+        const faseId = ins.meta.last_row_id;
+        await env.DB.batch([
+          env.DB.prepare(`INSERT INTO liga_jugadores (fase_id, discord, nombre, nr_nombre, discord_id)
+            SELECT ?1, json_extract(value,'$.d'), json_extract(value,'$.n'), json_extract(value,'$.nr'), json_extract(value,'$.id') FROM json_each(?2)`)
+            .bind(faseId, JSON.stringify(jugadores)),
+          env.DB.prepare(`INSERT INTO liga_partidas (fase_id, ronda, mesa, jugador_a, jugador_b)
+            SELECT ?1, json_extract(c.value,'$.r'), json_extract(c.value,'$.m'),
+              (SELECT id FROM liga_jugadores WHERE fase_id=?1 AND discord_id=json_extract(c.value,'$.a')),
+              (SELECT id FROM liga_jugadores WHERE fase_id=?1 AND discord_id=json_extract(c.value,'$.b'))
+            FROM json_each(?2) c`).bind(faseId, JSON.stringify(cruces)),
+        ]);
+        return Response.json({ ok: true, fase: faseId, rondas, partidas: cruces.length }, { headers: noStore });
+      }
+      // Enlazar los cruces de la liga en curso con sus partidas del pod de New Recruit.
+      if (path === "/api/admin/liga/enlazar" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        const fase = await env.DB.prepare("SELECT id, nr_torneo FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+        if (!fase || !fase.nr_torneo) return Response.json({ error: "No hay ninguna liga en curso enlazada con New Recruit" }, { status: 400, headers: noStore });
+        const y = await ligaEnlazaNr(env, fase);
+        return Response.json(y, { status: y.error ? 400 : 200, headers: noStore });
+      }
       if (path === "/api/admin/liga/jugadores" && request.method === "GET") {
         const fase = await env.DB.prepare("SELECT id, nombre, rondas FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
         if (!fase) return Response.json({ fase: null, jugadores: [], usuarios: [] }, { headers: noStore });

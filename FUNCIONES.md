@@ -190,8 +190,17 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Jugadores que ya no son socios:** al pasar el ratón por su nombre sale una ficha **«REDACTED»** con un sello
   inquisitorial («Expediente sellado por la Inquisición»). Pasa con cualquiera que no tenga cuenta en la web.
 
-### Administración de jugadores (admin)
-- Botón **«Administrar jugadores»**, que abre un panel con dos pestañas:
+### Administración de la liga (admin)
+- Botón **«Administrar liga»**, que abre un panel con tres pestañas:
+  - **Temporada:**
+    - con una liga en curso: cuántas partidas van jugadas y enlazadas; **«Enlazar emparejamientos con New Recruit»**
+      (revisa el pod del torneo y enlaza cada cruce con su partida por la pareja de jugadores, y avisa de los jugadores
+      cuyo usuario no aparece y de los cruces sin partida); y **«Archivar liga»**, solo con todas las partidas jugadas:
+      pasa a «Ligas pasadas» con su clasificación final;
+    - sin liga en curso: **«Nueva liga»** con el enlace del torneo en New Recruit (ya creado allí, con los jugadores
+      apuntados), el nombre, el número de jugadores, los socios que juegan (con su usuario de New Recruit) y la fecha de
+      inicio, que tiene que ser domingo. **«Lanzar liga»** crea el calendario con emparejamientos al azar, todos contra
+      todos (con número impar, uno descansa cada ronda).
   - **Jugadores:**
     - la cuenta de la web de cada jugador, con «Emparejar automáticamente» y las sugerencias;
     - **añadir** jugador;

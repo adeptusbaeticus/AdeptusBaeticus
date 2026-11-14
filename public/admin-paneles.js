@@ -1,6 +1,7 @@
 // Paneles de administración dentro de las páginas (solo para el admin; el servidor también lo comprueba):
 // - Calendario: «Administrar eventos» (crear, editar y cancelar quedadas y torneos, y ver sus inscritos).
-// - Gran Liga: «Administrar jugadores» (vincular cada jugador de la liga con su cuenta de Discord).
+// - Gran Liga: «Administrar liga»: Temporada (archivar la liga en curso, lanzar la siguiente y enlazarla con New
+//   Recruit), Jugadores (cuentas, añadir, reemplazar, quitar) y Cruces.
 // Todo con DOM (textContent), sin innerHTML.
 (function () {
   const ES_CAL = /^\/calendario(\.html)?$/.test(location.pathname);
@@ -38,6 +39,14 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
 .apn .sug{color:#F0CE82}
 .apn td .acts{flex-wrap:nowrap}
 .apn td select{min-width:160px}
+.apn .socios{max-height:340px;overflow:auto;border:1px solid #2C3036;border-radius:10px;margin-top:8px}
+.apn .socio{display:grid;grid-template-columns:auto 1fr minmax(140px,220px);gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #2C3036}
+.apn .socio input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:#D9B25A}
+.apn .socio input[type=text]{min-height:38px;padding:6px 10px}
+.apn .socio.no input[type=text]{visibility:hidden}
+.apn .aviso{border-left:3px solid #D9B25A;padding:8px 12px;background:#1B1E22;border-radius:6px;font-size:14px;color:#CFC9BA}
+.apn ul.lis{margin:6px 0 0;padding-left:20px;font-size:14px}
+@media (max-width:600px){.apn .socio{grid-template-columns:auto 1fr}.apn .socio input[type=text]{grid-column:2}}
 @media (max-width:600px){.apn-cuerpo{padding:12px}.apn .card{padding:14px}}
 @media (max-width:600px){.apn table.apil thead{display:none}.apn table.apil tr{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid #2C3036}.apn table.apil td{display:block;border:0;padding:0;white-space:normal}.apn table.apil td select{width:100%;min-width:0}.apn table.apil td .acts{flex-wrap:wrap}}`;
   document.head.appendChild(css);
@@ -178,17 +187,16 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
   // ---------- Gran Liga: jugadores y cruces ----------
   function panelJugadores() {
     let cambios = false, datos = null;
-    const { d, cuerpo } = ventana("Administrar jugadores", () => { if (cambios) location.reload(); });
+    const { d, cuerpo } = ventana("Administrar liga", () => { if (cambios) location.reload(); });
     const msg = el("p", "m"); msg.style.cssText = "margin:0 0 12px;min-height:20px"; msg.setAttribute("role", "status");
     const pestanas = el("div", "acts"); pestanas.style.marginBottom = "12px";
-    const tJug = chip("Jugadores", () => muestra("jug")), tCru = chip("Cruces", () => muestra("cru"));
-    pestanas.append(tJug, tCru);
-    const secJug = el("div"), secCru = el("div");
-    cuerpo.append(pestanas, msg, secJug, secCru);
+    const tTem = chip("Temporada", () => muestra("tem")), tJug = chip("Jugadores", () => muestra("jug")), tCru = chip("Cruces", () => muestra("cru"));
+    pestanas.append(tTem, tJug, tCru);
+    const secTem = el("div"), secJug = el("div"), secCru = el("div");
+    cuerpo.append(pestanas, msg, secTem, secJug, secCru);
     const muestra = (q) => {
-      secJug.hidden = q !== "jug"; secCru.hidden = q !== "cru";
-      tJug.setAttribute("aria-pressed", String(q === "jug")); tCru.setAttribute("aria-pressed", String(q === "cru"));
-      tJug.style.borderColor = q === "jug" ? "#D9B25A" : ""; tCru.style.borderColor = q === "cru" ? "#D9B25A" : "";
+      secTem.hidden = q !== "tem"; secJug.hidden = q !== "jug"; secCru.hidden = q !== "cru";
+      [[tTem, "tem"], [tJug, "jug"], [tCru, "cru"]].forEach(([t, k]) => { t.setAttribute("aria-pressed", String(q === k)); t.style.borderColor = q === k ? "#D9B25A" : ""; });
     };
     const pide = async (metodo, ruta, cuerpoJson) => {
       msg.textContent = "";
@@ -306,11 +314,139 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
       catch (e) { secCru.textContent = ""; secCru.appendChild(el("p", "m", "No se pudo cargar.")); }
     }
     async function carga() {
+      await cargaTemporada();
       try { datos = await (await fetch("/api/admin/liga/jugadores")).json(); } catch (e) { msg.textContent = "No se pudo cargar."; return; }
-      if (!datos.fase) { secJug.textContent = ""; msg.textContent = "Todavía no hay ninguna fase de la liga."; return; }
+      const hay = !!datos.fase;
+      tJug.hidden = tCru.hidden = !hay;
+      if (!hay) { secJug.textContent = ""; secCru.textContent = ""; muestra("tem"); return; }
       pintaJugadores(); await cargaCruces();
     }
-    muestra("jug");
+
+    // ----- Temporada -----
+    // Liga en curso: estado, «Enlazar con New Recruit» y «Archivar liga» (con todas las partidas jugadas).
+    // Sin liga en curso: formulario para lanzar la siguiente.
+    async function cargaTemporada() {
+      let t;
+      try { t = await (await fetch("/api/admin/liga/temporada")).json(); } catch (e) { secTem.textContent = ""; secTem.appendChild(el("p", "m", "No se pudo cargar.")); return; }
+      secTem.textContent = "";
+      if (t.fase) pintaEnCurso(t); else pintaNueva(t);
+    }
+    function pintaEnCurso(t) {
+      const e = t.estado || { total: 0, jugadas: 0, enlazadas: 0 };
+      const c1 = el("div", "card");
+      const n = el("strong", "", t.fase.nombre); n.setAttribute("translate", "no");
+      c1.append(el("p", "m", "Liga en curso"), n,
+        el("p", "m", e.jugadas + " de " + e.total + " partidas jugadas · " + e.enlazadas + " de " + e.total + " enlazadas con New Recruit"));
+      // Enlazar con el pod de New Recruit.
+      const c2 = el("div", "card");
+      c2.append(el("strong", "", "Enlazar con New Recruit"),
+        el("p", "m", "Tras lanzar la liga, revisa el pod del torneo en New Recruit: cada cruce se enlaza con su partida de New Recruit por la pareja de jugadores (por su usuario de New Recruit). Puedes repetirlo cuando quieras."));
+      const res = el("div");
+      const be = chip("Enlazar emparejamientos con New Recruit", async () => {
+        be.disabled = true; res.textContent = "Consultando New Recruit...";
+        const y = await pide("POST", "/api/admin/liga/enlazar");
+        be.disabled = false; res.textContent = "";
+        if (!y) return;
+        res.appendChild(el("p", "", "Enlazadas " + y.enlazadas + " de " + y.total + " partidas."));
+        if (y.jugadores_sin_nr.length) {
+          res.appendChild(el("p", "m", "Jugadores que no aparecen en New Recruit con ese usuario (corrígelo en «Jugadores» con «Reemplazar» y vuelve a enlazar):"));
+          const ul = el("ul", "lis"); ul.setAttribute("translate", "no");
+          y.jugadores_sin_nr.forEach((j) => ul.appendChild(el("li", "", j.discord + " · NR: " + (j.nr_nombre || "—"))));
+          res.appendChild(ul);
+          if (y.nr_libres.length) { const p = el("p", "m", "Usuarios del torneo en New Recruit sin enlazar:"); const s2 = el("span", "", " " + y.nr_libres.join(", ")); s2.setAttribute("translate", "no"); p.appendChild(s2); res.appendChild(p); }
+        }
+        if (y.sin_enlace.length) {
+          res.appendChild(el("p", "m", "Cruces sin partida en New Recruit:"));
+          const ul = el("ul", "lis"); ul.setAttribute("translate", "no");
+          y.sin_enlace.forEach((p) => ul.appendChild(el("li", "", "R" + p.ronda + " · M" + p.mesa + ": " + p.a + " – " + p.b)));
+          res.appendChild(ul);
+        }
+        await cargaTemporadaResumen(c1);
+      });
+      be.style.marginTop = "10px";
+      c2.append(be, res);
+      // Archivar.
+      const c3 = el("div", "card");
+      const faltan = e.total - e.jugadas;
+      c3.append(el("strong", "", "Archivar la liga"),
+        el("p", "m", "Pasa a «Ligas pasadas» con su clasificación final (victorias, puntos y diferencia). Después podrás lanzar la siguiente."));
+      const ba = el("button", "apn-btn", "Archivar liga"); ba.type = "button"; ba.style.marginTop = "10px";
+      ba.disabled = !e.total || faltan > 0;
+      if (e.total && faltan > 0) c3.appendChild(el("p", "aviso", faltan === 1 ? "Falta 1 partida por jugar: hay que acabar todas antes de archivarla." : "Faltan " + faltan + " partidas por jugar: hay que acabar todas antes de archivarla."));
+      ba.onclick = async () => {
+        if (!confirm("¿Archivar «" + t.fase.nombre + "»? Pasará a «Ligas pasadas» y ya no se podrá modificar.")) return;
+        ba.disabled = true;
+        const y = await pide("POST", "/api/admin/liga/archivar");
+        if (!y) { ba.disabled = false; return; }
+        msg.textContent = "Liga archivada." + (y.campeon ? " Campeón: " + y.campeon + "." : "");
+        await carga();
+      };
+      c3.appendChild(ba);
+      secTem.append(c1, c2, c3);
+    }
+    async function cargaTemporadaResumen(c1) {
+      try {
+        const t = await (await fetch("/api/admin/liga/temporada")).json();
+        const e = t.estado || { total: 0, jugadas: 0, enlazadas: 0 };
+        c1.lastChild.textContent = e.jugadas + " de " + e.total + " partidas jugadas · " + e.enlazadas + " de " + e.total + " enlazadas con New Recruit";
+      } catch (er) {}
+    }
+    function pintaNueva(t) {
+      const f = el("form", "card");
+      f.append(el("strong", "", "Nueva liga"),
+        el("p", "aviso", "Antes, crea el torneo en New Recruit y apunta en él a los jugadores: aquí solo se enlaza y se crea el calendario del club."));
+      f.lastChild.style.margin = "10px 0";
+      const fg = el("div", "fg");
+      const campo = (et, nodo, ancho) => { const w = el("div", ancho ? "full" : ""); const l = el("label", "", et); const id = "an-" + Math.random().toString(36).slice(2, 8); l.htmlFor = id; nodo.id = id; w.append(l, nodo); fg.appendChild(w); return nodo; };
+      const nr = campo("Enlace del torneo en New Recruit", Object.assign(el("input"), { type: "url", required: true, placeholder: "https://www.newrecruit.eu/app/tournydetails/details?id=…" }), true);
+      const nombre = campo("Nombre a mostrar", Object.assign(el("input"), { type: "text", required: true, maxLength: 80, placeholder: "Gran Liga 2027/28" }));
+      const num = campo("Número de jugadores", Object.assign(el("input"), { type: "number", required: true, min: 3, max: 40, step: 1 }));
+      const ini = campo("Fecha de inicio (domingo)", Object.assign(el("input"), { type: "date", required: true }));
+      const nota = el("p", "m", "La ronda 1 empieza ese domingo a las 22:00; cada ronda dura 2 semanas.");
+      nota.classList.add("full"); fg.appendChild(nota);
+      f.appendChild(fg);
+      // Socios: casilla para elegirlos y su usuario de New Recruit (para enlazarlos con el torneo).
+      const cab = el("div", "fila"); cab.style.marginTop = "14px";
+      const cuenta = el("span", "m");
+      const busca = Object.assign(el("input"), { type: "search", placeholder: "Buscar socio..." });
+      busca.setAttribute("aria-label", "Buscar socio"); busca.style.maxWidth = "260px";
+      cab.append(el("strong", "", "Jugadores"), cuenta, busca);
+      const lista = el("div", "socios");
+      const filas = t.usuarios.map((u) => {
+        const fila = el("label", "socio no");
+        const ck = Object.assign(el("input"), { type: "checkbox" });
+        const nm = el("span", "", u.name); nm.setAttribute("translate", "no");
+        const tx = Object.assign(el("input"), { type: "text", value: u.nr_username || "", maxLength: 60, placeholder: "Usuario de New Recruit" });
+        tx.setAttribute("aria-label", "Usuario de New Recruit de " + u.name); tx.setAttribute("translate", "no");
+        ck.onchange = () => { fila.classList.toggle("no", !ck.checked); recuenta(); };
+        fila.append(ck, nm, tx);
+        lista.appendChild(fila);
+        return { u, fila, ck, tx };
+      });
+      const recuenta = () => { const k = filas.filter((x) => x.ck.checked).length; cuenta.textContent = "Elegidos: " + k + (num.value ? " de " + num.value : ""); };
+      num.oninput = recuenta; recuenta();
+      busca.oninput = () => { const q = busca.value.trim().toLowerCase(); filas.forEach((x) => { x.fila.hidden = !!q && !x.u.name.toLowerCase().includes(q) && !x.ck.checked; }); };
+      f.append(cab, lista);
+      const ok = el("button", "apn-btn", "Lanzar liga"); ok.type = "submit"; ok.style.marginTop = "14px";
+      f.appendChild(ok);
+      f.onsubmit = async (ev) => {
+        ev.preventDefault();
+        const elegidos = filas.filter((x) => x.ck.checked);
+        if (ini.value && new Date(ini.value + "T12:00:00Z").getUTCDay() !== 0) { msg.textContent = "La fecha de inicio tiene que ser un domingo"; return; }
+        if (elegidos.length !== Number(num.value)) { msg.textContent = "Elige exactamente " + num.value + " jugadores"; return; }
+        if (elegidos.some((x) => !x.tx.value.trim())) { msg.textContent = "Falta el usuario de New Recruit de algún jugador"; return; }
+        if (!confirm("¿Lanzar «" + nombre.value.trim() + "» con " + elegidos.length + " jugadores? Se crearán los emparejamientos al azar.")) return;
+        ok.disabled = true;
+        const y = await pide("POST", "/api/admin/liga/nueva", { nr: nr.value, nombre: nombre.value, numero: Number(num.value), inicio: ini.value,
+          jugadores: elegidos.map((x) => ({ discord_id: x.u.discord_id, nr_nombre: x.tx.value.trim() })) });
+        ok.disabled = false;
+        if (!y) return;
+        await carga();
+        msg.textContent = "Liga lanzada: " + y.rondas + " rondas y " + y.partidas + " partidas. Ahora enlaza los emparejamientos con New Recruit.";
+      };
+      secTem.appendChild(f);
+    }
+    muestra("tem");
     carga();
     return d;
   }
@@ -320,7 +456,7 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
     if (!me || me.role !== "admin" || me.ver_como) return;
     const sitio = ES_CAL ? document.querySelector(".top h1") : document.querySelector(".cab h1");
     if (!sitio) return;
-    const b = el("button", "apn-abre", ES_CAL ? "Administrar eventos" : "Administrar jugadores");
+    const b = el("button", "apn-abre", ES_CAL ? "Administrar eventos" : "Administrar liga");
     b.type = "button";
     let d = null;
     b.onclick = () => { if (!d) d = ES_CAL ? panelEventos() : panelJugadores(); d.showModal(); };

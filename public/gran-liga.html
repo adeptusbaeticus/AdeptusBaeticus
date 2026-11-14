@@ -522,9 +522,11 @@ function pintaTerminada() {
   const fe = fechasLiga(D.fase);
   if (fe) card.appendChild(el("p", "m", fe));
   card.appendChild(podio(clasificacion(), true));
-  const v = el("a", "chip volver", "Volver a la Gran Liga actual");
-  v.href = "/gran-liga.html";
-  card.appendChild(v);
+  if ((D.fases || []).some((f) => !f.terminada)) {
+    const v = el("a", "chip volver", "Volver a la Gran Liga actual");
+    v.href = "/gran-liga.html";
+    card.appendChild(v);
+  }
   box.appendChild(card);
 }
 
