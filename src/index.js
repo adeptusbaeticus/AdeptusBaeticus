@@ -1666,9 +1666,8 @@ export default {
       return new Response("No encontrado", { status: 404 });
     }
 
-    // Encuestas del club. Cada una va dirigida a un público: «publico» (cualquiera la ve; para votar hay que
-    // entrar), «aspirantes» (aspirantes y miembros) o «miembros» (miembros, veteranos y admin). El admin las
-    // crea, edita, cierra y borra. Los nombres de quién vota qué (votos públicos) solo los ven los socios.
+    // Encuestas del club, solo para socios con sesión. Cada una va dirigida a «aspirantes» (aspirantes y
+    // miembros) o a «miembros» (miembros, veteranos y admin). El admin las crea, edita, cierra y borra.
     if (path === "/api/encuestas" || path.startsWith("/api/encuestas/") || path.startsWith("/api/admin/encuestas")) {
       const s = await readSession(env, request);
       const admin = !!s && s.role === "admin";
@@ -1676,8 +1675,8 @@ export default {
       if (request.method !== "GET" && !sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
       const err = (t, st = 400) => Response.json({ error: t }, { status: st, headers: noStore });
       const esMiembro = !!s && ["miembro", "veterano", "admin"].includes(s.role);
-      // Públicos que puede ver (y votar, si tiene sesión) quien hace la petición.
-      const paras = !s ? ["publico"] : esMiembro ? ["publico", "aspirantes", "miembros"] : ["publico", "aspirantes"];
+      // Encuestas que puede ver y votar quien hace la petición (sin sesión, ninguna).
+      const paras = !s ? [] : esMiembro ? ["aspirantes", "miembros"] : ["aspirantes"];
       const abiertaSQL = "(cierra IS NULL OR cierra > ?2)";
       if (path === "/api/encuestas" && request.method === "GET") {
         const { results: es } = await env.DB.prepare(
@@ -1695,7 +1694,7 @@ export default {
           const misVotos = s ? vs.filter((v) => v.discord_id === s.id).map((v) => v.opcion_id) : [];
           // Resultados: siempre, al votar o al cerrar (según la encuesta). El admin los ve siempre.
           const ver = !abierta || admin || e.resultados === "siempre" || (e.resultados === "al_votar" && misVotos.length > 0);
-          const nombres = ver && e.votos === "publicos" && !!s;
+          const nombres = ver && e.votos === "publicos";
           return { id: e.id, pregunta: e.pregunta, descripcion: e.descripcion, para: e.para, multiple: !!e.multiple, votos: e.votos,
             resultados: e.resultados, cierra: e.cierra, abierta, votantes: new Set(vs.map((v) => v.discord_id)).size,
             mis_votos: misVotos, ver_resultados: ver,
@@ -1749,7 +1748,7 @@ export default {
           const pregunta = String(b.pregunta || "").trim().slice(0, 200);
           const descripcion = String(b.descripcion || "").trim().slice(0, 1000) || null;
           const cierra = b.cierra ? String(b.cierra) : null;
-          const para = ["publico", "aspirantes", "miembros"].includes(b.para) ? b.para : "miembros";
+          const para = b.para === "aspirantes" ? "aspirantes" : "miembros";
           const votosTipo = b.votos === "publicos" ? "publicos" : "secretos";
           const resultados = ["siempre", "al_votar", "al_cerrar"].includes(b.resultados) ? b.resultados : "al_votar";
           // Opciones: [{id?, texto}] — con id, se conserva (y sus votos); sin id, es nueva.

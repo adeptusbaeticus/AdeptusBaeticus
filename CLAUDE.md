@@ -39,9 +39,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 ## Encuestas
 
 - Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí
-  mismo (migraciones 0023 y 0024). Cada encuesta es para `publico` (la ve cualquiera, votar exige sesión),
-  `aspirantes` (aspirantes y miembros) o `miembros` (miembros, veteranos y admin); cierre opcional; votos
-  `secretos` o `publicos` (los nombres solo los ven los socios con sesión, nunca los invitados) y resultados
+  mismo (migraciones 0023 a 0025). Solo para socios con sesión (los invitados no las ven).
+  Cada encuesta es para `aspirantes` (aspirantes y miembros) o `miembros` (miembros, veteranos y admin), sin
+  encuestas públicas; cierre opcional; votos `secretos` o `publicos` (se ve quién vota qué) y resultados
   `siempre`, `al_votar` o `al_cerrar`. Una encuesta con votos secretos no puede pasar a votos públicos.
 
 ## Gran Liga Adeptus

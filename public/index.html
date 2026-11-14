@@ -70,6 +70,9 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .btn.alt{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
 .btn:hover{color:#fff;filter:brightness(1.1)}.btn.alt:hover{color:#ECE7DC}
 #quedada > .m{margin:0 0 48px}
+/* Próxima quedada y encuestas abiertas, en paralelo (en el móvil, una debajo de otra) */
+.dos{display:flex;gap:0 32px;flex-wrap:wrap;align-items:flex-start}
+.dos>section{flex:1 1 380px;min-width:0}
 /* Encuestas abiertas (solo socios con sesión) */
 #enc{display:grid;gap:10px;margin-bottom:48px}
 .enc-i{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #D9B25A;border-radius:12px;padding:14px 18px}
@@ -141,14 +144,16 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
     <h1>Club de Warhammer 40.000 en Málaga</h1>
     <p class="lead">Club gratuito para noveles. Quedada el primer sábado de cada mes en <span class="nw">2d6 Store</span>.</p>
   </div>
-  <section>
-    <h2>Próxima quedada</h2>
-    <div id="quedada"><span class="m">Cargando...</span></div>
-  </section>
-  <section id="encuestas" hidden>
-    <h2>Encuestas abiertas</h2>
-    <div id="enc"></div>
-  </section>
+  <div class="dos">
+    <section>
+      <h2>Próxima quedada</h2>
+      <div id="quedada"><span class="m">Cargando...</span></div>
+    </section>
+    <section id="encuestas" hidden>
+      <h2>Encuestas abiertas</h2>
+      <div id="enc"></div>
+    </section>
+  </div>
   <section id="noticias" hidden>
     <h2>Noticias del club</h2>
     <div id="noticia"></div>
@@ -256,7 +261,7 @@ const fechaLarga = (d) => new Date(d + "T12:00").toLocaleDateString("es-ES", { w
 const nuevo = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 const enlaceBtn = (txt, href, cls) => { const a = nuevo("a", cls || "btn", txt); a.href = href; return a; };
 
-// Encuestas abiertas (las que puede ver cada uno; los invitados, solo las públicas): una tarjeta por encuesta con el botón para votar.
+// Encuestas abiertas (solo socios con sesión): una tarjeta por encuesta con el botón para votar.
 fetch("/api/encuestas").then((r) => (r.ok ? r.json() : null)).then((d) => {
   const abiertas = d ? d.encuestas.filter((e) => e.abierta) : [];
   if (!abiertas.length) return;
@@ -267,7 +272,7 @@ fetch("/api/encuestas").then((r) => (r.ok ? r.json() : null)).then((d) => {
     const q = nuevo("strong", "", "🗳️ " + e.pregunta); q.setAttribute("translate", "no");
     const cierre = e.cierra ? "Cierra el " + new Date(e.cierra.slice(0, 10) + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }) + " a las " + e.cierra.slice(11, 16) : "Sin fecha de cierre";
     tx.append(q, nuevo("span", "", (e.mis_votos.length ? "Ya has votado · " : "") + cierre));
-    const ver = e.mis_votos.length || !d.sesion;
+    const ver = e.mis_votos.length > 0;
     it.append(tx, enlaceBtn(ver ? "Ver" : "Votar", "/encuestas.html#e" + e.id, ver ? "btn alt" : "btn"));
     box.appendChild(it);
   });

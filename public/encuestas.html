@@ -108,11 +108,11 @@ dialog h2{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
     <span id="auth"></span>
   </div>
   <div class="cab">
-    <div><h1>Encuestas</h1><p class="lead">Las votaciones del club. Un voto por persona; puedes cambiarlo mientras la encuesta esté abierta.</p></div>
+    <div><h1>Encuestas</h1><p class="lead">Las votaciones del club. Un voto por socio; puedes cambiarlo mientras la encuesta esté abierta.</p></div>
     <button class="btn" id="bnueva" type="button" hidden>Nueva encuesta</button>
   </div>
   <div class="wrap">
-    <div class="aviso" id="sinsesion" hidden><p>Aquí solo ves las encuestas públicas. Entra con Discord para votar y ver las del club.</p><a class="btn" href="/auth/login">Entrar con Discord</a></div>
+    <div class="aviso" id="sinsesion" hidden><p>Entra con Discord para ver y votar las encuestas del club.</p><a class="btn" href="/auth/login">Entrar con Discord</a></div>
     <div id="lista"><p class="m">Cargando...</p></div>
   </div>
   <footer class="ft">
@@ -128,7 +128,7 @@ dialog h2{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
 let D = null;
-const PARA = { publico: "Pública", aspirantes: "Aspirantes y miembros", miembros: "Solo miembros" };
+const PARA = { aspirantes: "Aspirantes y miembros", miembros: "Solo miembros" };
 const fechaHora = (t) => new Date(t.slice(0, 10) + "T12:00:00Z").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) + " a las " + t.slice(11, 16);
 
 function tarjeta(e) {
@@ -212,10 +212,9 @@ function tarjeta(e) {
     });
     return w;
   };
-  if (e.abierta && !yaVote && D.sesion) c.appendChild(votar());
+  if (e.abierta && !yaVote) c.appendChild(votar());
   else {
     if (e.ver_resultados) c.appendChild(resultados());
-    else if (e.resultados === "al_votar") c.appendChild(el("p", "m", "Entra con Discord y vota para ver los resultados."));
     else c.appendChild(el("p", "m", yaVote ? "Has votado. Los resultados se verán cuando cierre la encuesta." : "Los resultados se verán cuando cierre la encuesta."));
     if (e.abierta && yaVote) {
       const acc = el("div", "acc");
@@ -259,8 +258,8 @@ function formulario(e = null) {
   const mas = el("button", "btn alt", "Añadir opción"); mas.type = "button"; mas.onclick = () => { if (ops.children.length < 12) filaOp(null); };
   wo.appendChild(mas);
   const radios = (nombre, opciones, def) => { const w = el("div", "rads"); opciones.forEach(([v, t]) => { const l = el("label"); const i = el("input"); i.type = "radio"; i.name = nombre; i.value = v; i.checked = v === def; l.append(i, t); w.appendChild(l); }); return w; };
-  campo("¿Para quién?", radios("f-para", [["publico", "Pública"], ["aspirantes", "Aspirantes y miembros"], ["miembros", "Solo miembros"]], e ? e.para : "miembros"),
-    "Pública: la ve cualquiera, pero para votar hay que entrar con Discord. «Miembros» incluye a veteranos y admin.");
+  campo("¿Para quién?", radios("f-para", [["aspirantes", "Aspirantes y miembros"], ["miembros", "Solo miembros"]], e ? e.para : "miembros"),
+    "«Miembros» incluye a veteranos y admin.");
   campo("Tipo de voto", radios("f-mult", [["0", "Una opción"], ["1", "Varias opciones"]], e && e.multiple ? "1" : "0"));
   const bloqueado = !!(e && e.votos === "secretos" && e.votantes);
   const wv = campo("Votos", radios("f-votos", [["secretos", "Secretos"], ["publicos", "Públicos"]], e ? e.votos : "secretos"),
@@ -307,6 +306,7 @@ async function carga(irA) {
   if (!r.ok) throw new Error();
   D = await r.json();
   $("sinsesion").hidden = D.sesion;
+  if (!D.sesion) { $("lista").textContent = ""; return; }
   $("bnueva").hidden = !D.admin;
   pinta();
   const id = irA ? "e" + irA : location.hash.slice(1);
