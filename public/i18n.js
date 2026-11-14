@@ -249,7 +249,7 @@
     // Galería
     "Galería": "Gallery", "Ordenar": "Sort by",
     "Fotos de los miembros del club.": "Photos by club members.",
-    "Subir fotos": "Upload photos", "Publicar": "Post", "Bendecida por el Emperador y por los Poderes Ruinosos": "Blessed by the Emperor and by the Ruinous Powers", "Fotos (hasta 10)": "Photos (up to 10)", "Pulsa para elegir fotos": "Tap to choose photos",
+    "Subir fotos": "Upload photos", "Ajustar": "Fit", "Alejar": "Zoom out", "Acercar": "Zoom in", "Publicar": "Post", "Bendecida por el Emperador y por los Poderes Ruinosos": "Blessed by the Emperor and by the Ruinous Powers", "Fotos (hasta 10)": "Photos (up to 10)", "Pulsa para elegir fotos": "Tap to choose photos",
     "Por ejemplo: mis Marines Espaciales recién pintados": "For example: my freshly painted Space Marines",
     "Solo se pueden subir 10 fotos por publicación; las demás no se han añadido.": "Only 10 photos can be uploaded per post; the rest were not added.",
     "Elige al menos una foto.": "Choose at least one photo.",

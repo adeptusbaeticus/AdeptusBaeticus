@@ -59,6 +59,12 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fil select{min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit;min-width:220px}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;z-index:50;gap:12px}
 .ov img{max-width:100%;max-height:74vh;border-radius:8px}
+/* Zoom: rueda o doble clic en el ordenador; pellizco y doble toque en el móvil; arrastrar para moverse. */
+.ov .zoom{position:relative;overflow:hidden;max-width:100%;border-radius:8px;touch-action:none;cursor:zoom-in;user-select:none;-webkit-user-select:none}
+.ov .zoom.ampliada{cursor:grab}.ov .zoom.arrastra{cursor:grabbing}
+.ov .zoom img{display:block;border-radius:0;transform-origin:0 0;will-change:transform;-webkit-user-drag:none;pointer-events:none}
+.ov .zoomb{display:flex;align-items:center;gap:8px}
+.ov .zoomb button{min-width:44px;padding:8px 12px}
 .ov .nav2{display:flex;align-items:center;gap:12px}
 .ov .cnt{color:#A8A293;font-size:14px;min-width:60px;text-align:center}
 .ov p{max-width:720px;margin:0;color:#ECE7DC;text-align:center;white-space:pre-line}
@@ -194,8 +200,95 @@ function ampliar(p, start) {
   ov.setAttribute("role", "dialog");
   ov.setAttribute("aria-modal", "true");
   const im = el("img");
+  im.draggable = false;
+  const zona = el("div", "zoom");
+  zona.appendChild(im);
   const cnt = el("span", "cnt");
+  // --- Zoom (de 1x a 5x) alrededor del punto señalado, sin que la foto se salga de su recuadro ---
+  let z = 1, tx = 0, ty = 0;
+  const MAXZ = 5;
+  const aplica = () => {
+    const w = zona.clientWidth, h = zona.clientHeight;
+    tx = Math.min(0, Math.max(w - w * z, tx));
+    ty = Math.min(0, Math.max(h - h * z, ty));
+    im.style.transform = z === 1 ? "" : `translate(${tx}px,${ty}px) scale(${z})`;
+    zona.classList.toggle("ampliada", z > 1);
+  };
+  const zoomEn = (nz, cx, cy) => {
+    nz = Math.min(MAXZ, Math.max(1, nz));
+    tx = cx - (cx - tx) * (nz / z);
+    ty = cy - (cy - ty) * (nz / z);
+    z = nz;
+    if (z === 1) { tx = 0; ty = 0; }
+    aplica();
+  };
+  const centro = () => [zona.clientWidth / 2, zona.clientHeight / 2];
+  const punto = (e) => { const r = zona.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const reinicia = () => { z = 1; tx = 0; ty = 0; aplica(); };
+  zona.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const [cx, cy] = punto(e);
+    zoomEn(z * Math.exp(-e.deltaY * 0.0015), cx, cy);
+  }, { passive: false });
+  // Doble clic (ratón). Tras un doble toque, el navegador también lanza «dblclick»: se ignora para no deshacerlo.
+  let dobleTactil = 0;
+  zona.addEventListener("dblclick", (e) => {
+    if (Date.now() - dobleTactil < 600) return;
+    const [cx, cy] = punto(e); z > 1 ? reinicia() : zoomEn(2.5, cx, cy);
+  });
+  // Dedos o ratón: uno arrastra (si hay zoom); dos pellizcan. Doble toque = acercar / volver.
+  const dedos = new Map();
+  let pinza = null, ultimoToque = 0, movido = false;
+  zona.addEventListener("pointerdown", (e) => {
+    zona.setPointerCapture(e.pointerId);
+    dedos.set(e.pointerId, [e.clientX, e.clientY]);
+    movido = false;
+    if (dedos.size === 2) {
+      const [a, b] = [...dedos.values()];
+      pinza = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z, mx: (a[0] + b[0]) / 2, my: (a[1] + b[1]) / 2 };
+    } else if (z > 1) zona.classList.add("arrastra");
+  });
+  zona.addEventListener("pointermove", (e) => {
+    if (!dedos.has(e.pointerId)) return;
+    const [px, py] = dedos.get(e.pointerId);
+    dedos.set(e.pointerId, [e.clientX, e.clientY]);
+    if (Math.abs(e.clientX - px) + Math.abs(e.clientY - py) > 2) movido = true;
+    if (dedos.size === 2 && pinza) {
+      const [a, b] = [...dedos.values()];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const r = zona.getBoundingClientRect();
+      tx += mx - pinza.mx; ty += my - pinza.my;
+      pinza.mx = mx; pinza.my = my;
+      zoomEn(pinza.z * (d / pinza.d), mx - r.left, my - r.top);
+    } else if (dedos.size === 1 && z > 1) {
+      tx += e.clientX - px; ty += e.clientY - py;
+      aplica();
+    }
+  });
+  const suelta = (e) => {
+    if (!dedos.has(e.pointerId)) return;
+    dedos.delete(e.pointerId);
+    if (dedos.size < 2) pinza = null;
+    if (!dedos.size) zona.classList.remove("arrastra");
+    // Doble toque en pantallas táctiles (en el ordenador ya está el doble clic).
+    if (e.pointerType === "touch" && !movido && !dedos.size) {
+      const ahora = Date.now();
+      if (ahora - ultimoToque < 300) { const [cx, cy] = punto(e); z > 1 ? reinicia() : zoomEn(2.5, cx, cy); ultimoToque = 0; dobleTactil = ahora; }
+      else ultimoToque = ahora;
+    }
+  };
+  zona.addEventListener("pointerup", suelta);
+  zona.addEventListener("pointercancel", suelta);
+  const menos = el("button", "", "−"), mas = el("button", "", "+"), ajusta = el("button", "", "Ajustar");
+  menos.setAttribute("aria-label", "Alejar"); mas.setAttribute("aria-label", "Acercar");
+  menos.onclick = () => zoomEn(z / 1.5, ...centro());
+  mas.onclick = () => zoomEn(z * 1.5, ...centro());
+  ajusta.onclick = reinicia;
+  const zb = el("div", "zoomb");
+  zb.append(menos, mas, ajusta);
   const show = () => {
+    reinicia();
     im.src = p.imagenes[i].url;
     im.alt = (p.texto || "Foto de " + p.autor) + (n > 1 ? " (" + (i + 1) + " de " + n + ")" : "");
     cnt.textContent = (i + 1) + " / " + n;
@@ -206,13 +299,16 @@ function ampliar(p, start) {
   const fin = () => { ov.remove(); document.removeEventListener("keydown", key); };
   const key = (e) => {
     if (e.key === "Escape") fin();
+    else if (e.key === "+" || e.key === "=") zoomEn(z * 1.5, ...centro());
+    else if (e.key === "-") zoomEn(z / 1.5, ...centro());
+    else if (e.key === "0") reinicia();
     else if (n > 1 && e.key === "ArrowLeft") go(-1);
     else if (n > 1 && e.key === "ArrowRight") go(1);
   };
   close.onclick = fin;
   ov.onclick = (e) => { if (e.target === ov) fin(); };
   document.addEventListener("keydown", key);
-  ov.append(im);
+  ov.append(zona, zb);
   if (n > 1) {
     const prev = el("button", "", "‹ Anterior");
     const next = el("button", "", "Siguiente ›");
