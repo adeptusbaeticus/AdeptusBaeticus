@@ -133,7 +133,19 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .fld label.rad .mo{margin:0 2px}
 /* Iconos de modalidad de juego (iconos-juego.js) */
 .ij{display:inline-flex;vertical-align:-2px;margin-right:4px}
-@media (min-width:601px){.e .solo-movil{display:none}}
+@media (min-width:601px){
+  .e .solo-movil{display:none}
+  /* Partida en el ordenador: icono en el tercio izquierdo; hora y organizador a la derecha */
+  .e.pt{display:grid;grid-template-columns:1fr 2fr;gap:6px;align-items:center;padding:5px 16px 5px 5px}
+  .e.pt .e-ic{display:flex;align-items:center;justify-content:center}
+  .e.pt .e-ic .ij{margin:0;width:100%;max-width:34px}
+  .e.pt .e-ic .ij svg{width:100%;height:auto;aspect-ratio:1}
+  .e.pt .e-tx{display:flex;flex-direction:column;min-width:0;line-height:1.15}
+  .e.pt .e-h{display:flex;flex-direction:column;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .e.pt .e-ini{font:800 13px Inter,sans-serif;white-space:nowrap}
+  .e.pt .e-fin{font:600 10.5px Inter,sans-serif;opacity:.7;white-space:nowrap}
+  .e.pt .e-o{font:600 11.5px Inter,sans-serif;overflow-wrap:anywhere;margin-top:2px}
+}
 @media (max-width:600px){.e .solo-pc{display:none}}
 .ij svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 #det h3 .ij{vertical-align:-3px;margin-right:6px}#det h3 .ij svg{width:22px;height:22px}
@@ -613,13 +625,23 @@ function render() {
         // Hora fijada o, si aún no la hay, la franja ofrecida ese día.
         const av = p.availability.find((x) => x.date === key);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
-        // Ordenador: icono, hora y quien organiza. Móvil: además la modalidad (en 40k, icono «40K» y los puntos).
+        // Ordenador: icono a la izquierda (un tercio) y, a la derecha, la hora destacada y quien organiza.
+        // Móvil: todo en línea y además la modalidad (en 40k, icono «40K» y los puntos).
+        const sp = (cls, txt) => { const x = document.createElement("span"); x.className = cls; if (txt != null) x.textContent = txt; return x; };
+        const ic = sp("e-ic");
         const ipc = iconoJuego(p.activity), imv = iconoJuego(es40k(p.activity) ? "40k" : p.activity);
-        if (ipc) { ipc.classList.add("solo-pc"); b.appendChild(ipc); }
-        if (imv) { imv.classList.add("solo-movil"); b.appendChild(imv); }
-        b.append((hora ? hora + " · " : ""));
-        const nm = document.createElement("span"); nm.className = "solo-movil"; nm.textContent = textoModalidad(p.activity) + " · ";
-        b.append(nm, p.organiza);
+        if (ipc) { ipc.classList.add("solo-pc"); ic.appendChild(ipc); }
+        if (imv) { imv.classList.add("solo-movil"); ic.appendChild(imv); }
+        const tx = sp("e-tx");
+        if (hora) {
+          const h = sp("e-h");
+          const [ini, fin] = hora.split("–");
+          h.appendChild(sp("e-ini", ini));
+          if (fin) h.appendChild(sp("e-fin", "–" + fin));
+          tx.append(h, sp("solo-movil", " · "));
+        }
+        tx.append(sp("solo-movil", textoModalidad(p.activity) + " · "), sp("e-o", p.organiza));
+        b.append(ic, tx);
         modosDe(p.modo).forEach((x) => modosDia.add(x));
         b.appendChild(cuadrosModo(p.modo));
         b.onclick = () => { showPartida(p); irAFicha(); };
