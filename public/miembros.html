@@ -626,6 +626,9 @@ $("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").
 carga().then(() => {
   // miembros.html#yo abre directamente tu ficha.
   if (location.hash === "#yo" && D && D.yo) { const m = D.miembros.find((x) => x.id === D.yo); if (m) ficha(m); }
+  // miembros.html#m<ID> abre la ficha de ese socio (enlace de la ficha rápida de Galería y Gran Liga).
+  const hm = /^#m(\d+)$/.exec(location.hash);
+  if (hm && D) { const m = D.miembros.find((x) => x.id === hm[1]); if (m) ficha(m); }
 }).catch(() => { $("grid").textContent = ""; $("grid").appendChild(el("p", "m", "No se pudieron cargar los miembros.")); });
 </script>
 <script src="/i18n.js"></script>

@@ -157,6 +157,7 @@
     "Falta la confirmación.": "Confirmation is missing.", "Solo para administradores": "Admins only",
     "Tu propio perfil se borra desde «Mis datos».": "Your own profile is deleted from “My details”.",
     "Editar datos y ficha": "Edit details and profile", "Borrar perfil": "Delete profile", "No se pudo borrar el perfil.": "Could not delete the profile.",
+    "Ver ficha completa →": "See full profile →", "trofeo": "trophy", "trofeos": "trophies",
     "Jugadores": "Players", "Cruces": "Pairings", "Emparejar automáticamente": "Match automatically", "Añadir jugador": "Add player",
     "Añadir": "Add", "Jugador añadido.": "Player added.", "Reemplazar": "Replace", "Jugador reemplazado.": "Player replaced.", "Jugador quitado.": "Player removed.",
     "Cuenta vinculada: con quién de la web es cada jugador. «Reemplazar»: otro jugador ocupa su sitio y se queda con sus partidas y resultados. «Quitar» solo si aún no tiene partidas.": "Linked account: who each player is on the website. “Replace”: another player takes their place and keeps their games and results. “Remove” only if they have no games yet.",
@@ -473,6 +474,7 @@
 
   // Textos con datos variables (números, nombres): patrón completo → traducción.
   const RULES = [
+    [/^Ver la ficha de ([\s\S]+)$/, "See $1's profile"],
     [/^Emparejados ahora: (\d+)$/, "Matched now: $1"],
     [/^Reemplazar a ([\s\S]+)$/, "Replace $1"],
     [/^¿Reemplazar a ([\s\S]+) por ([\s\S]*)\? El nuevo jugador se queda con sus partidas y resultados\.$/, "Replace $1 with $2? The new player keeps their games and results."],

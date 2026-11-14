@@ -1989,7 +1989,7 @@ export default {
       ).bind(...(pedida ? [pedida] : [])).first();
       if (!fase) return Response.json({ fases, fase: null }, { headers: { "cache-control": "public, max-age=120" } });
       ctx.waitUntil(ligaAuto(env, fase).catch(() => {}));
-      const jugadores = (await env.DB.prepare("SELECT id, discord, nombre FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
+      const jugadores = (await env.DB.prepare("SELECT id, discord, nombre, discord_id FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
       const partidas = (await env.DB.prepare(
         `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada,
            faccion_a, faccion_b, destac_a, destac_b, ${LIGA_LISTAS_PUBLICAS ? "(lista_a IS NOT NULL OR lista_b IS NOT NULL)" : "0"} AS listas
@@ -2368,7 +2368,7 @@ export default {
       const s = await readSession(env, request);
       // autor: el nombre más reciente de cada socio, para que el filtro por miembro no se parta si cambia de apodo.
       const { results } = await env.DB.prepare(
-        `SELECT p.id, p.numero, p.texto, p.imagenes, p.image_url, p.width, p.height, p.created_at, p.updated_at, (p.discord_id=?1) AS es_mia,
+        `SELECT p.id, p.numero, p.texto, p.imagenes, p.image_url, p.width, p.height, p.created_at, p.updated_at, (p.discord_id=?1) AS es_mia, p.discord_id AS autor_id,
            (SELECT q.autor FROM publicaciones q WHERE q.discord_id=p.discord_id ORDER BY q.id DESC LIMIT 1) AS autor,
            (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id AND b.tipo='emperador') AS emperador,
            (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id AND b.tipo='ruinosos') AS ruinosos,

@@ -180,6 +180,7 @@ html,body{overflow-x:clip}
   </footer>
 </div>
 <dialog id="dsub" aria-labelledby="dsub-t"><div id="dsubc"></div></dialog>
+<script src="/ficha-hover.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -405,7 +406,9 @@ function tarjeta(p) {
   const tx = el("div", "tx");
   if (p.texto) { const t = el("p", "", p.texto); t.setAttribute("translate", "no"); tx.appendChild(t); }
   const who = el("div", "who");
-  who.append(el("span", "", p.autor), el("span", "", fecha(p.created_at)));
+  const au = el("span", "", p.autor); au.setAttribute("translate", "no");
+  if (p.autor_id && window.abFicha) window.abFicha(au, p.autor_id); // su ficha al pasar el ratón (o tocar)
+  who.append(au, el("span", "", fecha(p.created_at)));
   tx.appendChild(who);
   const pie = el("div", "pie");
   const bl = el("div", "bl");

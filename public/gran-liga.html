@@ -205,6 +205,7 @@ tr.misl td{background:#15171A;text-align:left;white-space:normal;padding:12px}
     </nav>
   </footer>
 </div>
+<script src="/ficha-hover.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
@@ -244,6 +245,8 @@ function celdaJugador(j) {
   s.setAttribute("translate", "no");
   s.append(j.discord);
   if (j.nombre) s.append(" ", el("small", "", "(" + j.nombre + ")"));
+  // Al pasar el ratón (o tocar), su ficha de Miembros.
+  if (j.discord_id && window.abFicha) window.abFicha(s, j.discord_id);
   return s;
 }
 

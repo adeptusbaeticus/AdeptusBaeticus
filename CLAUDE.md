@@ -116,6 +116,12 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
   (migración 0030); en Miembros salen con la etiqueta «Desconectado» hasta su primer inicio de sesión, que lo pone a 1.
 
+## Ficha rápida
+
+- En Galería (autor de cada publicación) y Gran Liga (jugadores vinculados) el nombre muestra la ficha del socio al
+  pasar el ratón, con el foco del teclado o al tocarlo en el móvil (`public/ficha-hover.js`, `window.abFicha(el, id)`;
+  datos de `/api/miembros`, guardados 5 minutos en `sessionStorage`). «Ver ficha completa» abre `miembros.html#m<ID>`.
+
 ## Administración
 
 - `admin.html`: bot de Discord, FAQ, sincronización con New Recruit y socios del Excel. Los eventos se administran en
