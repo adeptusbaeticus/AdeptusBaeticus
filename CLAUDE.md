@@ -148,7 +148,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 ## Navidad y anuncios
 
 - **Efectos de Navidad:** interruptor en Admin (`/api/admin/navidad`, tabla `ajustes` clave `navidad`, migración 0033).
-  `auth.js` lee `/api/ajustes` (público, guardado 5 min en `sessionStorage`) y, si están activos, carga
+  `auth.js` lee `/api/ajustes` (público, sin caché del navegador; guardado 2 min en `sessionStorage`, y Admin guarda ahí
+  el valor nuevo al cambiarlo) y, si están activos, carga
   `public/navidad.js` (`window.abNavidad.aplica`): nieve en un lienzo fijo (z-index 35, sin clics, parada con la
   pestaña oculta, sin caída con «reducir movimiento»), nieve acumulada sobre `.slide, .marco, .mb, .card` y luces bajo
   `.nav` (dorado del Emperador y los 4 dioses del Caos: excepción a «nunca azul»). Cada socio los quita en su menú

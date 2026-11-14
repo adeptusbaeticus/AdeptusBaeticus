@@ -2693,7 +2693,7 @@ export default {
 
     // Ajustes públicos de la web (también para invitados): de momento, si están puestos los efectos de Navidad.
     if (path === "/api/ajustes" && request.method === "GET") {
-      return Response.json({ navidad: (await ajuste(env, "navidad")) === "1" }, { headers: { "cache-control": "public, max-age=60" } });
+      return Response.json({ navidad: (await ajuste(env, "navidad")) === "1" }, { headers: noStore }); // sin caché del navegador: al cambiarlo se nota en la página siguiente
     }
     // Aceptar una notificación tipo anuncio (desaparece de la servocalavera).
     const anm = path.match(/^\/api\/anuncios\/(\d+)\/acepta$/);

@@ -673,7 +673,7 @@
   }
   }
 
-  // Efectos de Navidad: los activa el admin (`/api/ajustes`, guardado 5 minutos en esta visita) y cada uno puede
+  // Efectos de Navidad: los activa el admin (`/api/ajustes`, guardado 2 minutos en esta visita) y cada uno puede
   // quitarlos para sí en su menú (se recuerda en este dispositivo). Los efectos están en /navidad.js.
   const NAV_KEY = "ab_navidad_off", AJ_KEY = "ab_ajustes";
   let navidadWeb = false;
@@ -697,7 +697,7 @@
   (function () {
     let c = null;
     try { c = JSON.parse(sessionStorage.getItem(AJ_KEY) || "null"); } catch (e) {}
-    if (c && Date.now() - c.t < 300000) return ajustes(c.d);
+    if (c && Date.now() - c.t < 120000) return ajustes(c.d);
     fetch("/api/ajustes").then((r) => (r.ok ? r.json() : null)).then((d) => {
       if (!d) return;
       try { sessionStorage.setItem(AJ_KEY, JSON.stringify({ t: Date.now(), d })); } catch (e) {}
