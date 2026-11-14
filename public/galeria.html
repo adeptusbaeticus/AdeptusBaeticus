@@ -97,12 +97,13 @@ dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
 .marco::before,.marco::after{content:"";position:absolute;pointer-events:none;z-index:0;border-radius:18px;transition:opacity .4s,filter .4s}
 /* Fuego que sube desde abajo por los lados de la tarjeta: dorado y divino a la izquierda (Emperador) y con
    los colores de los cuatro dioses del Caos a la derecha (Poderes Ruinosos). Sube más con cada bendición (1-10). */
-.aura-svg{position:absolute;top:-14px;bottom:-6px;width:40px;z-index:0;pointer-events:none;overflow:visible}
-.aura-svg.izq{left:-30px}.aura-svg.der{right:-30px}
+/* La franja se monta sobre el borde de la tarjeta: el fuego sale del propio marco, desde abajo. */
+.aura-svg{position:absolute;top:-14px;height:calc(100% + 14px);width:40px;z-index:2;pointer-events:none;overflow:visible}
+.aura-svg.izq{left:-26px}.aura-svg.der{right:-26px}
 .aura-svg .llama{transform-box:fill-box;transform-origin:50% 100%;animation:llama 1.6s ease-in-out infinite alternate}
 @keyframes llama{0%{transform:scaleY(.86) skewX(-3deg)}40%{transform:scaleY(1.04) skewX(2deg)}75%{transform:scaleY(.93) skewX(-1deg)}100%{transform:scaleY(1.08) skewX(3deg)}}
 @media (prefers-reduced-motion:reduce){.aura-svg .llama{animation:none}}
-@media (max-width:600px){.aura-svg{width:20px}.aura-svg.izq{left:-15px}.aura-svg.der{right:-15px}}
+@media (max-width:600px){.aura-svg{width:24px}.aura-svg.izq{left:-15px}.aura-svg.der{right:-15px}}
 html,body{overflow-x:clip}
 .marco::before{left:calc(-1 * var(--es));top:calc(-1 * var(--es));bottom:calc(-1 * var(--es));right:50%;
   background:linear-gradient(180deg,#F0CE82,#D9B25A 50%,#F0CE82);filter:blur(var(--eb));opacity:calc(var(--eo) * .55)}
@@ -329,9 +330,10 @@ let data = { sesion: false, publicaciones: [] };
 
 const NS_SVG = "http://www.w3.org/2000/svg";
 const svgEl = (tag, at) => { const x = document.createElementNS(NS_SVG, tag); for (const k in at) x.setAttribute(k, at[k]); return x; };
-// Colores [llama, núcleo]: dorado divino (Emperador) y los cuatro dioses del Caos: Khorne, Nurgle, Tzeentch, Slaanesh.
-const FUEGO_IMPERIAL = [["#D9A63A", "#FFF4CF"]];
-const FUEGO_CAOS = [["#B3121F", "#FF7A45"], ["#3E7A1E", "#C2EC66"], ["#1F4FB8", "#8ADCFF"], ["#6E2A9E", "#E890FF"]];
+// Colores [base oscura, llama, núcleo]: oro viejo y divino (Emperador) y los cuatro dioses del Caos, oscuros como
+// el fuego de la disformidad: Khorne (sangre), Nurgle (pútrido), Tzeentch (disformidad azul) y Slaanesh (magenta).
+const FUEGO_IMPERIAL = [["#5E3A0A", "#D9A63A", "#FFF1C4"]];
+const FUEGO_CAOS = [["#2A0303", "#9E1414", "#FF5A1F"], ["#141A05", "#5F6E17", "#BFCB4A"], ["#0B0D33", "#3438A3", "#46D2E6"], ["#22062A", "#7E2179", "#E064C8"]];
 // Lenguas de fuego (franja de 40×600, estirada a la altura de la tarjeta) que suben desde abajo; con n bendiciones
 // (1-10) el fuego llega más arriba: con 1 lame la base y con 10 alcanza la parte de arriba.
 function fuego(lado, n, colores) {
@@ -339,10 +341,10 @@ function fuego(lado, n, colores) {
   const H = 600 * (0.14 + 0.086 * n);
   const id = "f" + Math.random().toString(36).slice(2, 8);
   const defs = svgEl("defs", {});
-  colores.forEach(([c], k) => {
+  colores.forEach(([oscuro, c], k) => {
     const g = svgEl("linearGradient", { id: id + k, x1: "0", x2: "0", y1: "1", y2: "0" });
-    g.append(svgEl("stop", { offset: "0", "stop-color": c, "stop-opacity": ".95" }), svgEl("stop", { offset: ".7", "stop-color": c, "stop-opacity": ".75" }),
-      svgEl("stop", { offset: "1", "stop-color": c, "stop-opacity": ".15" }));
+    g.append(svgEl("stop", { offset: "0", "stop-color": oscuro, "stop-opacity": ".95" }), svgEl("stop", { offset: ".35", "stop-color": c, "stop-opacity": ".95" }),
+      svgEl("stop", { offset: ".8", "stop-color": c, "stop-opacity": ".6" }), svgEl("stop", { offset: "1", "stop-color": c, "stop-opacity": ".1" }));
     defs.appendChild(g);
   });
   svg.appendChild(defs);
@@ -362,16 +364,17 @@ function fuego(lado, n, colores) {
     for (let k = 1; k < P.length - 1; k++) d += "Q" + f(P[k]) + " " + f([(P[k][0] + P[k + 1][0]) / 2, (P[k][1] + P[k + 1][1]) / 2]);
     return d + "L" + f(P[P.length - 1]) + "z";
   };
-  // Lenguas de alturas distintas que se juntan abajo; la más alta, junto al borde de la tarjeta.
+  // Lenguas de alturas distintas que nacen sobre el borde de la tarjeta (x≈26 a la izquierda, x≈14 a la derecha).
   const L = lado === "izq"
-    ? [[30, 12, 1, 5, 0], [19, 11, .74, 6, 2], [9, 9, .52, 4, 4], [36, 7, .84, 4, 1], [3, 6, .32, 3, 3]]
-    : [[10, 12, 1, 5, 3], [21, 11, .74, 6, 1], [31, 9, .52, 4, 5], [4, 7, .84, 4, 2], [37, 6, .32, 3, 0]];
+    ? [[26, 11, 1, 5, 0], [16, 10, .74, 6, 2], [33, 8, .6, 4, 4], [8, 7, .45, 4, 1], [38, 5, .3, 3, 3]]
+    : [[14, 11, 1, 5, 3], [24, 10, .74, 6, 1], [7, 8, .6, 4, 5], [32, 7, .45, 4, 2], [2, 5, .3, 3, 0]];
   L.forEach(([cx, w, f, amp, fase], i) => {
-    const [c, nucleo] = colores[i % colores.length];
+    const [oscuro, c, nucleo] = colores[i % colores.length];
     const h = H * f;
     const g = svgEl("g", { class: "llama", style: `animation-delay:${-i * 0.31}s;animation-duration:${1.3 + (i % 3) * 0.3}s` });
     // Halo difuminado, llama y núcleo brillante.
-    g.appendChild(svgEl("path", { d: lengua(cx, w * 1.35, h * 1.04, amp, fase), fill: c, opacity: ".35", style: "filter:blur(3px)" }));
+    g.appendChild(svgEl("path", { d: lengua(cx, w * 1.4, h * 1.05, amp, fase), fill: oscuro, opacity: ".55", style: "filter:blur(3px)" }));
+    g.appendChild(svgEl("path", { d: lengua(cx, w * 1.2, h, amp, fase), fill: c, opacity: ".3", style: "filter:blur(5px)" }));
     g.appendChild(svgEl("path", { d: lengua(cx, w, h, amp, fase), fill: `url(#${id + (i % colores.length)})` }));
     g.appendChild(svgEl("path", { d: lengua(cx, w * .45, h * .58, amp * .6, fase), fill: nucleo, opacity: ".85" }));
     svg.appendChild(g);
