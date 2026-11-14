@@ -177,7 +177,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .mq{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;box-sizing:border-box;box-shadow:0 0 0 2px #1F2328}
 .mq.fisico{background:var(--fisico);color:var(--fisico-txt);border:1px solid var(--fisico-borde)}
 .mq.online{background:var(--online);color:var(--online-txt);border:1px solid var(--online-borde)}
-/* Físico y online: el cuadrado partido por la mitad (mesa en rojo, ordenador en verde) */
+/* Físico y online: el cuadrado partido por la mitad (mesa en hueso, ordenador en grafito) */
 .mq.ambos{background:linear-gradient(90deg,var(--fisico) 50%,var(--online) 50%);border:1px solid;border-color:var(--fisico-borde) var(--online-borde) var(--online-borde) var(--fisico-borde)}
 .mq.ambos .izq{stroke:var(--fisico-txt)}.mq.ambos .der{stroke:var(--online-txt)}
 .mq .mo{margin:0}.mq .mo svg{width:14px;height:14px;stroke-width:1.8}
@@ -394,7 +394,7 @@ function iconoModo(modo) {
 }
 // Modalidades de un evento o partida («ambos» = físico y online).
 const modosDe = (modo) => (modo === "ambos" ? ["fisico", "online"] : [modo === "online" ? "online" : "fisico"]);
-// Cuadrado de color con el icono (físico dorado, online verde Adeptus).
+// Cuadrado de color con el icono (físico en hueso, online en grafito; colores.css).
 function cuadroModo(modo) {
   const m = modo === "online" || modo === "ambos" ? modo : "fisico";
   const q = document.createElement("span");
