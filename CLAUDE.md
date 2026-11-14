@@ -191,7 +191,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 ## Gran Liga Adeptus
 
 - Edición = Fase I (ida) + Fase II (vuelta, cruces sorteados de nuevo); campeón de cada fase y global.
-  Cada fase se llama como en New Recruit: «Gran Liga 2026/27 - Fase I» (`liga_fases.nombre`; `edicion` = `2026/27`).
+  Cada fase se llama igual que su torneo en New Recruit: la actual, «Gran Liga 2026/27» (`liga_fases.nombre`; `edicion` =
+  `2026/27`).
   Todos contra todos, rondas de 2 semanas (domingo 22:00 → domingo de cierre 14:00, hora de Madrid);
   la ronda siguiente a la última es la de aplazadas.
 - **El calendario (rondas y mesas) es el del club**, no el de New Recruit: en New Recruit las partidas
