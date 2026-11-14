@@ -32,7 +32,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 
 ### Efectos de Navidad
 - Los activa y desactiva el admin con un interruptor en Admin: nieve ligera cayendo, nieve acumulada encima de las
-  tarjetas (blog, galería, miembros…) y una tira de luces bajo el menú en los colores del Emperador y de los cuatro
+  tarjetas (blog, galería, miembros, encuestas de Inicio, rondas de la liga, eventos del calendario, desplegables
+  de la FAQ y el reglamento…) y una tira de luces bajo el menú en los colores del Emperador y de los cuatro
   dioses del Caos. Todo decorativo y sin tapar nada (no recibe clics); con «reducir movimiento» no cae nieve.
 - Activados, salen a todos por defecto. Cada socio puede quitarlos (o volver a ponerlos) en su menú de usuario; se
   recuerda en ese dispositivo hasta que el admin los vuelva a activar.

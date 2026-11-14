@@ -151,7 +151,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   `auth.js` lee `/api/ajustes` (público, sin caché del navegador; guardado 2 min en `sessionStorage`, y Admin guarda ahí
   el valor nuevo al cambiarlo) y, si están activos, carga
   `public/navidad.js` (`window.abNavidad.aplica`): nieve en un lienzo fijo (z-index 35, sin clics, parada con la
-  pestaña oculta, sin caída con «reducir movimiento»), nieve acumulada sobre `.slide, .marco, .mb, .card` y luces bajo
+  pestaña oculta, sin caída con «reducir movimiento»), nieve acumulada sobre las tarjetas de `TARJETAS` (blog, galería, miembros, encuestas de Inicio, rondas, eventos del
+  calendario —fina en los del mes—, desplegables de la FAQ —en su `summary`— y el reglamento) y luces bajo
   `.nav` (dorado del Emperador y los 4 dioses del Caos: excepción a «nunca azul»). Por defecto salen a todos mientras estén
   activos; cada socio los quita en su menú (`localStorage` `ab_navidad_off` = fecha de activación `navidad_desde`: si
   el admin los vuelve a activar, le salen de nuevo).

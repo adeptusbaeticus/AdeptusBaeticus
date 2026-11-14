@@ -7,7 +7,10 @@
 (function () {
   if (window.abNavidad) return;
   const NS = "http://www.w3.org/2000/svg";
-  const TARJETAS = ".slide, .marco, .mb, .card";
+  // Tarjetas con nieve encima: blog, galería, miembros, tarjetas, encuestas de Inicio, rondas de la liga, eventos del
+  // calendario (lista y agenda; los del mes, con una capa fina), desplegables de la FAQ y el reglamento.
+  const TARJETAS = ".slide, .marco, .mb, .card, .enc-i, details.ronda, .li, .ag-i, .e, details.q, .reg";
+  const FINAS = ".e";
   // Dorado del Emperador y los cuatro dioses del Caos (rojo, verde, azul y morado: excepción a «nunca azul»).
   const LUCES = ["#F2C14E", "#E0352B", "#6DBE3A", "#4C7DF0", "#B04ADF"];
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -17,6 +20,7 @@
   css.textContent =
     ".abn-nieve{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:35}" +
     ".abn-cap{position:absolute;left:-4px;right:-4px;top:-11px;height:20px;pointer-events:none;z-index:3;line-height:0}" +
+    ".abn-cap.fina{left:-2px;right:-2px;top:-5px;height:9px}" +
     ".abn-cap svg{display:block;width:100%;height:100%;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}" +
     ".abn-luces{position:absolute;left:0;right:0;bottom:-11px;height:24px;pointer-events:none;z-index:1;line-height:0}" +
     ".abn-luces svg{display:block;width:100%;height:100%;overflow:visible}" +
@@ -115,10 +119,15 @@
   function nevar() {
     pend = 0;
     if (!activo) return;
-    document.querySelectorAll(TARJETAS).forEach((el) => {
-      if (el.querySelector(":scope > .abn-cap") || el.closest("dialog, .abf, [hidden]")) return;
+    document.querySelectorAll(TARJETAS).forEach((t) => {
+      if (t.closest("dialog, .abf, [hidden]")) return;
+      // En un desplegable la nieve va en su cabecera (lo de dentro se oculta al cerrarlo).
+      const el = t.tagName === "DETAILS" ? t.querySelector(":scope > summary") : t;
+      if (!el || el.querySelector(":scope > .abn-cap")) return;
       if (getComputedStyle(el).position === "static") { el.style.position = "relative"; el.dataset.abnPos = "1"; }
-      el.appendChild(capa());
+      const c = capa();
+      if (t.matches(FINAS)) c.classList.add("fina");
+      el.appendChild(c);
     });
   }
   const programa = () => { if (!pend) pend = requestAnimationFrame(nevar); };
