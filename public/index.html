@@ -70,6 +70,13 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 .btn.alt{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
 .btn:hover{color:#fff;filter:brightness(1.1)}.btn.alt:hover{color:#ECE7DC}
 #quedada > .m{margin:0 0 48px}
+/* Encuestas abiertas (solo socios con sesión) */
+#enc{display:grid;gap:10px;margin-bottom:48px}
+.enc-i{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #D9B25A;border-radius:12px;padding:14px 18px}
+.enc-i .tx{flex:1 1 240px;min-width:0}
+.enc-i strong{display:block;font-size:17px;overflow-wrap:anywhere}
+.enc-i span{font-size:14px;color:#A8A293}
+.enc-i .btn{margin:0}
 /* Navegador flotante de entradas (abajo a la derecha) */
 .saltos{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;gap:6px;padding:8px;background:#1F2328;border:1px solid #6B6558;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.45);transition:opacity .2s,transform .2s}
 .saltos.oculto{opacity:0;transform:translateY(12px);pointer-events:none}
@@ -137,6 +144,10 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
   <section>
     <h2>Próxima quedada</h2>
     <div id="quedada"><span class="m">Cargando...</span></div>
+  </section>
+  <section id="encuestas" hidden>
+    <h2>Encuestas abiertas</h2>
+    <div id="enc"></div>
   </section>
   <section id="noticias" hidden>
     <h2>Noticias del club</h2>
@@ -244,6 +255,24 @@ const localNow = () => { const t = new Date(); t.setMinutes(t.getMinutes() - t.g
 const fechaLarga = (d) => new Date(d + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
 const nuevo = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 const enlaceBtn = (txt, href, cls) => { const a = nuevo("a", cls || "btn", txt); a.href = href; return a; };
+
+// Encuestas abiertas (las que puede ver cada uno; los invitados, solo las públicas): una tarjeta por encuesta con el botón para votar.
+fetch("/api/encuestas").then((r) => (r.ok ? r.json() : null)).then((d) => {
+  const abiertas = d ? d.encuestas.filter((e) => e.abierta) : [];
+  if (!abiertas.length) return;
+  const box = $("enc");
+  abiertas.slice(0, 3).forEach((e) => {
+    const it = nuevo("div", "enc-i");
+    const tx = nuevo("div", "tx");
+    const q = nuevo("strong", "", "🗳️ " + e.pregunta); q.setAttribute("translate", "no");
+    const cierre = e.cierra ? "Cierra el " + new Date(e.cierra.slice(0, 10) + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }) + " a las " + e.cierra.slice(11, 16) : "Sin fecha de cierre";
+    tx.append(q, nuevo("span", "", (e.mis_votos.length ? "Ya has votado · " : "") + cierre));
+    const ver = e.mis_votos.length || !d.sesion;
+    it.append(tx, enlaceBtn(ver ? "Ver" : "Votar", "/encuestas.html#e" + e.id, ver ? "btn alt" : "btn"));
+    box.appendChild(it);
+  });
+  $("encuestas").hidden = false;
+}).catch(() => {});
 
 // Próxima quedada, con el botón para apuntarse (abre el formulario en el calendario).
 Promise.all([

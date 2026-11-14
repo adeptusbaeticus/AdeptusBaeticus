@@ -27,7 +27,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 ## Avisos
 
 - **Notificaciones en el móvil (Web Push):** cada socio las activa por dispositivo desde su menú y elige
-  tipos (`eventos`, `partidas`, `liga`, `galeria`); tabla `push_subs` (migración 0018), clave privada en el
+  tipos (`eventos`, `partidas`, `liga`, `galeria`, `encuestas`); tabla `push_subs` (migración 0018), clave privada en el
   secreto `VAPID_PRIVATE` (la pública está en `src/index.js`). Al añadir un aviso nuevo, usar `notifica()`.
 - **Discord:** recordatorios de la liga por mensaje privado y avisos de mantenimiento en
   #inner-circle-general (solo al fallar y al recuperarse).
@@ -35,6 +35,14 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   de CPU): los envíos en grupo (notificaciones y recordatorios) van a la tabla `cola_avisos` (migración 0022)
   y se envían por tandas (`procesaCola`, ~25 llamadas como máximo); el temporizador corre cada minuto y la
   vacía. No enviar en bucle a muchos destinatarios dentro de una misma petición.
+
+## Encuestas
+
+- Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí
+  mismo (migraciones 0023 y 0024). Cada encuesta es para `publico` (la ve cualquiera, votar exige sesión),
+  `aspirantes` (aspirantes y miembros) o `miembros` (miembros, veteranos y admin); cierre opcional; votos
+  `secretos` o `publicos` (los nombres solo los ven los socios con sesión, nunca los invitados) y resultados
+  `siempre`, `al_votar` o `al_cerrar`. Una encuesta con votos secretos no puede pasar a votos públicos.
 
 ## Gran Liga Adeptus
 

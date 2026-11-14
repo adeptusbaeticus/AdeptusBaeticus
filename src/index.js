@@ -610,6 +610,7 @@ const OG_PAGINAS = {
   "/gran-liga": ["Gran Liga Adeptus · Adeptus Baeticus", "Clasificación, rondas y resultados de la liga del club."],
   "/miembros": ["Miembros · Adeptus Baeticus", "Los socios del club: sus facciones, su ranking y su palmarés."],
   "/faq": ["Reglas y FAQ · Adeptus Baeticus", "El reglamento del club y las dudas más habituales."],
+  "/encuestas": ["Encuestas · Adeptus Baeticus", "Las votaciones del club."],
 };
 const escAttr = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 // Etiquetas de la vista previa de una dirección (para un evento concreto, su nombre, fecha y lugar).
@@ -648,7 +649,7 @@ async function conVistaPrevia(request, env, url, res) {
 // --- Notificaciones en el móvil (Web Push: cifrado RFC 8291 y firma VAPID RFC 8292, sin librerías) ---
 // Cada socio las activa por dispositivo y elige qué avisos quiere: eventos, partidas, liga y galería.
 const VAPID_PUBLICA = "BKqVWHJMWWkT1cSTBrnXswmQ_AfX4ErXHsl8FH144YNB8dAGFxBBZiKs_weXEa5H-NJbWJfKoi3qpeFnZnffEo8";
-const PUSH_TIPOS = ["eventos", "partidas", "liga", "galeria"];
+const PUSH_TIPOS = ["eventos", "partidas", "liga", "galeria", "encuestas"];
 const b64uDec = (t) => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)), (c) => c.charCodeAt(0));
 const b64uEnc = (b) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unir = (...ps) => { const out = new Uint8Array(ps.reduce((t, p) => t + p.length, 0)); let i = 0; for (const p of ps) { out.set(p, i); i += p.length; } return out; };
@@ -1661,6 +1662,145 @@ export default {
       if (path === "/api/push/prueba") {
         const n = await notificaAhora(env, s.id, { titulo: "Adeptus Baeticus", texto: "Las notificaciones funcionan en este dispositivo. ¡Por el Emperador!", url: "/", tag: "prueba" });
         return Response.json({ ok: n > 0, enviados: n, error: n ? undefined : "No se pudo enviar el aviso de prueba" }, { status: n ? 200 : 502, headers: noStore });
+      }
+      return new Response("No encontrado", { status: 404 });
+    }
+
+    // Encuestas del club. Cada una va dirigida a un público: «publico» (cualquiera la ve; para votar hay que
+    // entrar), «aspirantes» (aspirantes y miembros) o «miembros» (miembros, veteranos y admin). El admin las
+    // crea, edita, cierra y borra. Los nombres de quién vota qué (votos públicos) solo los ven los socios.
+    if (path === "/api/encuestas" || path.startsWith("/api/encuestas/") || path.startsWith("/api/admin/encuestas")) {
+      const s = await readSession(env, request);
+      const admin = !!s && s.role === "admin";
+      const ahora = nowLocal();
+      if (request.method !== "GET" && !sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      const err = (t, st = 400) => Response.json({ error: t }, { status: st, headers: noStore });
+      const esMiembro = !!s && ["miembro", "veterano", "admin"].includes(s.role);
+      // Públicos que puede ver (y votar, si tiene sesión) quien hace la petición.
+      const paras = !s ? ["publico"] : esMiembro ? ["publico", "aspirantes", "miembros"] : ["publico", "aspirantes"];
+      const abiertaSQL = "(cierra IS NULL OR cierra > ?2)";
+      if (path === "/api/encuestas" && request.method === "GET") {
+        const { results: es } = await env.DB.prepare(
+          `SELECT id, pregunta, descripcion, para, multiple, votos, resultados, cierra FROM encuestas
+           WHERE para IN (SELECT value FROM json_each(?1)) ORDER BY ${abiertaSQL} DESC, COALESCE(cierra, '9999') DESC, id DESC LIMIT 50`
+        ).bind(JSON.stringify(paras), ahora).all();
+        const ids = JSON.stringify(es.map((e) => e.id));
+        const [ops, votos] = await env.DB.batch([
+          env.DB.prepare("SELECT id, encuesta_id, texto FROM encuesta_opciones WHERE encuesta_id IN (SELECT value FROM json_each(?1)) ORDER BY orden, id").bind(ids),
+          env.DB.prepare("SELECT v.encuesta_id, v.opcion_id, v.discord_id, u.name FROM encuesta_votos v JOIN users u ON u.discord_id=v.discord_id WHERE v.encuesta_id IN (SELECT value FROM json_each(?1)) ORDER BY u.name COLLATE NOCASE").bind(ids),
+        ]).then((r) => r.map((x) => x.results));
+        const lista = es.map((e) => {
+          const abierta = !e.cierra || e.cierra > ahora;
+          const vs = votos.filter((v) => v.encuesta_id === e.id);
+          const misVotos = s ? vs.filter((v) => v.discord_id === s.id).map((v) => v.opcion_id) : [];
+          // Resultados: siempre, al votar o al cerrar (según la encuesta). El admin los ve siempre.
+          const ver = !abierta || admin || e.resultados === "siempre" || (e.resultados === "al_votar" && misVotos.length > 0);
+          const nombres = ver && e.votos === "publicos" && !!s;
+          return { id: e.id, pregunta: e.pregunta, descripcion: e.descripcion, para: e.para, multiple: !!e.multiple, votos: e.votos,
+            resultados: e.resultados, cierra: e.cierra, abierta, votantes: new Set(vs.map((v) => v.discord_id)).size,
+            mis_votos: misVotos, ver_resultados: ver,
+            opciones: ops.filter((o) => o.encuesta_id === e.id).map((o) => {
+              const de = vs.filter((v) => v.opcion_id === o.id);
+              return { id: o.id, texto: o.texto, votos: ver ? de.length : null, quien: nombres ? de.map((v) => v.name) : null };
+            }) };
+        });
+        return Response.json({ admin, sesion: !!s, ahora, encuestas: lista }, { headers: noStore });
+      }
+      if (!s) return err("Inicia sesión con Discord", 401);
+      const vm = path.match(/^\/api\/encuestas\/(\d+)\/votar$/);
+      if (vm && request.method === "POST") {
+        const e = await env.DB.prepare("SELECT id, para, multiple, cierra FROM encuestas WHERE id=?1").bind(vm[1]).first();
+        if (!e || !paras.includes(e.para)) return err("Esa encuesta no existe", 404);
+        if (e.cierra && e.cierra <= ahora) return err("La encuesta ya está cerrada", 409);
+        let b = {};
+        try { b = await request.json(); } catch (x) {}
+        const elegidas = Array.isArray(b.opciones) ? [...new Set(b.opciones.map(Number))] : [];
+        if (!elegidas.length) return err("Elige una opción");
+        if (!e.multiple && elegidas.length > 1) return err("Solo puedes elegir una opción");
+        const validas = (await env.DB.prepare("SELECT COUNT(*) n FROM encuesta_opciones WHERE encuesta_id=?1 AND id IN (SELECT value FROM json_each(?2))").bind(e.id, JSON.stringify(elegidas)).first()).n;
+        if (validas !== elegidas.length) return err("Opción no válida");
+        // El voto se puede cambiar mientras la encuesta esté abierta.
+        await env.DB.batch([
+          env.DB.prepare("DELETE FROM encuesta_votos WHERE encuesta_id=?1 AND discord_id=?2").bind(e.id, s.id),
+          env.DB.prepare("INSERT INTO encuesta_votos (encuesta_id, opcion_id, discord_id) SELECT ?1, value, ?2 FROM json_each(?3)").bind(e.id, s.id, JSON.stringify(elegidas)),
+        ]);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      // Admin: crear (POST), editar (PUT), cerrar ya (POST …/cerrar) y borrar (DELETE).
+      const am = path.match(/^\/api\/admin\/encuestas(?:\/(\d+)(\/cerrar)?)?$/);
+      if (am) {
+        if (!admin) return new Response("Prohibido", { status: 403 });
+        if (am[1] && am[2] && request.method === "POST") {
+          const r = await env.DB.prepare("UPDATE encuestas SET cierra=?2 WHERE id=?1 AND (cierra IS NULL OR cierra > ?2)").bind(am[1], ahora).run();
+          if (!r.meta.changes) return err("La encuesta ya está cerrada", 409);
+          return Response.json({ ok: true }, { headers: noStore });
+        }
+        if (am[1] && !am[2] && request.method === "DELETE") {
+          await env.DB.batch([
+            env.DB.prepare("DELETE FROM encuesta_votos WHERE encuesta_id=?1").bind(am[1]),
+            env.DB.prepare("DELETE FROM encuesta_opciones WHERE encuesta_id=?1").bind(am[1]),
+            env.DB.prepare("DELETE FROM encuestas WHERE id=?1").bind(am[1]),
+          ]);
+          return Response.json({ ok: true }, { headers: noStore });
+        }
+        if (!am[2] && ((!am[1] && request.method === "POST") || (am[1] && request.method === "PUT"))) {
+          let b = {};
+          try { b = await request.json(); } catch (x) {}
+          const pregunta = String(b.pregunta || "").trim().slice(0, 200);
+          const descripcion = String(b.descripcion || "").trim().slice(0, 1000) || null;
+          const cierra = b.cierra ? String(b.cierra) : null;
+          const para = ["publico", "aspirantes", "miembros"].includes(b.para) ? b.para : "miembros";
+          const votosTipo = b.votos === "publicos" ? "publicos" : "secretos";
+          const resultados = ["siempre", "al_votar", "al_cerrar"].includes(b.resultados) ? b.resultados : "al_votar";
+          // Opciones: [{id?, texto}] — con id, se conserva (y sus votos); sin id, es nueva.
+          const ops = (Array.isArray(b.opciones) ? b.opciones : []).map((o) => ({ id: Number(o && o.id) || null, texto: String((o && o.texto) || "").trim().slice(0, 120) })).filter((o) => o.texto);
+          if (pregunta.length < 3) return err("Escribe la pregunta");
+          if (ops.length < 2 || ops.length > 12) return err("Pon entre 2 y 12 opciones");
+          if (new Set(ops.map((o) => o.texto.toLowerCase())).size !== ops.length) return err("Hay opciones repetidas");
+          if (cierra && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(cierra)) return err("La fecha de cierre no es válida");
+          if (!am[1] && cierra && cierra <= ahora) return err("La fecha de cierre ya ha pasado");
+          let eid;
+          if (am[1]) {
+            eid = Number(am[1]);
+            const ant = await env.DB.prepare("SELECT votos, (SELECT COUNT(*) FROM encuesta_votos WHERE encuesta_id=?1) n FROM encuestas WHERE id=?1").bind(eid).first();
+            if (!ant) return err("Esa encuesta no existe", 404);
+            // Quien votó en secreto no puede quedar a la vista después.
+            if (ant.votos === "secretos" && votosTipo === "publicos" && ant.n > 0) return err("Esta encuesta ya tiene votos secretos: no se puede pasar a votos públicos");
+            await env.DB.prepare("UPDATE encuestas SET pregunta=?2, descripcion=?3, para=?4, multiple=?5, votos=?6, resultados=?7, cierra=?8 WHERE id=?1")
+              .bind(eid, pregunta, descripcion, para, b.multiple ? 1 : 0, votosTipo, resultados, cierra).run();
+            const actuales = (await env.DB.prepare("SELECT id FROM encuesta_opciones WHERE encuesta_id=?1").bind(eid).all()).results.map((x) => x.id);
+            const quedan = ops.filter((o) => o.id && actuales.includes(o.id));
+            const quitar = actuales.filter((id) => !quedan.some((o) => o.id === id));
+            const st = [];
+            if (quitar.length) {
+              st.push(env.DB.prepare("DELETE FROM encuesta_votos WHERE opcion_id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(quitar)));
+              st.push(env.DB.prepare("DELETE FROM encuesta_opciones WHERE id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(quitar)));
+            }
+            ops.forEach((o, i) => st.push(o.id && actuales.includes(o.id)
+              ? env.DB.prepare("UPDATE encuesta_opciones SET texto=?2, orden=?3 WHERE id=?1").bind(o.id, o.texto, i)
+              : env.DB.prepare("INSERT INTO encuesta_opciones (encuesta_id, texto, orden) VALUES (?1, ?2, ?3)").bind(eid, o.texto, i)));
+            // Si deja de ser de varias opciones, cada socio conserva solo uno de sus votos.
+            if (!b.multiple) st.push(env.DB.prepare(
+              `DELETE FROM encuesta_votos WHERE encuesta_id=?1 AND rowid NOT IN (SELECT MIN(rowid) FROM encuesta_votos WHERE encuesta_id=?1 GROUP BY discord_id)`
+            ).bind(eid));
+            // Si pasa a ser solo de miembros, se quitan los votos de quien ya no puede votar.
+            if (para === "miembros") st.push(env.DB.prepare(
+              "DELETE FROM encuesta_votos WHERE encuesta_id=?1 AND discord_id NOT IN (SELECT discord_id FROM users WHERE role IN ('miembro','veterano','admin'))"
+            ).bind(eid));
+            await env.DB.batch(st);
+          } else {
+            const r = await env.DB.prepare("INSERT INTO encuestas (pregunta, descripcion, para, multiple, votos, resultados, cierra, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+              .bind(pregunta, descripcion, para, b.multiple ? 1 : 0, votosTipo, resultados, cierra, s.id).run();
+            eid = r.meta.last_row_id;
+            await env.DB.batch(ops.map((o, i) => env.DB.prepare("INSERT INTO encuesta_opciones (encuesta_id, texto, orden) VALUES (?1, ?2, ?3)").bind(eid, o.texto, i)));
+            // Aviso solo a quien puede votarla.
+            const a = para === "miembros"
+              ? (await env.DB.prepare("SELECT discord_id FROM users WHERE role IN ('miembro','veterano','admin')").all()).results.map((x) => x.discord_id)
+              : null;
+            ctx.waitUntil(notifica(env, { tipo: "encuestas", a, excepto: s.id, titulo: "Nueva encuesta del club", texto: pregunta + (cierra ? " · Cierra el " + fechaCorta(cierra) : ""), url: "/encuestas.html#e" + eid }).catch(() => {}));
+          }
+          return Response.json({ ok: true, id: eid }, { headers: noStore });
+        }
       }
       return new Response("No encontrado", { status: 404 });
     }

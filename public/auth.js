@@ -67,7 +67,7 @@
   };
   // --- Notificaciones en el móvil: activar en este dispositivo y elegir los avisos ---
   const TIPOS_AVISO = [["eventos", "Nuevas quedadas y torneos"], ["partidas", "Mis partidas (alguien se une o se completa)"],
-    ["liga", "Gran Liga (tu partida de cada ronda y recordatorio)"], ["galeria", "Fotos nuevas en la galería"]];
+    ["liga", "Gran Liga (tu partida de cada ronda y recordatorio)"], ["galeria", "Fotos nuevas en la galería"], ["encuestas", "Nuevas encuestas del club"]];
   const b64aBytes = (t) => Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)), (c) => c.charCodeAt(0));
   async function dialogoAvisos() {
     const ov = document.createElement("div");
@@ -381,6 +381,7 @@
       return a;
     };
     item("/miembros.html#yo", "Mi ficha");
+    item("/encuestas.html", "Encuestas");
     item("#", "Notificaciones").addEventListener("click", (e) => { e.preventDefault(); abre(false); dialogoAvisos(); });
     item("/mis-inscripciones.html", "Mis inscripciones");
     if (me.role === "admin") item("/admin.html", "Admin");
