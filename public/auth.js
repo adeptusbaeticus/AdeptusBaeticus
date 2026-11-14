@@ -580,17 +580,6 @@
     item("#", "Notificaciones").addEventListener("click", (e) => { e.preventDefault(); abre(false); dialogoAvisos(); });
     item("/mis-inscripciones.html", "Mis inscripciones");
     if (me.role === "admin") item("/admin.html", "Admin");
-    if (navidadWeb) {
-      const nv = item("#", navidadPropia() ? "Quitar efectos de Navidad" : "Poner efectos de Navidad");
-      nv.addEventListener("click", (e) => {
-        e.preventDefault();
-        const si = !navidadPropia();
-        try { if (si) localStorage.removeItem(NAV_KEY); else localStorage.setItem(NAV_KEY, navidadDesde || "1"); } catch (er) {}
-        aplicaNavidad();
-        nv.textContent = si ? "Quitar efectos de Navidad" : "Poner efectos de Navidad";
-        abre(false);
-      });
-    }
     const recarga = () => { try { sessionStorage.removeItem(KEY); } catch (e) {} location.reload(); };
     if (me.ver_como) {
       // Volver a la cuenta del admin.
@@ -673,28 +662,23 @@
   }
   }
 
-  // Efectos de Navidad: los activa el admin (`/api/ajustes`, guardado 2 minutos en esta visita) y cada uno puede
-  // quitarlos para sí en su menú (se recuerda en este dispositivo). Los efectos están en /navidad.js.
-  const NAV_KEY = "ab_navidad_off", AJ_KEY = "ab_ajustes";
-  let navidadWeb = false, navidadDesde = "";
-  // Quitados por el socio solo para la activación actual (se guarda la fecha de activación): si el admin los vuelve
-  // a activar otro año, le salen de nuevo.
-  const navidadPropia = () => { try { const v = localStorage.getItem(NAV_KEY); return !v || v !== (navidadDesde || "1"); } catch (e) { return true; } };
+  // Efectos de Navidad: los activa y quita el admin, iguales para todos (`/api/ajustes`, guardado 2 minutos en esta
+  // visita). Los efectos están en /navidad.js.
+  const AJ_KEY = "ab_ajustes";
+  let navidadWeb = false;
+  try { localStorage.removeItem("ab_navidad_off"); } catch (e) {} // de cuando cada uno podía quitarlos
   function aplicaNavidad() {
-    const si = navidadWeb && navidadPropia();
-    if (window.abNavidad) return window.abNavidad.aplica(si);
-    if (!si) return;
+    if (window.abNavidad) return window.abNavidad.aplica(navidadWeb);
+    if (!navidadWeb) return;
     const sc = document.createElement("script");
     sc.src = "/navidad.js";
-    sc.onload = () => { if (window.abNavidad) window.abNavidad.aplica(navidadWeb && navidadPropia()); };
+    sc.onload = () => { if (window.abNavidad) window.abNavidad.aplica(navidadWeb); };
     document.head.appendChild(sc);
   }
   function ajustes(d) {
     const antes = navidadWeb;
     navidadWeb = !!(d && d.navidad);
-    navidadDesde = (d && d.desde) || "";
-    aplicaNavidad();
-    if (antes !== navidadWeb && ultimoMe && !ultimoMe.invitado) pinta(ultimoMe);
+    if (antes !== navidadWeb) aplicaNavidad();
   }
   window.abAjustes = ajustes; // Admin lo llama al cambiar el interruptor, para verlo al momento.
   (function () {

@@ -27,18 +27,15 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - Muestra un número con lo que tienes pendiente: anuncios, encuestas sin votar y el aviso de datos.
 - Al pulsarla se despliega la lista: los anuncios, «Completa tus datos de socio», las encuestas abiertas (votada o
   pendiente) y «Ver todas las encuestas».
-- **Notificaciones tipo anuncio:** un mensaje del club que se queda arriba en la lista hasta que pulsas «Aceptar». La
-  lista se abre sola la primera vez que lo ves en cada visita. (De momento, el anuncio de los efectos de Navidad.)
+- **Notificaciones tipo anuncio** (preparadas para futuros avisos del club): un mensaje que se queda arriba en la lista
+  hasta que pulsas «Aceptar». La lista se abre sola la primera vez que lo ves en cada visita.
 
 ### Efectos de Navidad
 - Los activa y desactiva el admin con un interruptor en Admin: nieve ligera cayendo, nieve acumulada encima de las
   tarjetas (blog, galería, miembros, encuestas de Inicio, rondas de la liga, eventos del calendario, desplegables
   de la FAQ y el reglamento…) y una tira de luces bajo el menú en los colores del Emperador y de los cuatro
   dioses del Caos. Todo decorativo y sin tapar nada (no recibe clics); con «reducir movimiento» no cae nieve.
-- Activados, salen a todos por defecto. Cada socio puede quitarlos (o volver a ponerlos) en su menú de usuario; se
-  recuerda en ese dispositivo hasta que el admin los vuelva a activar.
-- Al activarlos, cada socio recibe un anuncio en la servocalavera (si no tiene ya uno sin aceptar); al desactivarlos se
-  retiran los que nadie ha aceptado.
+- Iguales para todos mientras estén activados (nadie puede quitarlos para sí). No se envía ningún aviso.
 
 ### Idiomas
 - Toda la web en **español e inglés**, con las banderas de la cabecera. La elección se recuerda en el navegador.
@@ -276,7 +273,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Página Admin:**
   - **Bot de Discord:** estado y registro de los comandos (`/publicar`, `/editar`, `/borrar`, `/añadir-post`,
     `/editar-post`, `/borrar-post`).
-  - **Efectos de Navidad:** interruptor (envía el anuncio a todos al activarlos).
+  - **Efectos de Navidad:** interruptor, para todos por igual.
   - **FAQ:** estado y «Actualizar FAQ desde Discord».
   - **New Recruit:** estado de la copia local y sincronización manual del torneo y de los resultados, con 15 minutos
     de espera mínima.

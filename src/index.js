@@ -611,11 +611,6 @@ async function anunciosDe(env, id) {
     return (await env.DB.prepare("SELECT id, tipo, titulo, texto FROM anuncios WHERE discord_id=?1 AND aceptado IS NULL ORDER BY id").bind(id).all()).results;
   } catch (e) { return []; }
 }
-const ANUNCIO_NAVIDAD = {
-  titulo: "¡Llega la Navidad a la web!",
-  texto: "Hemos encendido los efectos de Navidad: nieve ligera y luces en los colores del Emperador y del Caos. " +
-    "Si prefieres no verlos, desactívalos en tu menú de usuario («Quitar efectos de Navidad»).",
-};
 
 // Borra por completo el perfil de un socio en la web: ficha, datos de inscripción, inscripciones, partidas que creó,
 // votos, bendiciones, trofeos, notificaciones… y quita su vínculo con la liga. Las fotos de la galería y los posts se
@@ -2694,7 +2689,7 @@ export default {
     // Ajustes públicos de la web (también para invitados): de momento, si están puestos los efectos de Navidad.
     if (path === "/api/ajustes" && request.method === "GET") {
       // `desde`: cuándo se activó; quien los quitó en una activación anterior los vuelve a ver al activarse de nuevo.
-      return Response.json({ navidad: (await ajuste(env, "navidad")) === "1", desde: await ajuste(env, "navidad_desde") }, { headers: noStore }); // sin caché del navegador
+      return Response.json({ navidad: (await ajuste(env, "navidad")) === "1" }, { headers: noStore }); // sin caché del navegador
     }
     // Aceptar una notificación tipo anuncio (desaparece de la servocalavera).
     const anm = path.match(/^\/api\/anuncios\/(\d+)\/acepta$/);
@@ -2704,8 +2699,7 @@ export default {
       await env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE id=?1 AND discord_id=?2 AND aceptado IS NULL").bind(Number(anm[1]), s.id).run();
       return Response.json({ ok: true }, { headers: noStore });
     }
-    // Efectos de Navidad (solo admin). Al activarlos, cada socio recibe el anuncio si no tiene ya uno sin aceptar;
-    // al quitarlos, se retiran los anuncios de Navidad que nadie ha aceptado todavía.
+    // Efectos de Navidad (solo admin): iguales para todos mientras estén activados (nadie puede quitarlos para sí).
     if (path === "/api/admin/navidad") {
       const s = await readSession(env, request);
       if (!s || s.role !== "admin") return Response.json({ error: "Solo para administradores" }, { status: 403, headers: noStore });
@@ -2715,11 +2709,7 @@ export default {
       const b = await request.json().catch(() => ({}));
       const activo = b.activo === true;
       await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('navidad', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(activo ? "1" : "0").run();
-      if (activo) await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('navidad_desde', datetime('now')) ON CONFLICT(clave) DO UPDATE SET valor=datetime('now')").run();
-      let enviados = 0;
-      if (activo) enviados = await anunciaATodos(env, "navidad", ANUNCIO_NAVIDAD.titulo, ANUNCIO_NAVIDAD.texto);
-      else await env.DB.prepare("DELETE FROM anuncios WHERE tipo='navidad' AND aceptado IS NULL").run();
-      return Response.json({ ok: true, navidad: activo, desde: await ajuste(env, "navidad_desde"), enviados }, { headers: noStore });
+      return Response.json({ ok: true, navidad: activo }, { headers: noStore });
     }
 
     if (path === "/api/me") {

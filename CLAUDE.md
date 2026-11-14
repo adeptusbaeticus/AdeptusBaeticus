@@ -147,20 +147,18 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 
 ## Navidad y anuncios
 
-- **Efectos de Navidad:** interruptor en Admin (`/api/admin/navidad`, tabla `ajustes` clave `navidad`, migración 0033).
+- **Efectos de Navidad:** interruptor en Admin (`/api/admin/navidad`, tabla `ajustes` clave `navidad`, migración 0033),
+  iguales para todos: nadie puede quitarlos para sí y no se envía ningún anuncio.
   `auth.js` lee `/api/ajustes` (público, sin caché del navegador; guardado 2 min en `sessionStorage`, y Admin guarda ahí
-  el valor nuevo al cambiarlo) y, si están activos, carga
-  `public/navidad.js` (`window.abNavidad.aplica`): nieve en un lienzo fijo (z-index 35, sin clics, parada con la
-  pestaña oculta, sin caída con «reducir movimiento»), nieve acumulada sobre las tarjetas de `TARJETAS` (blog, galería, miembros, encuestas de Inicio, rondas, eventos del
-  calendario —fina en los del mes—, desplegables de la FAQ —en su `summary`— y el reglamento) y luces bajo
-  `.nav` (dorado del Emperador y los 4 dioses del Caos: excepción a «nunca azul»). Por defecto salen a todos mientras estén
-  activos; cada socio los quita en su menú (`localStorage` `ab_navidad_off` = fecha de activación `navidad_desde`: si
-  el admin los vuelve a activar, le salen de nuevo).
-- **Notificaciones tipo anuncio:** tabla `anuncios` (migración 0033), una fila por socio; salen arriba en la
-  servocalavera (`me.anuncios` en `/api/me`) hasta que pulsa «Aceptar» (`/api/anuncios/:id/acepta`). La lista se abre
-  sola una vez por visita. Para enviar uno a todos: `anunciaATodos(env, tipo, titulo, texto)` (una sola consulta; no
-  duplica si ya tiene uno de ese tipo sin aceptar). Al activar la Navidad se envía `ANUNCIO_NAVIDAD`; al desactivarla
-  se borran los no aceptados. El texto del anuncio se traduce en `i18n.js` (`EXACT`).
+  el valor nuevo al cambiarlo) y, si están activos, carga `public/navidad.js` (`window.abNavidad.aplica`): nieve en un
+  lienzo fijo (z-index 35, sin clics, parada con la pestaña oculta, sin caída con «reducir movimiento»), nieve acumulada
+  sobre las tarjetas de `TARJETAS` (blog, galería —bajo los sellos—, miembros, encuestas de Inicio, rondas, eventos del
+  calendario —fina en los del mes—, desplegables de la FAQ —en su `summary`— y el reglamento) y luces bajo `.nav`
+  (dorado del Emperador y los 4 dioses del Caos: excepción a «nunca azul»).
+- **Notificaciones tipo anuncio** (preparadas, sin uso ahora): tabla `anuncios` (migración 0033), una fila por socio;
+  salen arriba en la servocalavera (`me.anuncios` en `/api/me`) hasta que pulsa «Aceptar» (`/api/anuncios/:id/acepta`).
+  La lista se abre sola una vez por visita. Para enviar uno a todos: `anunciaATodos(env, tipo, titulo, texto)` (una
+  sola consulta; no duplica si ya tiene uno de ese tipo sin aceptar). Traducir su texto en `i18n.js` (`EXACT`).
 
 ## Encuestas
 

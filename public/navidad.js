@@ -1,4 +1,4 @@
-// Efectos de Navidad (los activa el admin; cada socio puede quitarlos en su menú, se recuerda en este dispositivo):
+// Efectos de Navidad (los activa y quita el admin en Admin; iguales para todos):
 // - nieve ligera cayendo (un lienzo fijo que no recibe clics; se para con la pestaña oculta y no sale con «reducir
 //   movimiento»);
 // - nieve acumulada encima de las tarjetas (entradas del blog, publicaciones de la galería, fichas de miembros…);
