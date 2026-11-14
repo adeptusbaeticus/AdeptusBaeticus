@@ -103,7 +103,6 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
 .ed input[type=checkbox]{width:18px;height:18px;accent-color:#D9B25A}
 .err{color:#F0A39E;font-size:14px;min-height:20px;margin-top:10px}
 .aviso-ok{color:#C3CAA6;font-size:14px;margin:0 0 10px}
-.ed .btn.steam{margin-top:8px;background:var(--online,#2A2D33);color:var(--online-txt,#E6DCC3);border:1px solid var(--online-borde,#8A8F98)}
 .ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:32px;color:#A8A293;font-size:14px}
 .ftl{display:flex;gap:20px;flex-wrap:wrap}
 .ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
@@ -444,18 +443,8 @@ function editar(m) {
     return i;
   };
   const ig = campo("e-ig", "Instagram (opcional)", m.instagram, "Tu usuario o el enlace a tu perfil.", "@usuario");
-  const propia = m.id === D.yo;
-  const st = campo("e-st", "Steam (opcional)", m.steam, propia ? "Conéctala con Steam o escribe tu nombre de perfil o el enlace." : "Su nombre de perfil o el enlace a su perfil de Steam.");
+  const st = campo("e-st", "Steam (opcional)", m.steam, "Su ID de Steam (17 cifras), el enlace a su perfil o su nombre de perfil.", "76561198012345678");
   const err = el("div", "err"); err.setAttribute("role", "alert");
-  if (propia) {
-    // «Conectar con Steam»: guarda primero lo que haya cambiado y vuelve con la cuenta verificada.
-    const cs = el("button", "btn steam", "Conectar con Steam"); cs.type = "button";
-    cs.onclick = async () => {
-      if (!(await guarda())) return;
-      location.href = "/auth/steam?para=ficha";
-    };
-    f.appendChild(cs);
-  }
   const nr = campo("e-nr", "New Recruit (opcional)", m.nr, "Tu usuario de New Recruit (se usa para la Gran Liga).");
   const bc = campo("e-bc", "BCP (Best Coast Pairings) (opcional)", m.bcp, "Tu nombre en BCP.");
   const acc = el("div", "acc");
@@ -619,14 +608,6 @@ $("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").
 carga().then(() => {
   // miembros.html#yo abre directamente tu ficha.
   if (location.hash === "#yo" && D && D.yo) { const m = D.miembros.find((x) => x.id === D.yo); if (m) ficha(m); }
-  // Vuelta de «Conectar con Steam»: aviso en la ficha.
-  const vs = new URLSearchParams(location.search).get("steam");
-  if (vs && $("dlg").open) {
-    const av = el("p", vs === "ok" ? "aviso-ok" : "err", vs === "ok" ? "✓ Cuenta de Steam conectada." : "No se pudo conectar la cuenta de Steam. Inténtalo de nuevo.");
-    av.setAttribute("role", "status");
-    $("fi").prepend(av);
-  }
-  if (vs) history.replaceState(null, "", location.pathname + location.hash);
 }).catch(() => { $("grid").textContent = ""; $("grid").appendChild(el("p", "m", "No se pudieron cargar los miembros.")); });
 </script>
 <script src="/i18n.js"></script>

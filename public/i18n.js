@@ -141,6 +141,8 @@
     "Tus datos de socio": "Your member details", "Tu ficha en Miembros (la ven los socios)": "Your Members profile (members can see it)",
     "Todo opcional.": "All optional.",
     "Tus datos y tu ficha de Miembros están al día.": "Your details and your Members profile are up to date.", "Ver mi ficha": "See my profile",
+    "Se recomienda tu ID de Steam (17 cifras), que no cambia aunque cambies de nombre. Para verlo: en Steam, pulsa tu nombre (arriba a la derecha) → «Detalles de la cuenta»; debajo del título aparece «ID de Steam: 76561198012345678». También vale el enlace a tu perfil o tu nombre de perfil.": "Your Steam ID (17 digits) is recommended, as it does not change even if you change your name. To find it: in Steam, click your name (top right) → “Account details”; under the title you will see “Steam ID: 76561198012345678”. A link to your profile or your profile name also works.",
+    "Su ID de Steam (17 cifras), el enlace a su perfil o su nombre de perfil.": "Their Steam ID (17 digits), a link to their profile or their profile name.",
     "Completa tus datos de socio": "Complete your member details", "Faltan datos obligatorios": "Required details missing",
     "Completa tus datos": "Complete your details", "Tus datos": "Your details", "Guardar mis datos": "Save my details",
     "Antes de seguir usando la web, revisa tus datos de socio y completa lo que falte. Solo tendrás que hacerlo una vez.": "Before you keep using the website, check your member details and fill in anything missing. You only have to do this once.",

@@ -67,12 +67,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   (`/auth/registro`, mismo callback que el login, scope `identify guilds.join`; si ya tiene rol del club se le avisa)
   y rellena: nombre, correo, teléfono (WhatsApp), mayor de edad, intereses (opcional), experiencia de juego y de
   pintura, cómo nos conoció (opcional), estatutos y consentimiento. Tabla `solicitudes` (migración 0028).
-- Steam (opcional) se conecta con OpenID de Steam (`/auth/steam` → `/auth/steam/vuelta`, se verifica con
-  `check_authentication`; el nombre sale del perfil público en XML) y queda en una cookie firmada (`ab_steam`, 1 h);
-  el servidor solo acepta la cuenta de esa cookie, nunca del formulario. Columna `steam` (migración 0029); al
-  aprobarse, en su primer inicio de sesión pasa a `users.steam` si estaba vacío. En Miembros, al editar su propia
-  ficha, el socio también puede «Conectar con Steam» (`/auth/steam?para=ficha`, con sesión; se guarda la dirección
-  personalizada del perfil o el SteamID64) o escribirlo a mano; todas las cuentas de la ficha son opcionales.
+- Steam (opcional) lo escribe cada uno a mano (sin iniciar sesión con Steam; se quitó el OpenID): se recomienda el
+  ID de Steam de 17 cifras (Steam → tu nombre → «Detalles de la cuenta»), aunque vale el enlace o el nombre de perfil
+  (`cuentaLimpia`). No se puede verificar. En la inscripción va a `solicitudes.steam` (migración 0029) y, al aprobarse,
+  en su primer inicio de sesión pasa a `users.steam` si estaba vacío; luego se edita en «Mis datos».
 - Al enviar, el bot mete al aspirante en el servidor con el rol «Externo» (se busca por su nombre; no ve nada en
   Discord y en la web sigue siendo invitado) y publica la solicitud en #inner-circle-general con «Aprobar»/«Rechazar»
   (solo admins, interacción `insc:`, `decideInscripcion`): al aprobar se le quita Externo y se le da Aspirante; al

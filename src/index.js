@@ -2123,22 +2123,17 @@ export default {
     }
 
     // Inscripción al club (formulario de inscripcion.html): GET estado, POST enviar, POST /salir (cambiar de cuenta).
-    if (path === "/api/inscripcion" || path === "/api/inscripcion/salir" || path === "/api/inscripcion/sin-steam") {
+    if (path === "/api/inscripcion" || path === "/api/inscripcion/salir") {
       const reg = await leeReg(env, request);
-      const stm = await leeReg(env, request, "ab_steam");
       const err = (t, st = 400) => Response.json({ error: t }, { status: st, headers: noStore });
       if (request.method !== "GET" && !sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
-      if (path === "/api/inscripcion/sin-steam" && request.method === "POST") {
-        return Response.json({ ok: true }, { headers: { ...noStore, "set-cookie": "ab_steam=; Path=/; Max-Age=0" } });
-      }
       if (path === "/api/inscripcion/salir" && request.method === "POST") {
         return Response.json({ ok: true }, { headers: { ...noStore, "set-cookie": `${COOKIE_REG}=; Path=/; Max-Age=0` } });
       }
       if (request.method === "GET") {
-        const steamInfo = stm ? { id: stm.id, nombre: stm.nombre } : null;
-        if (!reg) return Response.json({ conectado: false, steam: steamInfo }, { headers: noStore });
+        if (!reg) return Response.json({ conectado: false }, { headers: noStore });
         const p = await env.DB.prepare("SELECT 1 FROM solicitudes WHERE discord_id=?1 AND estado='pendiente'").bind(reg.id).first();
-        return Response.json({ conectado: true, usuario: reg.usuario, nombre: reg.nombre, id: reg.id, avatar: reg.avatar, pendiente: !!p, steam: steamInfo }, { headers: noStore });
+        return Response.json({ conectado: true, usuario: reg.usuario, nombre: reg.nombre, id: reg.id, avatar: reg.avatar, pendiente: !!p }, { headers: noStore });
       }
       if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
       if (!reg) return err("Conecta tu cuenta de Discord para enviar la inscripción.", 401);
@@ -2148,7 +2143,9 @@ export default {
       if (v.error) return err(v.error);
       const { nombre, email, telefono } = v, juegos = v.juegosLista, comoTexto = v.como;
       // Steam: solo la cuenta conectada con «Conectar con Steam» (verificada), nunca escrita a mano.
-      const steam = stm ? stm.id : null;
+      // Steam (opcional): lo escribe el aspirante (mejor su ID de Steam); no se puede verificar.
+      const [steam, errSteam] = cuentaLimpia("steam", b.steam);
+      if (errSteam) return err(errSteam);
       let id;
       try {
         const r = await env.DB.prepare(
@@ -2164,7 +2161,7 @@ export default {
       }
       // Aviso a los admins en #inner-circle-general con los botones para aprobar o rechazar.
       let texto = [`📝 **Nueva solicitud de inscripción** (n.º ${id})`, `**Nombre:** ${nombre}`, `**Discord:** <@${reg.id}> (${reg.usuario})`,
-        `**Correo:** ${email}`, `**Teléfono (WhatsApp):** ${telefono}`, `**Steam:** ${stm ? stm.nombre + " (https://steamcommunity.com/profiles/" + stm.id + ")" : "—"}`, `**Mayor de edad:** ${b.mayor_edad === "si" ? "Sí" : "No"}`,
+        `**Correo:** ${email}`, `**Teléfono (WhatsApp):** ${telefono}`, `**Steam:** ${steam ? steam + " (https://steamcommunity.com/" + (/^\d{17}$/.test(steam) ? "profiles/" : "id/") + steam + ")" : "—"}`, `**Mayor de edad:** ${b.mayor_edad === "si" ? "Sí" : "No"}`,
         `**Le interesa:** ${juegos.length ? juegos.map((x) => INSC_JUEGOS[x]).join(", ") : "—"}`,
         `**Experiencia de juego:** ${INSC_EXP_JUEGO[b.experiencia_juego]}`, `**Experiencia de pintura:** ${INSC_EXP_PINTURA[b.experiencia_pintura]}`,
         `**Nos conoció por:** ${comoTexto || "—"}`].join("\n");
@@ -2186,7 +2183,6 @@ export default {
       })());
       const hs = new Headers(noStore);
       hs.append("set-cookie", `${COOKIE_REG}=; Path=/; Max-Age=0`);
-      hs.append("set-cookie", "ab_steam=; Path=/; Max-Age=0");
       return Response.json({ ok: true }, { headers: hs });
     }
 
@@ -2495,58 +2491,6 @@ export default {
       return new Response(null, { status: 302, headers: {
         location: "https://discord.com/oauth2/authorize?" + p,
         "set-cookie": `ab_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600` } });
-    }
-
-    // Steam («Iniciar sesión a través de Steam», OpenID 2.0) para la inscripción: solo sirve para conocer la cuenta
-    // verificada (SteamID64) y el nombre de su perfil público. No necesita clave.
-    // Con ?para=ficha, el socio conecta su Steam a su ficha de Miembros (necesita sesión).
-    if (path === "/auth/steam") {
-      const paraFicha = url.searchParams.get("para") === "ficha";
-      if (paraFicha && !(await readSession(env, request))) return Response.redirect(url.origin + "/auth/login", 302);
-      const n = (paraFicha ? "f." : "") + crypto.randomUUID();
-      const p = new URLSearchParams({ "openid.ns": "http://specs.openid.net/auth/2.0", "openid.mode": "checkid_setup",
-        "openid.return_to": url.origin + "/auth/steam/vuelta?n=" + n, "openid.realm": url.origin,
-        "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select", "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select" });
-      return new Response(null, { status: 302, headers: { location: "https://steamcommunity.com/openid/login?" + p,
-        "set-cookie": `ab_steam_state=${n}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600` } });
-    }
-    if (path === "/auth/steam/vuelta") {
-      const st = ((request.headers.get("cookie") || "").match(/ab_steam_state=([^;]+)/) || [])[1];
-      const paraFicha = !!st && st.startsWith("f.");
-      const sale = (q, cookie) => { const h = new Headers({ location: url.origin + (paraFicha
-          ? "/inscripcion.html?completar=1&steam=" + (q ? "error" : "ok") : "/inscripcion.html" + (q ? "?" + q : "")) });
-        h.append("set-cookie", "ab_steam_state=; Path=/; Max-Age=0"); if (cookie) h.append("set-cookie", cookie); return new Response(null, { status: 302, headers: h }); };
-      const q = url.searchParams;
-      const m = /^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/.exec(q.get("openid.claimed_id") || "");
-      if (!st || st !== q.get("n") || q.get("openid.mode") !== "id_res" || !m ||
-        !String(q.get("openid.return_to") || "").startsWith(url.origin + "/auth/steam/vuelta")) return sale("error=steam");
-      // Steam confirma que la respuesta es auténtica.
-      const datos = new URLSearchParams();
-      for (const [k, v] of q) if (k.startsWith("openid.")) datos.set(k, v);
-      datos.set("openid.mode", "check_authentication");
-      try {
-        const v = await fetch("https://steamcommunity.com/openid/login", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: datos });
-        if (!v.ok || !/is_valid\s*:\s*true/.test(await v.text())) return sale("error=steam");
-      } catch (e) { return sale("error=steam"); }
-      // Nombre del perfil público (si es privado, se queda el identificador) y su dirección personalizada, si tiene.
-      let nombre = m[1], custom = null;
-      try {
-        const x = await fetch(`https://steamcommunity.com/profiles/${m[1]}/?xml=1`);
-        const xml = x.ok ? await x.text() : "";
-        const nm = /<steamID><!\[CDATA\[([\s\S]*?)\]\]><\/steamID>/.exec(xml);
-        if (nm && nm[1].trim()) nombre = nm[1].trim().slice(0, 64);
-        const cu = /<customURL><!\[CDATA\[([A-Za-z0-9_-]{2,64})\]\]><\/customURL>/.exec(xml);
-        if (cu) custom = cu[1];
-      } catch (e) {}
-      if (paraFicha) {
-        // Se guarda en la ficha del socio con sesión (la dirección personalizada o, si no tiene, el SteamID64).
-        const s = await readSession(env, request);
-        if (!s) return sale("error=steam");
-        await env.DB.prepare("UPDATE users SET steam=?2 WHERE discord_id=?1").bind(s.id, custom || m[1]).run();
-        return sale("");
-      }
-      const c = await firmaReg(env, { id: m[1], nombre, exp: Math.floor(Date.now() / 1000) + 3600 });
-      return sale("", `ab_steam=${c}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`);
     }
 
     if (path === "/auth/callback") {

@@ -64,7 +64,6 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fm input[type=text],.fm input[type=email],.fm input[type=tel],.fm select{width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;color-scheme:dark}
 .fm input[readonly]{background:#1F2328;color:#CFC9BA;cursor:default}
 .fm fieldset{border:0;margin:0;padding:0}
-.steam{display:inline-flex;align-items:center;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #6B6558;background:#2A2D33;color:#E6DCC3;font:600 15px Inter,sans-serif;text-decoration:none}
 .cuenta+.cuenta{margin-top:10px}
 .cuenta a{color:#D9B25A}
 .fm .op{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid #2C3036;border-radius:8px;margin-bottom:6px;cursor:pointer;background:#15171A}
@@ -125,6 +124,8 @@ const EXP_PINTURA = [["nunca", "Nunca he pintado miniaturas"], ["empezando", "Es
   ["avanzado", "Nivel avanzado (degradados, efectos y nivel de concurso)"]];
 const COMO = [["", "— Elige una opción —"], ["instagram", "Instagram"], ["discord", "Discord"], ["amigo", "Un amigo o conocido"], ["tienda", "En la tienda (2d6 Store)"], ["evento", "En un torneo o evento"], ["blog", "El blog del club"], ["otro", "Otro"]];
 
+const AYUDA_STEAM = "Se recomienda tu ID de Steam (17 cifras), que no cambia aunque cambies de nombre. Para verlo: en Steam, pulsa tu nombre (arriba a la derecha) → «Detalles de la cuenta»; debajo del título aparece «ID de Steam: 76561198012345678». También vale el enlace a tu perfil o tu nombre de perfil.";
+
 function avisoArriba(caja, texto) {
   const p = el("div", "resumen", texto); p.setAttribute("role", "alert"); caja.appendChild(p);
 }
@@ -158,18 +159,6 @@ async function carga() {
   cambia.onclick = async () => { await fetch("/api/inscripcion/salir", { method: "POST" }).catch(() => {}); location.href = "/inscripcion.html"; };
   c.append(el("span", "ok", "✓ Discord:"), n, cambia);
   p1.appendChild(c);
-  // Steam (opcional): «Iniciar sesión a través de Steam»; la cuenta queda verificada.
-  const cs = el("div", "cuenta");
-  if (d.steam) {
-    const sn = el("a", "", d.steam.nombre); sn.href = "https://steamcommunity.com/profiles/" + d.steam.id + "/"; sn.target = "_blank"; sn.rel = "noopener"; sn.setAttribute("translate", "no");
-    const quita = el("button", "", "Quitar"); quita.type = "button";
-    quita.onclick = async () => { await fetch("/api/inscripcion/sin-steam", { method: "POST" }).catch(() => {}); location.href = "/inscripcion.html"; };
-    cs.append(el("span", "ok", "✓ Steam:"), sn, quita);
-  } else {
-    const a = el("a", "steam", "Conectar con Steam (opcional)"); a.href = "/auth/steam";
-    cs.append(a, el("span", "m", "Para partidas online con Tabletop Simulator."));
-  }
-  p1.appendChild(cs);
   box.appendChild(p1);
   if (d.pendiente) {
     const h = el("div", "exito");
@@ -203,13 +192,6 @@ async function completar(box) {
     if (d.datos && d.datos.nombre) intro.appendChild(el("p", "", "Hemos rellenado lo que ya teníamos de tu inscripción anterior."));
   } else {
     intro.append(el("p", "", "Tus datos de socio y tu ficha de Miembros. Los datos personales solo los ven los admins; la ficha la ven los socios."));
-  }
-  if (q.get("steam")) {
-    const ok = q.get("steam") === "ok";
-    const a = el("div", ok ? "exito" : "resumen", ok ? "✓ Cuenta de Steam conectada." : "No se pudo conectar la cuenta de Steam. Inténtalo de nuevo.");
-    a.setAttribute("role", "status"); if (ok) a.style.padding = "10px 14px";
-    box.appendChild(a);
-    history.replaceState(null, "", location.pathname + "?completar=1");
   }
   box.appendChild(formulario({ usuario: d.nombre, completar: true, obligatorio: d.completar, datos: d.datos || {}, ficha: d.ficha || {} }));
 }
@@ -255,9 +237,8 @@ function formulario(cuenta) {
   // Cuenta de Discord: la conectada en el paso 1 (no se puede cambiar aquí).
   const disc = input("text", 60); disc.value = cuenta.usuario; disc.readOnly = true; disc.setAttribute("translate", "no");
   const wDisc = campo("i-discord", "Cuenta de Discord", disc, true, comp ? "La de tu sesión." : "La que has conectado arriba. Para usar otra, pulsa «Usar otra cuenta».");
-  const steam = input("text", 80); steam.readOnly = true; steam.setAttribute("translate", "no");
-  steam.value = cuenta.steam ? cuenta.steam.nombre : "Sin conectar";
-  const wSteam = campo("i-steam", "Cuenta de Steam (opcional)", steam, false, cuenta.steam ? "La que has conectado arriba." : "Puedes conectarla arriba con «Conectar con Steam».");
+  const steam = input("text", 120); steam.autocomplete = "off"; steam.placeholder = "76561198012345678"; steam.setAttribute("translate", "no");
+  const wSteam = campo("i-steam", "Cuenta de Steam (opcional)", steam, false, AYUDA_STEAM);
   const fsEdad = grupo("¿Eres mayor de edad?", "edad", [["si", "Sí"], ["no", "No"]], "radio", true, true);
   const fsJuegos = grupo("¿Qué te interesa? (opcional)", "juegos", JUEGOS, "checkbox", false, true);
   const fsJuego = grupo("Experiencia de juego", "expj", EXP_JUEGO, "radio", true);
@@ -295,11 +276,10 @@ function formulario(cuenta) {
     });
     const cta = (id, et, valor, ayuda, ph) => { const i = input("text", 120); i.value = valor || ""; i.autocomplete = "off"; if (ph) i.placeholder = ph; i.setAttribute("translate", "no"); fsF.appendChild(campo(id, et, i, false, ayuda)); return i; };
     const ig = cta("f-ig", "Instagram (opcional)", fi.instagram, "Tu usuario o el enlace a tu perfil.", "@usuario");
-    const st = cta("f-st", "Steam (opcional)", fi.steam, "Conéctala con Steam o escribe tu nombre de perfil o el enlace.");
-    const cs = el("button", "btn steam", "Conectar con Steam"); cs.type = "button"; cs.style.justifySelf = "start"; fsF.appendChild(cs);
+    const st = cta("f-st", "Steam (opcional)", fi.steam, AYUDA_STEAM, "76561198012345678");
     const nr = cta("f-nr", "New Recruit (opcional)", fi.nr, "Tu usuario de New Recruit (se usa para la Gran Liga).");
     const bc = cta("f-bc", "BCP (Best Coast Pairings) (opcional)", fi.bcp, "Tu nombre en BCP.");
-    ficha = { fsF, cs, valor: () => ({ facciones: [...fsF.querySelectorAll("input[name=fac]:checked")].map((x) => x.value), instagram: ig.value, steam: st.value, nr: nr.value, bcp: bc.value }) };
+    ficha = { fsF, valor: () => ({ facciones: [...fsF.querySelectorAll("input[name=fac]:checked")].map((x) => x.value), instagram: ig.value, steam: st.value, nr: nr.value, bcp: bc.value }) };
   }
   f.append(arriba, wNombre, wEmail, wTel, wDisc);
   if (!comp) f.appendChild(wSteam);
@@ -319,12 +299,8 @@ function formulario(cuenta) {
   const limpia = () => { avisos.textContent = ""; f.querySelectorAll(".falta").forEach((x) => x.remove()); f.querySelectorAll(".inval").forEach((x) => x.classList.remove("inval")); };
   f.addEventListener("change", () => { if (avisos.textContent) limpia(); });
   const val = (n) => (f.querySelector("input[name=" + n + "]:checked") || {}).value || "";
-  // Envío (también antes de «Conectar con Steam», para no perder lo cambiado). Devuelve true si se guardó.
-  let soloGuardar = false;
-  if (ficha) ficha.cs.onclick = async () => { soloGuardar = true; f.requestSubmit(); };
   f.onsubmit = async (ev) => {
     ev.preventDefault(); limpia();
-    const irSteam = soloGuardar; soloGuardar = false;
     const fallos = [];
     const telLimpio = tel.value.replace(/[\s.-]/g, "");
     if (nombre.value.trim().length < 3) fallos.push(["Escribe tu nombre y apellidos.", wNombre, nombre]);
@@ -347,7 +323,7 @@ function formulario(cuenta) {
     ok.disabled = true;
     try {
       const r = await fetch(comp ? "/api/socio/datos" : "/api/inscripcion", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-        nombre: nombre.value, email: email.value, telefono: telLimpio, mayor_edad: val("edad"),
+        nombre: nombre.value, email: email.value, telefono: telLimpio, steam: comp ? undefined : steam.value, mayor_edad: val("edad"),
         juegos: [...f.querySelectorAll("input[name=juegos]:checked")].map((x) => x.value),
         experiencia_juego: val("expj"), experiencia_pintura: val("expp"), como_conocio: como.value || null,
         como_otro: como.value === "otro" ? comoOtro.value : "", acepta_estatutos: cEst.checked, consentimiento: cDat.checked,
@@ -356,7 +332,6 @@ function formulario(cuenta) {
       if (!r.ok) { avisoArriba(avisos, d.error || (comp ? "No se pudieron guardar tus datos." : "No se pudo enviar la inscripción.")); ok.disabled = false; return; }
       if (comp) {
         try { sessionStorage.clear(); } catch (e) {}
-        if (irSteam) { location.href = "/auth/steam?para=ficha"; return; }
         const box = $("estado"); box.textContent = "";
         const h = el("div", "exito");
         h.append(el("h2", "", "¡Datos guardados!"), el("p", "", cuenta.obligatorio ? "Gracias. Ya puedes usar la web con normalidad." : "Tus datos y tu ficha de Miembros están al día."));
