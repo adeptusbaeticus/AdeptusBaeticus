@@ -118,7 +118,11 @@ html,body{overflow-x:clip}
    izquierda su porcentaje de las bendiciones (--mp) y el negro del Caos el resto. El negro lleva un filo gris. */
 .marco.con-marco>.post{border:3px solid transparent;background:linear-gradient(#1F2328,#1F2328) padding-box,
   linear-gradient(90deg,#F0CE82 0%,#D9B25A max(0%, calc(var(--mp) - 4%)),#4A4A52 min(100%, calc(var(--mp) + 4%)),#2E2E34 100%) border-box;
-  box-shadow:0 0 0 1px var(--mf,transparent)}
+  box-shadow:none}
+/* Filo exterior del Caos: los cuatro colores de los dioses muy oscuros (Khorne, Nurgle, Tzeentch, Slaanesh),
+   solo en la parte del marco que controla el Caos (desde --mp hasta la derecha). */
+.marco.con-marco{padding:3px;border-radius:16px;background:linear-gradient(90deg,transparent 0%,transparent var(--mp),
+  #8A1414 var(--mp),#4A5A14 calc(var(--mp) + (100% - var(--mp)) / 3),#26338C calc(var(--mp) + (100% - var(--mp)) * 2 / 3),#701A7A 100%)}
 .marco.legendaria::before,.marco.legendaria::after{animation:aura 3s ease-in-out infinite}
 @keyframes aura{50%{opacity:.7}}
 @media (prefers-reduced-motion:reduce){.marco.legendaria::before,.marco.legendaria::after{animation:none}}
@@ -423,7 +427,6 @@ function aura(m, p) {
   const pct = ve >= 5 && vr >= 5 ? Math.round((ve / (ve + vr)) * 100) : ve >= 5 ? 100 : 0;
   // Un solo color si el marco es de una sola facción (sin transición asomando por el borde).
   m.style.setProperty("--mp", (pct === 0 ? -10 : pct === 100 ? 110 : pct) + "%");
-  m.style.setProperty("--mf", conMarco && pct < 100 ? "#7A7A84" : "transparent");
   const leg = p.emperador >= 10 && p.ruinosos >= 10;
   m.classList.toggle("legendaria", leg);
   m.title = leg ? "Bendecida por el Emperador y por los Poderes Ruinosos" : "";

@@ -56,7 +56,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Bendiciones (Emperador / Poderes Ruinosos): cada publicación gana un aura según sus votos (1-10): llamas que
   suben por fuera de los lados desde las esquinas de abajo (doradas a la izquierda; del Caos a la derecha, que se
   oscurecen hacia el negro) y un marco: con 5 de una facción aparece entero de ella (dorado o negro del Caos);
-  con 5 o más de las dos, se lo disputan según el porcentaje de votos. Por encima de 10
+  con 5 o más de las dos, se lo disputan según el porcentaje de votos. La parte del Caos es gris acero oscuro con un filo
+  exterior de los cuatro dioses muy oscuros (rojo, verde, azul y morado: excepción a «nunca azul»). Por encima de 10
   solo cambia el reparto del marco.
 
 ## Encuestas
