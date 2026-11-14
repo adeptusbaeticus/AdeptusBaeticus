@@ -129,22 +129,34 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .modo{display:flex;align-items:center;gap:6px;color:#CFC9BA;margin:4px 0 8px}
 .modo .mo{margin:0}.modo .mo svg{width:16px;height:16px}
 .fld label.rad .mo{margin:0 2px}
+.fz .arriba{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.fz .arriba .btn{margin:0}
+.fz .resumen{flex-basis:100%;margin:2px 0 0;padding:10px 12px;border-radius:8px;background:#2A1A1C;border:1px solid #7A1712;color:#F0A39E;font-size:14px}
+.fz .resumen ul{margin:4px 0 0;padding-left:18px}
+.fz .falta{color:#F0A39E;font-size:13px;margin:4px 0 0}
+.fz [aria-invalid=true]{border-color:#E0524A!important}
+.fz fieldset.inval{box-shadow:inset 3px 0 0 #E0524A;padding-left:10px}
 /* Cuadrados de modalidad en la esquina superior derecha de cada día (como un aviso, pero cuadrado) */
 .mods{position:absolute;top:6px;right:6px;display:flex;flex-direction:column;gap:3px;pointer-events:auto}
 .mq{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;box-sizing:border-box;box-shadow:0 0 0 2px #1F2328}
 .mq.fisico{background:#D9B25A;color:#15171A}
 .mq.online{background:#343B20;color:#DCD8C2;border:1px solid #7C8A4C}
+/* Físico y online: el cuadrado partido por la mitad (mesa en dorado, ordenador en verde) */
+.mq.ambos{background:linear-gradient(90deg,#D9B25A 50%,#343B20 50%);border:1px solid #7C8A4C}
+.mq.ambos .izq{stroke:#15171A}.mq.ambos .der{stroke:#DCD8C2}
 .mq .mo{margin:0}.mq .mo svg{width:14px;height:14px;stroke-width:1.8}
 .d.hoy .mq{box-shadow:0 0 0 2px #262A30}
 /* En el ordenador, cada evento lleva su cuadrado montado sobre su esquina, como un aviso;
    en el móvil (etiquetas muy estrechas) van en la esquina del día, uno por modalidad. */
-.e>.mq{display:none}
+.e>.mqs{display:none}
 @media (min-width:601px){
   .d>.mods{display:none}
   .e{position:relative;padding-right:14px}
-  .e>.mq{display:flex;position:absolute;top:-6px;right:-6px;z-index:2;width:18px;height:18px;box-shadow:0 0 0 2px #1F2328,0 2px 5px rgba(0,0,0,.45)}
-  .d.hoy .e>.mq{box-shadow:0 0 0 2px #262A30,0 2px 5px rgba(0,0,0,.45)}
-  .e>.mq .mo svg{width:12px;height:12px}
+  .e>.mqs{display:flex;flex-direction:column;gap:3px;position:absolute;top:-6px;right:-6px;z-index:2}
+  .e>.mqs .mq{width:18px;height:18px;box-shadow:0 0 0 2px #1F2328,0 2px 5px rgba(0,0,0,.45)}
+  .d.hoy .e>.mqs .mq{box-shadow:0 0 0 2px #262A30,0 2px 5px rgba(0,0,0,.45)}
+  .e>.mqs .mq .mo svg{width:12px;height:12px}
+
   .d.mods2>.e:first-of-type{margin-top:6px}
 }
 @media (max-width:600px){.mods{top:3px;right:3px;gap:2px}.mq{width:15px;height:15px;border-radius:4px}.mq .mo svg{width:11px;height:11px}.d.mods2>.e:first-of-type{margin-top:16px}}
@@ -314,7 +326,8 @@ const MODOS = {
   online: ["Online (TTS)", "M2.6 2.8h10.8a1.1 1.1 0 0 1 1.1 1.1v6.5a1.1 1.1 0 0 1-1.1 1.1H2.6a1.1 1.1 0 0 1-1.1-1.1V3.9a1.1 1.1 0 0 1 1.1-1.1zM5.5 14.2h5M8 11.5v2.7"],
 };
 function iconoModo(modo) {
-  const [txt, d] = MODOS[modo === "online" ? "online" : "fisico"];
+  const ambos = modo === "ambos";
+  const txt = ambos ? "Físico u online (TTS)" : MODOS[modo === "online" ? "online" : "fisico"][0];
   const w = document.createElement("span");
   w.className = "mo";
   w.setAttribute("role", "img");
@@ -324,26 +337,45 @@ function iconoModo(modo) {
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "0 0 16 16");
   svg.setAttribute("aria-hidden", "true");
-  const p = document.createElementNS(NS, "path");
-  p.setAttribute("d", d);
-  svg.appendChild(p);
+  // Un icono entero, o (ambos) la mitad izquierda de la mesa y la derecha del ordenador.
+  const mitad = (m, x, cls) => {
+    const v = document.createElementNS(NS, "svg");
+    v.setAttribute("x", x); v.setAttribute("y", "0"); v.setAttribute("width", ambos ? "8" : "16"); v.setAttribute("height", "16");
+    v.setAttribute("viewBox", (ambos ? x : 0) + " 0 " + (ambos ? 8 : 16) + " 16");
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", MODOS[m][1]);
+    if (cls) p.setAttribute("class", cls);
+    v.appendChild(p);
+    svg.appendChild(v);
+  };
+  if (ambos) { mitad("fisico", 0, "izq"); mitad("online", 8, "der"); }
+  else mitad(modo === "online" ? "online" : "fisico", 0);
   w.appendChild(svg);
   return w;
 }
-// Cuadrado de color con el icono (físico dorado, online azul).
+// Modalidades de un evento o partida («ambos» = físico y online).
+const modosDe = (modo) => (modo === "ambos" ? ["fisico", "online"] : [modo === "online" ? "online" : "fisico"]);
+// Cuadrado de color con el icono (físico dorado, online verde Adeptus).
 function cuadroModo(modo) {
-  const m = modo === "online" ? "online" : "fisico";
+  const m = modo === "online" || modo === "ambos" ? modo : "fisico";
   const q = document.createElement("span");
   q.className = "mq " + m;
   q.appendChild(iconoModo(m));
   return q;
 }
-// Línea de la ficha: icono y «Físico · lugar» u «Online (TTS)».
+// Cuadrado para la esquina de una etiqueta del mes («ambos»: un solo cuadrado partido por la mitad).
+function cuadrosModo(modo) {
+  const w = document.createElement("span");
+  w.className = "mqs";
+  w.appendChild(cuadroModo(modo));
+  return w;
+}
+// Línea de la ficha: iconos y «Físico · lugar», «Online (TTS)» o «Físico u online (TTS)».
 function lineaModo(modo, lugar) {
   const p = document.createElement("p");
   p.className = "modo";
   const t = document.createElement("span");
-  t.textContent = modo === "online" ? "Online (TTS)" : "Físico";
+  t.textContent = modo === "online" ? "Online (TTS)" : modo === "ambos" ? "Físico u online (TTS)" : "Físico";
   p.append(iconoModo(modo), t);
   if (lugar) { const l = document.createElement("span"); l.textContent = "· " + lugar; if (lugar !== "En el club") l.setAttribute("translate", "no"); p.appendChild(l); }
   return p;
@@ -537,8 +569,8 @@ function render() {
         tt.textContent = e.title;
         tt.setAttribute("translate", "no");
         b.appendChild(tt);
-        modosDia.add(e.modo === "online" ? "online" : "fisico");
-        b.appendChild(cuadroModo(e.modo));
+        modosDe(e.modo).forEach((x) => modosDia.add(x));
+        b.appendChild(cuadrosModo(e.modo));
         b.onclick = () => { show(e); irAFicha(); };
         cell.appendChild(b);
       });
@@ -551,8 +583,8 @@ function render() {
         const av = p.availability.find((x) => x.date === key);
         const hora = p.starts_at ? p.starts_at.slice(11, 16) : av ? av.from + "–" + av.to : "";
         b.textContent = (hora ? hora + " · " : "") + CORTO[p.activity] + " · " + p.organiza;
-        modosDia.add(p.modo === "online" ? "online" : "fisico");
-        b.appendChild(cuadroModo(p.modo));
+        modosDe(p.modo).forEach((x) => modosDia.add(x));
+        b.appendChild(cuadrosModo(p.modo));
         b.onclick = () => { showPartida(p); irAFicha(); };
         cell.appendChild(b);
       });
@@ -932,7 +964,7 @@ function showPartida(p) {
   };
   add("span", "lb", "Partida");
   add("h3", "", partidaTitulo(p));
-  box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || "En el club"));
+  box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || (p.modo === "ambos" ? "" : "En el club")));
   add("p", "m", "Organiza: " + p.organiza);
   if (p.starts_at) add("p", "", fechaLarga(p.starts_at.slice(0, 10)) + " · " + p.starts_at.slice(11, 16));
   else {
@@ -1046,7 +1078,31 @@ function showPartida(p) {
       box.appendChild(fs);
       side = () => (fs.querySelector("input:checked") || {}).value;
     }
-    btn("Unirme", "btn", () => act("POST", "/api/partidas/" + p.id + "/join", { slot: slot ? slot() : null, side: side ? side() : null }));
+    // Si vale físico u online, quien se une elige cómo se juega.
+    let modoJ = null;
+    if (p.modo === "ambos") {
+      const fs = document.createElement("fieldset");
+      fs.className = "fld";
+      const lg = document.createElement("legend");
+      lg.textContent = "¿Cómo jugáis?";
+      fs.appendChild(lg);
+      [["fisico", p.lugar ? "Físico" : "Físico (en el club)"], ["online", "Online (TTS)"]].forEach(([v, txt]) => {
+        const l = document.createElement("label");
+        l.className = "rad";
+        const r = document.createElement("input");
+        r.type = "radio"; r.name = "pj-modo"; r.value = v;
+        const t = document.createElement("span"); t.textContent = txt;
+        l.append(r, " ", iconoModo(v), t);
+        if (v === "fisico" && p.lugar) { const lu = document.createElement("span"); lu.textContent = " · " + p.lugar; lu.setAttribute("translate", "no"); l.appendChild(lu); }
+        fs.appendChild(l);
+      });
+      box.appendChild(fs);
+      modoJ = () => (fs.querySelector("input:checked") || {}).value || null;
+    }
+    btn("Unirme", "btn", () => {
+      if (modoJ && !modoJ()) { err.textContent = "Elige si jugáis en físico u online."; box.appendChild(err); return; }
+      act("POST", "/api/partidas/" + p.id + "/join", { slot: slot ? slot() : null, side: side ? side() : null, modo: modoJ ? modoJ() : null });
+    });
   } else add("p", "m", "No se admiten más jugadores salvo que alguien se caiga.");
   box.appendChild(err);
 }
@@ -1081,11 +1137,15 @@ function openPartidaForm() {
     const l = document.createElement("label");
     l.className = "rad";
     const r = document.createElement("input");
-    r.type = "radio"; r.name = "bp-modo"; r.value = v; r.checked = i === 0;
+    r.type = "checkbox"; r.name = "bp-modo"; r.value = v; r.checked = i === 0;
     const t = document.createElement("span"); t.textContent = txt;
     l.append(r, " ", iconoModo(v), t);
     fsModo.appendChild(l);
   });
+  const ayModo = document.createElement("p");
+  ayModo.className = "m";
+  ayModo.textContent = "Puedes marcar las dos: quien se una elegirá cómo jugáis.";
+  fsModo.appendChild(ayModo);
   const lugar = document.createElement("input");
   lugar.id = "bp-lugar"; lugar.maxLength = 120; lugar.placeholder = "En el club (2d6 Store)";
   const wLugar = mkField("Lugar (opcional)", lugar);
@@ -1094,8 +1154,12 @@ function openPartidaForm() {
   ayLugar.textContent = "Si lo dejas vacío, se juega en el club y se asigna mesa.";
   wLugar.appendChild(ayLugar);
   fsModo.appendChild(wLugar);
-  const modoSel = () => fsModo.querySelector("input[name=bp-modo]:checked").value;
-  fsModo.addEventListener("change", () => { wLugar.hidden = modoSel() !== "fisico"; });
+  // «fisico», «online», «ambos» o "" si no hay ninguna marcada.
+  const modoSel = () => {
+    const v = [...fsModo.querySelectorAll("input[name=bp-modo]:checked")].map((x) => x.value);
+    return v.length === 2 ? "ambos" : v[0] || "";
+  };
+  fsModo.addEventListener("change", () => { wLugar.hidden = !["fisico", "ambos"].includes(modoSel()); });
 
   // Hoy y los 6 días siguientes, cada uno con su franja horaria.
   const days = document.createElement("fieldset");
@@ -1145,7 +1209,12 @@ function openPartidaForm() {
   nota.className = "m";
   nota.textContent = "Se publica una partida independiente por cada día que marques, cada una con sus propios rivales.";
   days.appendChild(nota);
-  f.append(mkField("Modalidad", act), wFmt, wSide, wNp, fsModo, days, err, acts);
+  // Botón de publicar arriba (en el móvil se ve sin bajar) con el resumen de lo que falta.
+  acts.className = "arriba";
+  acts.appendChild(err);
+  err.className = "";
+  const wAct = mkField("Modalidad", act);
+  f.append(acts, wAct, wFmt, wSide, wNp, fsModo, days);
   box.appendChild(f);
 
   const update = () => {
@@ -1158,19 +1227,45 @@ function openPartidaForm() {
   update();
   act.focus();
 
+  // Avisos de lo que falta: un resumen junto al botón y un mensaje en cada apartado.
+  const limpiaAvisos = () => {
+    err.textContent = "";
+    f.querySelectorAll(".falta").forEach((x) => x.remove());
+    f.querySelectorAll("[aria-invalid]").forEach((x) => x.removeAttribute("aria-invalid"));
+    f.querySelectorAll(".inval").forEach((x) => x.classList.remove("inval"));
+  };
+  const muestraAvisos = (fallos) => {
+    const r = document.createElement("div");
+    r.className = "resumen";
+    r.setAttribute("role", "alert");
+    r.appendChild(document.createTextNode(fallos.length === 1 ? "Falta un dato:" : "Faltan datos:"));
+    const ul = document.createElement("ul");
+    fallos.forEach(([txt, donde, control]) => {
+      const li = document.createElement("li"); li.textContent = txt; ul.appendChild(li);
+      const m = document.createElement("p"); m.className = "falta"; m.textContent = txt; donde.appendChild(m);
+      if (control) control.setAttribute("aria-invalid", "true"); else donde.classList.add("inval");
+    });
+    r.appendChild(ul);
+    err.appendChild(r);
+  };
+  f.addEventListener("change", () => { if (err.textContent) limpiaAvisos(); });
+
   f.onsubmit = async (x) => {
     x.preventDefault();
-    err.textContent = "";
-    if (!act.value) { err.textContent = "Elige una modalidad."; return; }
+    limpiaAvisos();
     const availability = rows.filter((r) => r.cb.checked).map((r) => ({ date: r.iso, from: r.from.value, to: r.to.value }));
-    if (!availability.length) { err.textContent = "Marca al menos un día."; return; }
-    if (availability.some((r) => r.from >= r.to)) { err.textContent = "En cada día, la hora de fin debe ser posterior a la de inicio."; return; }
+    const fallos = [];
+    if (!act.value) fallos.push(["Elige una modalidad.", wAct, act]);
+    if (!modoSel()) fallos.push(["Marca si se juega en físico, online o las dos.", fsModo]);
+    if (!availability.length) fallos.push(["Marca al menos un día en el que puedas jugar.", days]);
+    else if (availability.some((r) => r.from >= r.to)) fallos.push(["En cada día, la hora de fin debe ser posterior a la de inicio.", days]);
+    if (fallos.length) { muestraAvisos(fallos); return; }
     ok.disabled = true;
     try {
       const r = await fetch("/api/partidas", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ activity: act.value, format: fmt.value, side: side.value, players: Number(np.value), availability, modo: modoSel(), lugar: modoSel() === "fisico" ? lugar.value : "" }),
+        body: JSON.stringify({ activity: act.value, format: fmt.value, side: side.value, players: Number(np.value), availability, modo: modoSel(), lugar: modoSel() !== "online" ? lugar.value : "" }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { err.textContent = d.error || "No se pudo publicar. Inténtalo de nuevo."; ok.disabled = false; return; }

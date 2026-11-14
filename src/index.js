@@ -268,9 +268,11 @@ function parsePartida(b, now) {
   }
   if (!availability.length) return { error: "Marca al menos un día con sus horas" };
   availability.sort((x, y) => (x.date < y.date ? -1 : 1));
-  // Físico (en el club si no se indica lugar) u online (Tabletop Simulator).
-  const modo = b.modo === "online" ? "online" : "fisico";
-  const lugar = modo === "fisico" ? String(b.lugar || "").trim().slice(0, 120) || null : null;
+  // Físico (en el club si no se indica lugar), online (Tabletop Simulator) o ambos (lo elige quien se une).
+  // Sin el dato (versiones antiguas de la página) se toma físico; vacío o raro, se avisa.
+  const modo = b.modo == null ? "fisico" : b.modo;
+  if (!["fisico", "online", "ambos"].includes(modo)) return { error: "Marca si quieres jugar en físico, online o de las dos formas" };
+  const lugar = modo !== "online" ? String(b.lugar || "").trim().slice(0, 120) || null : null;
   return { ...plan, team_a: ta, team_b: tb, availability, modo, lugar };
 }
 
@@ -957,7 +959,7 @@ async function calendarioEventos(env, uid) {
     let fin = sumaHoras(p.starts_at, 3);
     try { const av = JSON.parse(p.availability).find((x) => x.date === p.starts_at.slice(0, 10)); if (av && av.to > p.starts_at.slice(11, 16)) fin = p.starts_at.slice(0, 11) + av.to; } catch (e) {}
     ev.push({ uid: "partida-" + p.id, inicio: p.starts_at, fin, titulo: "⚔️ " + (MODALIDAD[p.activity] || "Partida") + (p.rivales ? " · " + p.rivales : ""),
-      lugar: p.modo === "online" ? "Online (TTS)" : p.lugar || (p.mesa ? "Mesa " + p.mesa : null), url: WEB + "/calendario.html?partida=" + p.id });
+      lugar: p.modo === "online" ? "Online (TTS)" : p.modo === "ambos" ? "Físico u online (TTS)" + (p.lugar ? " · " + p.lugar : "") : p.lugar || (p.mesa ? "Mesa " + p.mesa : null), url: WEB + "/calendario.html?partida=" + p.id });
   }
   // Tu partida de cada ronda de la Gran Liga (todo el periodo de la ronda) y su cierre.
   const fase = await env.DB.prepare("SELECT * FROM liga_fases ORDER BY edicion DESC, fase DESC LIMIT 1").first();
@@ -2414,6 +2416,9 @@ export default {
         if (want && (want === "A" ? a >= p.team_a : bb >= p.team_b)) return fail("Ese bando ya está completo", 409);
         const side = want || (bb < p.team_b ? "B" : a < p.team_a ? "A" : null);
         if (!side) return fail("La partida ya está completa", 409);
+        // Si vale físico u online, quien se une elige cómo se juega (y queda fijado para todos).
+        const modoElegido = b.modo === "fisico" || b.modo === "online" ? b.modo : null;
+        if (p.modo === "ambos" && !modoElegido) return fail("Elige si jugáis en físico u online", 400);
         const [ins] = await env.DB.batch([
           // El hueco se comprueba dentro del INSERT para que dos personas no ocupen el mismo.
           env.DB.prepare(
@@ -2426,6 +2431,10 @@ export default {
             `UPDATE partidas SET starts_at=?2 WHERE id=?1 AND starts_at IS NULL
                AND EXISTS (SELECT 1 FROM partida_players WHERE partida_id=?1 AND discord_id=?3)`
           ).bind(pid, slot, s.id),
+          env.DB.prepare(
+            `UPDATE partidas SET modo=?2 WHERE id=?1 AND modo='ambos'
+               AND EXISTS (SELECT 1 FROM partida_players WHERE partida_id=?1 AND discord_id=?3)`
+          ).bind(pid, modoElegido || "fisico", s.id),
           env.DB.prepare(
             `UPDATE partidas SET status='completa', mesa=CASE WHEN modo='fisico' AND lugar IS NULL THEN ${MESA_SQL} END
              WHERE id=?1 AND status='abierta' AND (SELECT COUNT(*) FROM partida_players WHERE partida_id=?1) >= team_a + team_b`

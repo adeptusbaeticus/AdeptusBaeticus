@@ -57,6 +57,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   ordenador, `iconoModo()` en `calendario.html`; en el mes, en el ordenador un cuadrado sobre la esquina de cada evento y en el móvil en la esquina del día). Las quedadas son siempre físicas (lo fuerza el servidor); los
   torneos los elige el admin. En las partidas físicas se puede indicar `lugar`: vacío = en el club, con mesa
   asignada; con lugar u online no se asigna mesa.
+- Al buscar partida se puede marcar físico y online a la vez (`modo` `ambos`, migración 0027): icono partido por la
+  mitad (mesa en dorado y ordenador en verde) y quien se une elige cómo se juega, que queda fijado para todos.
 
 ## Gran Liga Adeptus
 
