@@ -84,7 +84,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   `excel`) con nombre, correo, teléfono, estatutos, Instagram, fecha de registro y el alias de Discord. No se importaron
   municipio, facción, nivel, Steam, correo de BCP ni comentarios. En Admin, «Vincular con Discord» cruza los alias con
   la lista de miembros del servidor (una llamada; el bot necesita «Server Members Intent») y crea su ficha sin conectar;
-  al iniciar sesión también se vincula por su usuario, nombre visible o apodo (solo con una coincidencia única).
+  al iniciar sesión también se vincula por su usuario, nombre visible o apodo, también sin lo que va entre paréntesis
+  («Silvermane (Sergio)» → «Silvermane», `sinParentesis`), solo con una coincidencia única.
 - Datos obligatorios al entrar: todo socio menos el admin que no se inscribió con la web y aún no ha completado sus datos
   (`faltanDatos`, `completar` en `/api/me`) va a `inscripcion.html?completar=1` (`auth.js`) hasta guardarlos
   (`/api/socio/datos`, misma validación que la inscripción, `validaDatosSocio`); vienen rellenos con lo del Excel.

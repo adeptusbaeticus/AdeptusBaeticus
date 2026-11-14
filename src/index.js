@@ -464,6 +464,11 @@ function validaDatosSocio(b) {
 // --- Socios importados del Excel antiguo (`socios_datos`, origen 'excel') ---
 // Alias de Discord del Excel → nombres a comparar: sin @ delante, sin #1234 y en minúsculas. Puede traer varios
 // separados por «/»; si alguien puso su correo, vale la parte de antes de la @.
+// Apodo del servidor sin lo que va entre paréntesis («Silvermane (Sergio)» → «Silvermane»), o null si no cambia.
+function sinParentesis(n) {
+  const x = String(n || "").replace(/\s*\([^)]*\)\s*/g, " ").trim();
+  return x && x !== String(n || "").trim() ? x : null;
+}
 function aliasDiscord(txt) {
   return String(txt || "").split("/").map((a) => a.trim().replace(/^@/, "").replace(/#\d{4}$/, "").replace(/@[^@\s]+\.[a-z]{2,}$/i, "").trim().toLowerCase())
     .filter((a) => a.length >= 2);
@@ -486,7 +491,7 @@ async function vinculaSocios(env, lista) {
 // apodo (solo si hay una única coincidencia). Después pasan a su ficha la fecha de registro y el Instagram (si faltan).
 async function vinculaAlEntrar(env, u, nick) {
   if (!(await env.DB.prepare("SELECT 1 FROM socios_datos WHERE discord_id=?1").bind(u.id).first())) {
-    const nombres = new Set([u.username, u.global_name, nick].filter(Boolean).map((x) => String(x).toLowerCase()));
+    const nombres = new Set([u.username, u.global_name, nick, sinParentesis(nick), sinParentesis(u.global_name)].filter(Boolean).map((x) => String(x).toLowerCase()));
     const filas = (await env.DB.prepare("SELECT id, discord_alias FROM socios_datos WHERE discord_id IS NULL AND discord_alias IS NOT NULL").all()).results;
     const hits = filas.filter((f) => aliasDiscord(f.discord_alias).some((a) => nombres.has(a)));
     if (hits.length === 1) await env.DB.prepare("UPDATE socios_datos SET discord_id=?2 WHERE id=?1 AND discord_id IS NULL").bind(hits[0].id, u.id).run();
@@ -3112,7 +3117,7 @@ export default {
         const usados = new Set(filas.filter((f) => f.discord_id).map((f) => f.discord_id));
         const idx = new Map();
         const pon = (k, m) => { if (!k) return; k = String(k).toLowerCase(); if (!idx.has(k)) idx.set(k, new Set()); idx.get(k).add(m); };
-        miembros.forEach((m) => { pon(m.user.username, m); pon(m.user.global_name, m); pon(m.nick, m); });
+        miembros.forEach((m) => { pon(m.user.username, m); pon(m.user.global_name, m); pon(m.nick, m); pon(sinParentesis(m.nick), m); pon(sinParentesis(m.user.global_name), m); });
         const lista = [], dudosos = [];
         for (const f of filas) {
           if (f.discord_id) continue;
