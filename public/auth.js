@@ -419,7 +419,7 @@
     if (!me || me.invitado) return;
     if (encDePagina) return pinta(me);
     // En Inicio y en Encuestas los datos llegan de la propia página (evento «ab-encuestas»).
-    if (/^\/(index(\.html)?|encuestas(\.html)?)?$/.test(location.pathname)) return;
+    if (/^\/(index(\.html)?|encuestas(\.html)?)?$/.test(location.pathname) && document.getElementById(location.pathname.startsWith("/encuestas") ? "lista" : "enc")) return;
     try { const c = JSON.parse(sessionStorage.getItem(ENC_KEY) || "null"); if (c && c.id === me.id && Date.now() - c.t < 120000) { encDatos = c.e; return pinta(me); } } catch (e) {}
     fetch("/api/encuestas").then((r) => (r.ok ? r.json() : null)).then((d) => {
       if (!d) return;
@@ -431,15 +431,18 @@
   // La página de encuestas pasa sus datos al votar o editar para que el icono se actualice sin otra petición.
   // Inicio también las carga: así el icono no hace otra petición.
   let encDePagina = false;
-  window.addEventListener("ab-encuestas", (ev) => {
-    if (!ev.detail) return;
+  let ultimoMe = null;
+  const recibeEncuestas = (lista) => {
+    if (!lista) return;
     encDePagina = true;
-    encDatos = ev.detail.map((e) => ({ id: e.id, pregunta: e.pregunta, abierta: e.abierta, mis_votos: e.mis_votos }));
+    encDatos = lista.map((e) => ({ id: e.id, pregunta: e.pregunta, abierta: e.abierta, mis_votos: e.mis_votos }));
     if (!ultimoMe || ultimoMe.invitado) return;
     try { sessionStorage.setItem(ENC_KEY, JSON.stringify({ id: ultimoMe.id, t: Date.now(), e: encDatos })); } catch (e) {}
     pinta(ultimoMe);
-  });
-  let ultimoMe = null;
+  };
+  window.addEventListener("ab-encuestas", (ev) => recibeEncuestas(ev.detail));
+  // Si la página ya las había recibido antes de cargar este script.
+  if (window.abEncuestas) recibeEncuestas(window.abEncuestas);
 
   function pinta(me) {
   ultimoMe = me;
