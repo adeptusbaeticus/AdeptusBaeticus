@@ -273,6 +273,20 @@
     ".um-vc{border-top:1px solid #2C3036;margin-top:6px;padding:8px 6px 4px}" +
     ".um-vc label{display:block;font-size:13px;color:#A8A293;margin-bottom:4px}" +
     ".um-vc select{width:100%;min-height:40px;border-radius:6px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;padding:6px}" +
+    ".ss{position:relative;display:inline-block;vertical-align:middle;margin-right:2px}" +
+    ".ss-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:none;border:1px solid transparent;border-radius:999px;cursor:pointer;padding:0}" +
+    ".ss-btn:hover,.ss-btn[aria-expanded=true]{border-color:#6B6558;background:#1F2328}" +
+    ".ss-btn svg{width:34px;height:34px;display:block}" +
+    ".ss-n{position:absolute;top:2px;right:0;min-width:18px;height:18px;box-sizing:border-box;padding:0 5px;border-radius:999px;background:#A3211B;color:#fff;font:700 11px/18px Inter,sans-serif;text-align:center;border:2px solid #15171A}" +
+    ".ss-menu{position:absolute;right:0;top:calc(100% + 6px);width:min(300px,calc(100vw - 32px));background:#1F2328;border:1px solid #6B6558;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);padding:8px;z-index:60;font:400 14px/1.4 Inter,system-ui,sans-serif}" +
+    ".ss-menu[hidden]{display:none}" +
+    "@media (max-width:600px){.ss{position:static}.ss-menu{left:16px;right:16px;width:auto}}" +
+    ".ss-t{font:700 15px Cinzel,Georgia,serif;color:#F0CE82;margin:4px 6px 8px}" +
+    ".ss-menu a{display:block;padding:8px 10px;border-radius:6px;color:#ECE7DC;text-decoration:none}" +
+    ".ss-menu a:hover,.ss-menu a:focus{background:#2A2F36;outline:none}" +
+    ".ss-menu a strong{display:block;font-weight:600;overflow-wrap:anywhere}" +
+    ".ss-menu a span{font-size:12px;color:#A8A293}.ss-menu a span.pend{color:#F0A39E}" +
+    ".ss-menu a.todas{border-top:1px solid #2C3036;margin-top:6px;border-radius:0 0 6px 6px;color:#D9B25A;font-weight:600}" +
     "#ver-como{position:relative;z-index:70;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;background:#A3211B;color:#fff;padding:8px 16px;font:600 14px Inter,system-ui,sans-serif}" +
     "#ver-como button{background:#fff;color:#A3211B;border:0;border-radius:999px;padding:6px 14px;min-height:36px;font:700 13px Inter,sans-serif;cursor:pointer}";
   document.head.appendChild(css);
@@ -335,7 +349,100 @@
     };
   }
 
+  // Servocalavera con una papeleta: aparece junto al usuario si hay encuestas abiertas para él; al pulsarla
+  // se despliega la lista (con las que le faltan por votar marcadas). Los datos se guardan 2 minutos.
+  const SERVO = '<svg viewBox="0 0 32 32" aria-hidden="true">' +
+    '<path d="M8.5 12.5a7.5 7.5 0 0 1 15 0v3.8c0 .9-.5 1.6-1.3 2l-.7.3v2.4h-11v-2.4l-.7-.3c-.8-.4-1.3-1.1-1.3-2z" fill="#D9B25A"/>' +
+    '<rect x="6.2" y="11" width="3.2" height="6" rx="1" fill="#8A6416"/><circle cx="7.8" cy="14" r=".8" fill="#15171A"/>' +
+    '<path d="M12 4.8l-1-2.3" stroke="#8A6416" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
+    '<ellipse cx="12.6" cy="14.3" rx="2" ry="2.2" fill="#15171A"/>' +
+    '<circle cx="19.2" cy="14.3" r="2.6" fill="#15171A"/><circle cx="19.2" cy="14.3" r="1.5" fill="#E0403A"/>' +
+    '<path d="M15.9 16.6l-1 1.8h2z" fill="#15171A"/>' +
+    '<path d="M12.5 19.2v2.2M14.5 19.2v2.2M16.5 19.2v2.2M18.5 19.2v2.2" stroke="#15171A" stroke-width="1"/>' +
+    '<path d="M12 21v3.5M15.5 21v5M19 21v3" stroke="#8A6416" stroke-width="1.2" stroke-linecap="round"/>' +
+    '<path d="M22.5 18.5l2.5 2" stroke="#8A6416" stroke-width="1.4" stroke-linecap="round"/>' +
+    '<rect x="22" y="19.5" width="8.5" height="11" rx="1" fill="#ECE7DC" transform="rotate(8 26 25)"/>' +
+    '<path d="M24 25.4l1.6 1.7 3-3.6" stroke="#A3211B" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="rotate(8 26 25)"/>' +
+    '</svg>';
+  const ENC_KEY = "ab_enc";
+  let encDatos = null;
+  function servocalavera(box, wrap) {
+    const abiertas = encDatos ? encDatos.filter((e) => e.abierta) : [];
+    if (!abiertas.length) return;
+    const pend = abiertas.filter((e) => !e.mis_votos.length).length;
+    const ss = document.createElement("span");
+    ss.className = "ss";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ss-btn";
+    b.setAttribute("aria-haspopup", "true");
+    b.setAttribute("aria-expanded", "false");
+    const etiqueta = pend ? (pend === 1 ? "1 encuesta sin votar" : pend + " encuestas sin votar") : "Encuestas abiertas";
+    b.setAttribute("aria-label", etiqueta);
+    b.title = etiqueta;
+    // SVG fijo escrito aquí (sin datos de usuario).
+    b.appendChild(new DOMParser().parseFromString(SERVO.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"'), "image/svg+xml").documentElement);
+    if (pend) { const n = document.createElement("span"); n.className = "ss-n"; n.textContent = String(pend); n.setAttribute("aria-hidden", "true"); b.appendChild(n); }
+    const m = document.createElement("div");
+    m.className = "ss-menu";
+    m.hidden = true;
+    const t = document.createElement("div");
+    t.className = "ss-t";
+    t.textContent = "Encuestas abiertas";
+    m.appendChild(t);
+    abiertas.slice(0, 5).forEach((e) => {
+      const a = document.createElement("a");
+      a.href = "/encuestas.html#e" + e.id;
+      const q = document.createElement("strong");
+      q.textContent = e.pregunta;
+      q.setAttribute("translate", "no");
+      const st = document.createElement("span");
+      st.textContent = e.mis_votos.length ? "Ya has votado" : "Pendiente de votar";
+      if (!e.mis_votos.length) st.className = "pend";
+      a.append(q, st);
+      m.appendChild(a);
+    });
+    const todas = document.createElement("a");
+    todas.href = "/encuestas.html";
+    todas.className = "todas";
+    todas.textContent = "Ver todas las encuestas";
+    m.appendChild(todas);
+    const abre = (si) => { m.hidden = !si; b.setAttribute("aria-expanded", String(si)); };
+    b.onclick = () => abre(m.hidden);
+    ss.addEventListener("keydown", (e) => { if (e.key === "Escape" && !m.hidden) { abre(false); b.focus(); } });
+    document.addEventListener("click", (e) => { if (!ss.contains(e.target)) abre(false); });
+    m.addEventListener("click", () => abre(false));
+    ss.append(b, m);
+    box.insertBefore(ss, wrap);
+  }
+  function cargaEncuestas(me) {
+    if (!me || me.invitado) return;
+    if (encDePagina) return pinta(me);
+    // En Inicio y en Encuestas los datos llegan de la propia página (evento «ab-encuestas»).
+    if (/^\/(index(\.html)?|encuestas(\.html)?)?$/.test(location.pathname)) return;
+    try { const c = JSON.parse(sessionStorage.getItem(ENC_KEY) || "null"); if (c && c.id === me.id && Date.now() - c.t < 120000) { encDatos = c.e; return pinta(me); } } catch (e) {}
+    fetch("/api/encuestas").then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return;
+      encDatos = d.encuestas.map((e) => ({ id: e.id, pregunta: e.pregunta, abierta: e.abierta, mis_votos: e.mis_votos }));
+      try { sessionStorage.setItem(ENC_KEY, JSON.stringify({ id: me.id, t: Date.now(), e: encDatos })); } catch (e) {}
+      pinta(me);
+    }).catch(() => {});
+  }
+  // La página de encuestas pasa sus datos al votar o editar para que el icono se actualice sin otra petición.
+  // Inicio también las carga: así el icono no hace otra petición.
+  let encDePagina = false;
+  window.addEventListener("ab-encuestas", (ev) => {
+    if (!ev.detail) return;
+    encDePagina = true;
+    encDatos = ev.detail.map((e) => ({ id: e.id, pregunta: e.pregunta, abierta: e.abierta, mis_votos: e.mis_votos }));
+    if (!ultimoMe || ultimoMe.invitado) return;
+    try { sessionStorage.setItem(ENC_KEY, JSON.stringify({ id: ultimoMe.id, t: Date.now(), e: encDatos })); } catch (e) {}
+    pinta(ultimoMe);
+  });
+  let ultimoMe = null;
+
   function pinta(me) {
+  ultimoMe = me;
   box.textContent = "";
   if (window.abI18n) box.appendChild(window.abI18n.selector());
   if (me && me.invitado) {
@@ -448,6 +555,7 @@
     wrap.addEventListener("focusout", (e) => { if (!wrap.contains(e.relatedTarget)) abre(false); });
     wrap.append(btn, menu);
     box.appendChild(wrap);
+    servocalavera(box, wrap);
     franjaVerComo(me);
   } else {
     franjaVerComo(null);
@@ -477,5 +585,6 @@
       try { const u = new URL(location.href); u.searchParams.delete("login"); history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
     }
     if (me && !me.nr_username && !me.ver_como) askNr();
+    cargaEncuestas(me);
   });
 })();

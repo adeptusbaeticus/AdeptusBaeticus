@@ -45,6 +45,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Cada encuesta es para `aspirantes` (aspirantes y miembros) o `miembros` (miembros, veteranos y admin), sin
   encuestas públicas; cierre opcional; votos `secretos` o `publicos` (se ve quién vota qué) y resultados
   `siempre`, `al_votar` o `al_cerrar`. Una encuesta con votos secretos no puede pasar a votos públicos.
+- Si hay encuestas abiertas, junto al usuario sale una servocalavera con una papeleta (`auth.js`) con el número
+  de las que faltan por votar; al pulsarla se despliega la lista. En Inicio y Encuestas usa los datos de la
+  propia página (evento `ab-encuestas`); en las demás, los guarda 2 minutos en `sessionStorage`.
 
 ## Gran Liga Adeptus
 

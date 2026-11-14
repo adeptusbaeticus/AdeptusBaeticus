@@ -305,6 +305,7 @@ async function carga(irA) {
   const r = await fetch("/api/encuestas", { cache: "no-store" });
   if (!r.ok) throw new Error();
   D = await r.json();
+  window.dispatchEvent(new CustomEvent("ab-encuestas", { detail: D.encuestas }));
   $("sinsesion").hidden = D.sesion;
   if (!D.sesion) { $("lista").textContent = ""; return; }
   $("bnueva").hidden = !D.admin;

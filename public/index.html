@@ -282,6 +282,7 @@ const enlaceBtn = (txt, href, cls) => { const a = nuevo("a", cls || "btn", txt);
 
 // Encuestas abiertas (solo socios con sesión): una tarjeta por encuesta con el botón para votar.
 fetch("/api/encuestas").then((r) => (r.ok ? r.json() : null)).then((d) => {
+  if (d) window.dispatchEvent(new CustomEvent("ab-encuestas", { detail: d.encuestas }));
   const abiertas = d ? d.encuestas.filter((e) => e.abierta) : [];
   if (!abiertas.length) return;
   const box = $("enc");
