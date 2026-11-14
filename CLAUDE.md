@@ -16,7 +16,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   antes de `/auth.js`. Antes de terminar, comprueba la página en inglés (sin restos en español).
   Los mensajes del bot en Discord se quedan en español.
 - **Rama:** se trabaja y se sube directamente a `main` (sin ramas ni PR). Cloudflare despliega
-  al subir a `main`.
+  al subir a `main`, pero el aviso de GitHub a veces se pierde: tras cada subida, lanzar la compilación
+  a mano (API de Workers Builds, rama `main`) y comprobar su estado en la API, sin esperar a que cambie
+  la web (desde la sesión remota no se puede abrir `*.workers.dev`).
 - **Base de datos:** cada cambio de esquema va en `migrations/NNNN_nombre.sql` y se aplica en
   producción **antes** de subir el código que lo usa.
 - **Seguridad:** validación y permisos siempre en el servidor; en el cliente `textContent`/DOM,
