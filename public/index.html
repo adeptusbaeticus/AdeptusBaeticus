@@ -73,6 +73,25 @@ h2{font:700 28px Cinzel,Georgia,serif;margin:0 0 24px}
 /* Próxima quedada y encuestas abiertas, en paralelo (en el móvil, una debajo de otra) */
 .dos{display:flex;gap:0 32px;flex-wrap:wrap;align-items:flex-start}
 .dos>section{flex:1 1 380px;min-width:0}
+/* En pantallas estrechas siguen en paralelo, con las tarjetas compactas (fecha arriba, botones a lo ancho). */
+@media (max-width:760px){
+  .dos{flex-wrap:nowrap;gap:0 12px}
+  .dos>section{flex:1 1 0}
+  .dos h2{font-size:19px;margin:0 0 12px}
+  .dos .qd{flex-direction:column;gap:10px;padding:12px;margin-bottom:32px}
+  .dos .fd{flex:none;flex-direction:row;gap:6px;padding:6px 0}
+  .dos .qd .cuerpo{flex:none}
+  .dos .fd .dn{font-size:22px}
+  .dos .qd h3{font-size:16px;overflow-wrap:anywhere}
+  .dos .qd p{font-size:13px;line-height:1.4}
+  .dos .btn{display:block;width:100%;text-align:center;padding:10px 8px;font-size:14px;margin:8px 0 0}
+  .dos #enc{gap:8px;margin-bottom:32px}
+  .dos .enc-i{flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px}
+  .dos .enc-i .tx{flex:none}
+  .dos .enc-i strong{font-size:14px;line-height:1.35}
+  .dos .enc-i span{font-size:12px;display:block;line-height:1.4}
+  .dos .enc-i .btn{margin:0}
+}
 /* Encuestas abiertas (solo socios con sesión) */
 #enc{display:grid;gap:10px;margin-bottom:48px}
 .enc-i{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#1F2328;border:1px solid #2C3036;border-left:4px solid #D9B25A;border-radius:12px;padding:14px 18px}
