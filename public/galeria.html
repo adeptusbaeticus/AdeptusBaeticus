@@ -66,7 +66,6 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 @media (max-width:600px){.c{padding:0 16px 48px}h1{font-size:32px}}
 .cab{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 20px;flex-wrap:wrap;margin:0 0 24px}
 .cab .lead{margin:0}
-.cab-b{display:flex;gap:8px;flex-wrap:wrap}
 .btn{display:inline-flex;align-items:center;justify-content:center;background:#A3211B;color:#fff;border:1px solid #A3211B;border-radius:8px;padding:10px 18px;min-height:44px;box-sizing:border-box;font:600 15px Inter,sans-serif;cursor:pointer}
 .btn:hover{background:#B8291F}.btn:disabled{opacity:.6;cursor:default}
 .btn.alt{background:#1F2328;color:#ECE7DC;border-color:#6B6558}
@@ -93,7 +92,6 @@ dialog#dsub::backdrop{background:rgba(0,0,0,.75)}
 #dsub .ay{font-size:13px;color:#A8A293;margin:6px 0 0}
 #dsub .inval{border-color:#E0524A!important}
 .post.nueva{outline:3px solid #D9B25A;outline-offset:2px}
-.aviso-prueba{background:#2A2210;border:1px solid #8A6416;border-left:4px solid #D9B25A;border-radius:10px;padding:12px 16px;color:#F0E2BC;font-size:14px;margin:0 0 28px}
 /* Aura de las bendiciones: dorada a la izquierda (Emperador) y con los colores de los cuatro dioses del Caos
    a la derecha (Poderes Ruinosos). Crece de 1 a 10 bendiciones (--es/--eb/--eo y --rs/--rb/--ro desde JS). */
 .marco{position:relative;border-radius:12px;--es:0px;--eb:0px;--eo:0;--rs:0px;--rb:0px;--ro:0}
@@ -150,10 +148,7 @@ html,body{overflow-x:clip}
   <h1>Galería</h1>
   <div class="cab">
     <p class="lead">Fotos de los miembros del club.</p>
-    <div class="cab-b">
-      <button class="btn alt" id="bprueba" type="button" hidden>Probar efectos</button>
-      <button class="btn" id="bsubir" type="button" hidden>Subir fotos</button>
-    </div>
+    <button class="btn" id="bsubir" type="button" hidden>Subir fotos</button>
   </div>
   <div class="fil" id="fil" hidden>
     <div><label for="orden">Ordenar</label>
@@ -274,16 +269,6 @@ function bendicion(p, tipo, sesion) {
     b.setAttribute("aria-pressed", mia ? "true" : "false");
   };
   pinta();
-  if (p.prueba) {
-    // Publicación de prueba: suma 1 (de 10 vuelve a 0) solo en este navegador.
-    b.onclick = () => {
-      p[tipo] = p[tipo] >= 10 ? 0 : p[tipo] + 1;
-      p.mias[tipo] = p[tipo] > 0;
-      pinta();
-      const m = b.closest(".marco"); if (m) aura(m, p);
-    };
-    return b;
-  }
   if (!sesion) { b.disabled = true; return b; }
   b.onclick = async () => {
     b.disabled = true;
@@ -464,32 +449,11 @@ function pintar() {
 $("orden").onchange = pintar;
 $("autor").onchange = pintar;
 
-// Modo de prueba (galeria.html?prueba=1): publicaciones de ejemplo con el símbolo del club en distintos estados de
-// bendiciones, solo en este navegador (no se guardan). Sus botones suman 1 bendición (de 10 vuelve a 0).
-const PRUEBA = new URLSearchParams(location.search).get("prueba") === "1";
-let pruebas = null;
-function publicacionesPrueba() {
-  if (!pruebas) {
-    pruebas = [[0, 0], [3, 1], [6, 2], [2, 7], [7, 5], [10, 10]].map(([e, r], i) => ({
-      id: -(i + 1), numero: "P" + (i + 1), prueba: true, texto: "Publicación de prueba · Emperador " + e + " · Ruinosos " + r,
-      autor: "Prueba", created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
-      imagenes: [{ url: "/Final_General.png", width: 1080, height: 1345 }], emperador: e, ruinosos: r,
-      mias: { emperador: false, ruinosos: false }, puedo_borrar: false,
-    }));
-  }
-  return pruebas;
-}
-if (PRUEBA) {
-  const av = el("p", "aviso-prueba", "Modo de prueba: las publicaciones «Prueba» no son reales ni se guardan. Pulsa sus bendiciones para ver cómo cambia el aura (de 10 vuelve a 0).");
-  $("grid").before(av);
-}
-
 // Carga (o recarga) la galería; resalta la publicación «nueva» si se indica su número.
 function cargar(nueva) {
   return fetch("/api/galeria", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
     data = d;
     data.publicaciones = (d.publicaciones || []).filter((p) => p.imagenes && p.imagenes.length);
-    if (PRUEBA) data.publicaciones = publicacionesPrueba().concat(data.publicaciones);
     const sel = $("autor"), antes = sel.value;
     while (sel.options.length > 1) sel.remove(1);
     const autores = [...new Set(data.publicaciones.map((p) => p.autor))].sort((a, b) => a.localeCompare(b, "es"));
@@ -501,9 +465,6 @@ function cargar(nueva) {
     sel.value = autores.includes(antes) ? antes : "";
     $("fil").hidden = !data.publicaciones.length;
     $("bsubir").hidden = !d.puede_subir;
-    // Botón para entrar y salir del modo de prueba (socios con sesión).
-    $("bprueba").hidden = !d.sesion && !PRUEBA;
-    $("bprueba").textContent = PRUEBA ? "Salir de la prueba" : "Probar efectos";
     pintar();
     if (nueva) {
       const c = $("p" + nueva);
@@ -626,11 +587,6 @@ function formularioSubir() {
   dlg.showModal();
 }
 $("bsubir").onclick = formularioSubir;
-$("bprueba").onclick = () => {
-  const u = new URL(location.href);
-  if (PRUEBA) u.searchParams.delete("prueba"); else u.searchParams.set("prueba", "1");
-  location.href = u.pathname + u.search;
-};
 </script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>
