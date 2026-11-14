@@ -504,8 +504,12 @@ function sugerenciasSocio(env, fila, miembros) {
     if (partes.length >= 2 && texto.includes(partes[0]) && partes.slice(1).some((x) => texto.includes(x))) p = Math.max(p, 0.85);
     else if (partes.length) {
       // Solo el nombre de pila, entre paréntesis en el apodo («Archerus (Ismael)»): coincidencia floja.
+      // También el nombre visible o el apodo que es solo su nombre («Gema») o un usuario que empieza por él («gemita26»).
       const entre = [m.nick, m.user.global_name].map((x) => (/\(([^)]*)\)/.exec(x || "") || [])[1]).filter(Boolean).map(norm);
-      if (entre.some((x) => x === partes[0] || (x.length >= 4 && x.startsWith(partes[0])))) p = Math.max(p, 0.5);
+      const solo = [m.user.global_name, m.nick, sinParentesis(m.nick)].filter(Boolean).map(norm);
+      const n0 = partes[0], raiz = n0.slice(0, Math.max(4, n0.length - 1));
+      if ([...entre, ...solo].some((x) => x === n0 || (x.length >= 4 && x.startsWith(n0)))) p = Math.max(p, 0.55);
+      else if (n0.length >= 4 && norm(m.user.username).startsWith(raiz)) p = Math.max(p, 0.5);
     }
     if (p >= 0.5) out.push({ p, id: m.user.id, usuario: m.user.username, nombre: m.nick || m.user.global_name || m.user.username, rol: roleOf(env, m.roles || []) });
   }
