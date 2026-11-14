@@ -126,11 +126,13 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 /* Iconos de modalidad: mesa (físico) y ordenador (online, Tabletop Simulator) */
 .mo{display:inline-flex;vertical-align:-2px;margin-right:4px}
 .mo svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.ag-i .hh .mo{display:flex;margin:3px 0 0;color:#A8A293}
-.ag-i .hh .mo svg{width:15px;height:15px}
+.ag-i .hh .mq{margin:4px 0 0;width:20px;height:20px}
+.ag-i .hh .mq .mo svg{width:14px;height:14px}
+.li .tx span .mq{display:inline-flex;width:17px;height:17px;vertical-align:-4px;margin-right:6px}
+.li .tx span .mq .mo svg{width:12px;height:12px}
 .modo{display:flex;align-items:center;gap:6px;color:#CFC9BA;margin:4px 0 8px}
-.modo .mo{margin:0}.modo .mo svg{width:16px;height:16px}
-.fld label.rad .mo{margin:0 2px}
+.modo .mq{width:22px;height:22px}.modo .mq .mo svg{width:15px;height:15px}
+.fld label.rad .mq{display:inline-flex;margin:0 6px 0 2px;vertical-align:-5px}
 /* Iconos de modalidad de juego (iconos-juego.js) */
 .ij{display:inline-flex;vertical-align:-2px;margin-right:4px}
 @media (min-width:601px){
@@ -138,8 +140,10 @@ select.chip option{background:#1F2328;color:#ECE7DC}
   /* Partida en el ordenador: icono en el tercio izquierdo; hora y organizador a la derecha */
   .e.pt{display:grid;grid-template-columns:1fr 2fr;gap:6px;align-items:center;padding:5px 16px 5px 5px}
   .e.pt .e-ic{display:flex;align-items:center;justify-content:center}
-  .e.pt .e-ic .ij{margin:0;width:100%;max-width:34px}
+  .e.pt .e-ic .ij{margin:0;width:100%;max-width:40px}
   .e.pt .e-ic .ij svg{width:100%;height:auto;aspect-ratio:1}
+  .e.pt .e-ic .ij-alto{max-width:36px}
+  .e.pt .e-ic .ij-alto svg{aspect-ratio:14/20;stroke-width:1.2}
   .e.pt .e-tx{display:flex;flex-direction:column;min-width:0;line-height:1.15}
   .e.pt .e-h{display:flex;flex-direction:column;font-variant-numeric:tabular-nums;letter-spacing:.02em}
   .e.pt .e-ini{font:800 13px Inter,sans-serif;white-space:nowrap}
@@ -408,7 +412,7 @@ function lineaModo(modo, lugar) {
   p.className = "modo";
   const t = document.createElement("span");
   t.textContent = modo === "online" ? "Online (TTS)" : modo === "ambos" ? "Físico u online (TTS)" : "Físico";
-  p.append(iconoModo(modo), t);
+  p.append(cuadroModo(modo), t);
   if (lugar) { const l = document.createElement("span"); l.textContent = lugar; if (lugar !== "A decidir") l.setAttribute("translate", "no"); p.append("·", l); }
   return p;
 }
@@ -462,7 +466,7 @@ function renderLista() {
     t.textContent = e.title;
     t.setAttribute("translate", "no");
     const cu = document.createElement("span");
-    cu.append(iconoModo(e.modo), d.toLocaleDateString("es-ES", { weekday: "long" }) + " · " + e.starts_at.slice(11, 16));
+    cu.append(cuadroModo(e.modo), d.toLocaleDateString("es-ES", { weekday: "long" }) + " · " + e.starts_at.slice(11, 16));
     tx.append(t, cu);
     if (e.location) { const l = document.createElement("span"); l.textContent = e.location; l.setAttribute("translate", "no"); tx.appendChild(l); }
     const ins = e.inscritos || 0;
@@ -508,7 +512,7 @@ function renderAgenda() {
     const st = document.createElement("strong"); st.textContent = titulo; if (noTraducir) st.setAttribute("translate", "no");
     t.appendChild(st);
     if (sub) { const sp = document.createElement("span"); sp.textContent = sub; t.appendChild(sp); }
-    if (modo) h.appendChild(iconoModo(modo));
+    if (modo) h.appendChild(cuadroModo(modo));
     b.append(h, t);
     return b;
   };
@@ -629,7 +633,7 @@ function render() {
         // Móvil: todo en línea y además la modalidad (en 40k, icono «40K» y los puntos).
         const sp = (cls, txt) => { const x = document.createElement("span"); x.className = cls; if (txt != null) x.textContent = txt; return x; };
         const ic = sp("e-ic");
-        const ipc = iconoJuego(p.activity), imv = iconoJuego(es40k(p.activity) ? "40k" : p.activity);
+        const ipc = iconoJuego(p.activity, false, true), imv = iconoJuego(es40k(p.activity) ? "40k" : p.activity);
         if (ipc) { ipc.classList.add("solo-pc"); ic.appendChild(ipc); }
         if (imv) { imv.classList.add("solo-movil"); ic.appendChild(imv); }
         const tx = sp("e-tx");
@@ -1156,7 +1160,7 @@ function showPartida(p) {
         const r = document.createElement("input");
         r.type = "radio"; r.name = "pj-modo"; r.value = v;
         const t = document.createElement("span"); t.textContent = txt;
-        l.append(r, " ", iconoModo(v), t);
+        l.append(r, " ", cuadroModo(v), t);
         if (v === "fisico" && p.lugar) { const lu = document.createElement("span"); lu.textContent = " · " + p.lugar; lu.setAttribute("translate", "no"); l.appendChild(lu); }
         fs.appendChild(l);
       });
@@ -1216,7 +1220,7 @@ function openPartidaForm() {
     const r = document.createElement("input");
     r.type = "checkbox"; r.name = "bp-modo"; r.value = v; r.checked = i === 0;
     const t = document.createElement("span"); t.textContent = txt;
-    l.append(r, " ", iconoModo(v), t);
+    l.append(r, " ", cuadroModo(v), t);
     fsModo.appendChild(l);
   });
   const ayModo = document.createElement("p");
