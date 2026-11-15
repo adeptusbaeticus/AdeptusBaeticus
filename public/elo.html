@@ -69,7 +69,9 @@ tbody tr.sel{background:#2A2618}
 .gcab h2{margin:0}
 .gcab .dat{color:#CFC9BA}
 .lienzo{width:100%;height:auto;display:block}
-.hist{margin-top:14px;max-height:420px;overflow:auto}
+.hist{margin-top:14px;max-height:420px;overflow:auto;position:relative}
+.hist tbody tr.resaltada td{background:#2E2818}
+.hist tbody tr.resaltada td:first-child{box-shadow:inset 3px 0 0 #D9B25A}
 tr.apagada td{opacity:.45}
 .hsx{display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid #6B6558;color:#CFC9BA;font:600 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase}
 .rv.clic{cursor:pointer;color:#F0CE82;text-decoration:underline dotted rgba(217,178,90,.7);text-underline-offset:3px}
@@ -208,39 +210,105 @@ function grande(x, tr) {
   const izq = el("div"); izq.append(h, dat);
   cab.append(izq, cerrar);
   g.appendChild(cab);
-  // Línea del ELO: empieza en 1500 y un punto por partida (color según el resultado).
-  const pts = [{ e: 1500 }].concat(x.h.filter((h) => !h.hs)); // las «handshake» no mueven el ELO
+  // Línea del ELO: empieza en 1500 y un punto por partida (color según el resultado). Las «handshake» salen en gris y
+  // no mueven el ELO (la línea sigue plana). `hi2` = índice de cada punto en el historial (para resaltar su fila).
+  const pts = [{ e: 1500 }].concat(x.h), hi2 = [-1].concat(x.h.map((h, k) => k));
+  const color = (p) => (p.hs ? "#8A857A" : COL[resDe(p)]);
   // Del ancho real (en el móvil, más estrecha: así el texto no se encoge).
   g.hidden = false;
-  const W = Math.round(Math.min(900, Math.max(300, g.clientWidth - 40))), H = W < 600 ? 220 : 280, PI = 46, PD = 12, PA = 16, PB = 30;
-  const ys = pts.map((p) => p.e), lo = Math.min(...ys, 1500) - 15, hi = Math.max(...ys, 1500) + 15;
+  const W = Math.round(Math.min(900, Math.max(300, g.clientWidth - 40))), H = W < 600 ? 250 : 320, PI = 46, PD = 14, PA = 30, PB = 40;
+  const ys = pts.map((p) => p.e), min = Math.min(...ys, 1500), max = Math.max(...ys, 1500);
+  // Escala con líneas cada 5, 10, 20, 25, 50 o 100 puntos (unas 4-6 líneas).
+  const paso = [5, 10, 20, 25, 50, 100, 200].find((q) => (max - min) / q <= 5) || 200;
+  const lo = Math.floor((min - 4) / paso) * paso, hiE = Math.ceil((max + 4) / paso) * paso;
   const X = (i) => PI + (i * (W - PI - PD)) / Math.max(1, pts.length - 1);
-  const Y = (e) => PA + ((hi - e) * (H - PA - PB)) / (hi - lo);
+  const Y = (e) => PA + ((hiE - e) * (H - PA - PB)) / Math.max(1, hiE - lo);
+  const fuente = { "font-size": 12, "font-family": "Inter,sans-serif" };
   const s = sv("svg", { viewBox: "0 0 " + W + " " + H, class: "lienzo", role: "img" }, g);
   s.setAttribute("aria-label", "Evolución del ELO");
-  for (const v of [hi - 15, 1500, lo + 15]) {
-    sv("line", { x1: PI, x2: W - PD, y1: Y(v), y2: Y(v), stroke: v === 1500 ? "#6B6558" : "#2C3036", "stroke-dasharray": v === 1500 ? "5 4" : "", "stroke-width": 1 }, s);
-    const t = sv("text", { x: PI - 8, y: Y(v) + 4, "text-anchor": "end", fill: "#A8A293", "font-size": 12, "font-family": "Inter,sans-serif" }, s);
-    t.textContent = String(Math.round(v));
+  // Una franja por liga, con su nombre arriba.
+  const liga = (p) => (p.l || "").replace(/ · R\d+$/, "");
+  let ini = 1;
+  for (let i = 1; i <= pts.length; i++) {
+    if (i < pts.length && liga(pts[i]) === liga(pts[ini])) continue;
+    if (ini < pts.length) {
+      const x0 = ini === 1 ? PI : (X(ini - 1) + X(ini)) / 2, x1 = i === pts.length ? W - PD : (X(i - 1) + X(i)) / 2;
+      if (ini > 1) sv("line", { x1: x0, x2: x0, y1: PA - 14, y2: H - PB, stroke: "#4A4F57", "stroke-dasharray": "3 4" }, s);
+      const t = sv("text", { x: x0 + 6, y: PA - 14, fill: "#A8A293", ...fuente, "font-size": 11 }, s);
+      // (texto dentro del dibujo: el traductor no llega, se traduce aquí)
+      t.textContent = window.abI18n && window.abI18n.lang === "en" ? window.abI18n.tr(liga(pts[ini])) : liga(pts[ini]);
+      if (x1 - x0 < 120) t.textContent = t.textContent.slice(0, Math.max(4, Math.floor((x1 - x0) / 7))) + "…";
+    }
+    ini = i;
   }
+  // Líneas de la escala (la de 1500, discontinua).
+  for (let v = lo; v <= hiE; v += paso) {
+    sv("line", { x1: PI, x2: W - PD, y1: Y(v), y2: Y(v), stroke: v === 1500 ? "#6B6558" : "#2C3036", "stroke-dasharray": v === 1500 ? "5 4" : "", "stroke-width": 1 }, s);
+    const t = sv("text", { x: PI - 8, y: Y(v) + 4, "text-anchor": "end", fill: v === 1500 ? "#CFC9BA" : "#A8A293", ...fuente }, s);
+    t.textContent = String(v);
+  }
+  if (!(lo <= 1500 && 1500 <= hiE && (1500 - lo) % paso === 0)) sv("line", { x1: PI, x2: W - PD, y1: Y(1500), y2: Y(1500), stroke: "#6B6558", "stroke-dasharray": "5 4" }, s);
+  // Número de cada partida abajo (no todos si hay muchas).
+  const cada = Math.ceil((pts.length - 1) / Math.max(1, Math.floor((W - PI - PD) / 34)));
+  for (let i = 1; i < pts.length; i++) {
+    sv("line", { x1: X(i), x2: X(i), y1: H - PB, y2: H - PB + 4, stroke: "#4A4F57" }, s);
+    if ((i - 1) % cada === 0 || i === pts.length - 1) { const t = sv("text", { x: X(i), y: H - PB + 16, "text-anchor": "middle", fill: "#A8A293", ...fuente, "font-size": 11 }, s); t.textContent = String(hi2[i] + 1); }
+  }
+  const t1 = sv("text", { x: PI, y: H - 6, fill: "#6B6558", ...fuente, "font-size": 11 }, s); t1.textContent = x.h.length ? fecha(x.h[0].f) : "";
+  const t2 = sv("text", { x: W - PD, y: H - 6, "text-anchor": "end", fill: "#6B6558", ...fuente, "font-size": 11 }, s); t2.textContent = x.h.length ? fecha(x.h[x.h.length - 1].f) : "";
   const camino = pts.map((p, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(p.e).toFixed(1)).join("");
   sv("path", { d: camino + "L" + X(pts.length - 1).toFixed(1) + " " + (H - PB) + "L" + PI + " " + (H - PB) + "Z", fill: "rgba(217,178,90,.08)" }, s);
   sv("path", { d: camino, fill: "none", stroke: "#D9B25A", "stroke-width": 2.5, "stroke-linejoin": "round" }, s);
-  pts.forEach((p, i) => {
-    if (!i) { sv("circle", { cx: X(0), cy: Y(1500), r: 4, fill: "#6B6558" }, s); return; }
-    const c = sv("circle", { cx: X(i), cy: Y(p.e), r: 5, fill: COL[resDe(p)], stroke: "#15171A", "stroke-width": 1.5 }, s);
-    const tt = sv("title", {}, c); tt.textContent = p.l + " · " + nombre(p.r) + " · " + p.m + "–" + p.s + " (" + signo(p.d) + ")";
-  });
-  const t1 = sv("text", { x: PI, y: H - 8, fill: "#A8A293", "font-size": 12, "font-family": "Inter,sans-serif" }, s); t1.textContent = x.h.length ? fecha(x.h[0].f) : "";
-  const t2 = sv("text", { x: W - PD, y: H - 8, "text-anchor": "end", fill: "#A8A293", "font-size": 12, "font-family": "Inter,sans-serif" }, s); t2.textContent = x.h.length ? fecha(x.h[x.h.length - 1].f) : "";
+  sv("circle", { cx: X(0), cy: Y(1500), r: 4, fill: "#6B6558" }, s);
+  // Puntos (con una zona de toque más grande) y la etiqueta del punto resaltado.
+  const marca = sv("g", { "pointer-events": "none" }, null);
+  const puntos = [];
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i];
+    const c = sv("circle", { cx: X(i), cy: Y(p.e), r: 5, fill: color(p), stroke: "#15171A", "stroke-width": 1.5 }, s);
+    const zona = sv("circle", { cx: X(i), cy: Y(p.e), r: 13, fill: "transparent", style: "cursor:pointer" }, s);
+    zona.addEventListener("click", () => resalta(hi2[i], true));
+    zona.addEventListener("mouseenter", () => etiqueta(i));
+    zona.addEventListener("mouseleave", () => etiqueta(sel >= 0 ? hi2.indexOf(sel) : -1));
+    puntos[i] = c;
+  }
+  s.appendChild(marca);
+  let sel = -1;
+  // Etiqueta sobre un punto: partida, rival, resultado y cambio.
+  function etiqueta(i) {
+    marca.textContent = "";
+    if (i < 1) return;
+    const p = pts[i];
+    const txt = "#" + (hi2[i] + 1) + " · " + nombre(p.r) + " · " + p.m + "–" + p.s + " · " + (p.hs ? "Handshake" : signo(p.d) + " → " + p.e);
+    const ancho = txt.length * 6.6 + 16, bx = Math.min(Math.max(PI, X(i) - ancho / 2), W - PD - ancho);
+    const by = Y(p.e) - 36 < PA - 6 ? Y(p.e) + 12 : Y(p.e) - 34;
+    sv("rect", { x: bx, y: by, width: ancho, height: 22, rx: 6, fill: "#15171A", stroke: color(p), "stroke-width": 1 }, marca);
+    const t = sv("text", { x: bx + 8, y: by + 15, fill: "#ECE7DC", ...fuente }, marca);
+    t.setAttribute("translate", "no");
+    t.textContent = txt;
+  }
+  // Resaltar una partida: su punto más grande y su fila marcada (la lista baja hasta ella).
+  function resalta(k, desdeGrafica) {
+    sel = k;
+    puntos.forEach((c) => { if (c) { c.setAttribute("r", 5); c.setAttribute("stroke", "#15171A"); c.setAttribute("stroke-width", 1.5); } });
+    const i = hi2.indexOf(k);
+    if (i > 0) { puntos[i].setAttribute("r", 8); puntos[i].setAttribute("stroke", "#FFF4CF"); puntos[i].setAttribute("stroke-width", 2.5); etiqueta(i); }
+    else etiqueta(-1);
+    filas.forEach((f, n) => f.classList.toggle("resaltada", n === k));
+    const f = filas[k];
+    if (f && desdeGrafica) caja2.scrollTop = f.offsetTop - caja2.clientHeight / 2 + f.offsetHeight / 2;
+  }
   // Todas las partidas en orden.
   const caja2 = el("div", "hist");
   const t = el("table");
   const th = t.createTHead().insertRow();
   [["#", "oc"], ["Fecha", "oc"], ["Partida", "izq"], ["Rival", "izq"], ["Resultado", ""], ["Cambio", ""], ["ELO", ""]].forEach(([n, c]) => th.appendChild(el("th", c, n)));
   const tb = t.createTBody();
+  const filas = [];
   x.h.forEach((p, i) => {
-    const r = tb.insertRow(); r.style.cursor = "default";
+    const r = tb.insertRow();
+    filas[i] = r;
+    r.addEventListener("click", () => resalta(i, false));
     if (p.hs) { r.className = "apagada"; r.title = "Handshake: no cuenta para el ELO"; }
     const td = (c, cls) => { const q = el("td", cls || ""); if (c instanceof Node) q.appendChild(c); else q.textContent = c; r.appendChild(q); return q; };
     td(String(i + 1), "oc"); td(fecha(p.f), "oc"); td(p.l, "izq");

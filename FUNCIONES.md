@@ -190,7 +190,9 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Ranking ELO** (botón en Miembros, página `elo.html`): los socios clasificados por su ELO (puesto, título, ELO,
   partidas y V-D-E) y, debajo, los que aún están clasificando (con al menos una partida). Al pasar el ratón por uno,
   una gráfica de sus últimas 5 partidas (victoria, derrota o empate y cuánto subió o bajó); al pulsarlo, arriba de la
-  tabla, la gráfica de toda su evolución y todas sus partidas en orden (fecha, liga y ronda, rival, resultado, cambio y
+  tabla, la gráfica de toda su evolución (escala detallada, número de partida, separación por ligas y las «handshake» en
+  gris; al tocar un punto se resalta su partida en la lista y al pulsar una partida se marca su punto) y todas sus
+  partidas en orden (fecha, liga y ronda, rival, resultado, cambio y
   ELO); las partidas «handshake» salen apagadas y sin cambio. En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
   Miembros, «Ver su evolución en el ranking ELO».
 - **Calendario de la liga** para el móvil.

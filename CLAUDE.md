@@ -244,7 +244,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Partidas **«handshake»** (`liga_partidas.handshake`, migración 0037): el admin las marca o desmarca en la Gran Liga
   (botón en cada partida con resultado, también en ligas pasadas; `/api/admin/liga/partida/:id/handshake`, recalcula
   el ELO); llevan la etiqueta «Handshake», no cuentan para el ELO (ni partidas ni V-D-E) y en el ranking ELO salen
-  apagadas en la lista de partidas del jugador (`hs: 1` en su historial), fuera de las gráficas.
+  apagadas en la lista de partidas del jugador (`hs: 1` en su historial) y en gris en la gráfica grande (no en la de
+  las últimas 5).
   `eloCalcula` lo rehace de cero tras cada sincronización de resultados y una vez al día (`eloDiario` en `scheduled`)
   y lo guarda en `nr_cache` `elo:club` (`{ minimo, jugadores }`, con el historial `h` de cada uno: fecha, liga y
   ronda, rival, PV, cambio y ELO tras la partida). Partidas para dejar de estar «Clasificando»: ajuste `elo_minimo` en
@@ -253,6 +254,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Aprendiz el resto) y número. `/api/miembros` lo da en `m.elo`; `/api/elo` (público) da clasificados, «clasificando» (con al
   menos una partida), historiales y nombres para `elo.html` («Ranking ELO», botón en Miembros): tabla, mini gráfica de
   las últimas 5 partidas al pasar el ratón y, al pulsar, gráfica de toda la evolución arriba (con scroll hasta ella) y
-  la lista de partidas; `elo.html#ID` la abre directamente. En esa lista, el rival: al pasar el ratón, su ficha rápida
+  la lista de partidas; `elo.html#ID` la abre directamente. La gráfica grande: escala con líneas cada 5-200 puntos
+  (1500 discontinua), número de cada partida, una franja por liga con su nombre, puntos por resultado (handshake en
+  gris, línea plana) con zona de toque amplia; al tocar un punto se resalta su fila (la lista se desplaza) y se muestra
+  su etiqueta, y al pulsar una fila se marca su punto. En esa lista, el rival: al pasar el ratón, su ficha rápida
   (`abFicha(el, id, { soloRaton: true })`, que deja el clic libre); al pulsarlo, su desglose. Torneos puntuales: preparado en `eloPartidas` (sus partidas con su fecha en
   `orden`), de momento ninguno.
