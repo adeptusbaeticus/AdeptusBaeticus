@@ -185,7 +185,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   siguientes; no cuentan las partidas perdidas por abandono. Se recalcula al llegar resultados y una vez al día.
   Hasta 10 partidas sale «Clasificando»; después, el título y el número: **Instructor** (top 40 %), **Iniciado**
   (top 60 %) y **Aprendiz** (el resto). Se ve en Miembros (listado y ficha) y en la ficha rápida.
-  Preparado para sumar torneos puntuales más adelante. En Admin se elige cuántas partidas hacen falta para dejar de
+  También cuentan los **torneos puntuales** que el admin añade (ver Ranking ELO). En Admin se elige cuántas partidas hacen falta para dejar de
   estar «Clasificando» (0 = salen todos).
 - **Ranking ELO** (botón en Miembros, página `elo.html`): los socios clasificados por su ELO (puesto, título, ELO,
   partidas y V-D-E) y, debajo, los que aún están clasificando (con al menos una partida). Al pasar el ratón por uno,
@@ -193,7 +193,11 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   tabla, la gráfica de toda su evolución (escala detallada, número de partida, separación por ligas y las «handshake» en
   gris; al tocar un punto se resalta su partida en la lista y al pulsar una partida se marca su punto) y todas sus
   partidas en orden (fecha, liga y ronda, rival, resultado, cambio y
-  ELO); las partidas «handshake» salen apagadas y sin cambio. En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
+  ELO); las partidas «handshake» salen apagadas y sin cambio.
+- **Torneos puntuales** (admin, en el Ranking ELO): se pega el enlace de un torneo de New Recruit y «Leer torneo» trae
+  sus jugadores y resultados; cada jugador se asigna a un socio (con sugerencias: ✓ si su usuario de New Recruit ya se
+  conoce, o nombres parecidos con «Usar») o a «REDACTED» si es un jugador antiguo. «Añadir al ELO» suma sus partidas,
+  que cuentan desde ese momento (después de las de la Gran Liga ya jugadas). Lista de torneos añadidos con «Quitar». En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
   Miembros, «Ver su evolución en el ranking ELO».
 - **Calendario de la liga** para el móvil.
 - **Recordatorios por Discord** (mensaje privado del bot): tu partida de cada ronda y el aviso antes del cierre.

@@ -629,6 +629,7 @@ async function borraPerfil(env, id) {
     env.DB.prepare("DELETE FROM push_subs WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM dm_canales WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1").bind(id),
+    env.DB.prepare("UPDATE elo_torneo_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
     env.DB.prepare("UPDATE liga_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM socios_datos WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM solicitudes WHERE discord_id=?1").bind(id),
@@ -1841,8 +1842,19 @@ async function eloPartidas(env) {
     a: p.da || "j" + p.ja, b: p.db || "j" + p.jb, pa: p.pv_a, pb: p.pv_b,
     fecha: masDias(p.inicio.slice(0, 10), 14 * (p.ronda - 1)), etq: p.liga + " · R" + p.ronda, hs: !!p.handshake,
   }));
-  // Torneos puntuales (todavía no): sus partidas se añadirían aquí con el mismo formato (con `fecha`, `etq` = nombre
-  // del torneo y su ronda, y la fecha «YYYY-MM-DD …» al principio de `orden` para que se intercalen por fecha).
+  // Torneos puntuales de New Recruit (`elo_torneos`): cuentan en el momento en que se añadieron (`anadido`), por ronda
+  // y mesa. Jugador sin socio («REDACTED»): «t» + su fila del torneo.
+  let tor = [];
+  try { tor = (await env.DB.prepare(
+    `SELECT t.nombre, t.anadido, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb
+     FROM elo_torneo_partidas p JOIN elo_torneos t ON t.id=p.torneo_id
+     JOIN elo_torneo_jugadores a ON a.id=p.jugador_a JOIN elo_torneo_jugadores b ON b.id=p.jugador_b`
+  ).all()).results; } catch (e) {}
+  for (const p of tor) partidas.push({
+    orden: p.anadido + " ~ " + n3(p.ronda) + " " + n3(p.mesa),
+    a: p.da || "t" + p.ja, b: p.db || "t" + p.jb, pa: p.pv_a, pb: p.pv_b,
+    fecha: p.anadido.slice(0, 10), etq: p.nombre + " · R" + p.ronda, hs: false,
+  });
   return partidas.sort((x, y) => (x.orden < y.orden ? -1 : x.orden > y.orden ? 1 : 0));
 }
 // Historial de cada jugador: { f: fecha, l: liga y ronda, r: rival, m/s: PV propios y del rival, d: cambio, e: ELO tras
@@ -1871,7 +1883,7 @@ async function eloCalcula(env) {
   }
   const todos = [...t.values()].map((x) => ({ ...x, elo: Math.round(x.elo) }));
   // Clasificados: solo socios con cuenta en la web (los jugadores sin ella cuentan como rivales, pero no salen).
-  const clasif = todos.filter((x) => !x.id.startsWith("j") && x.n >= minimo).sort((a, b) => b.elo - a.elo || b.n - a.n);
+  const clasif = todos.filter((x) => !/^[jt]\d/.test(x.id) && x.n >= minimo).sort((a, b) => b.elo - a.elo || b.n - a.n);
   clasif.forEach((x, i) => { x.pos = i + 1; x.total = clasif.length; x.titulo = ELO_TITULOS.find(([q]) => (i + 1) / clasif.length <= q + 1e-9)[1]; });
   const datos = { minimo, jugadores: todos };
   await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now'), error=NULL")
@@ -1885,6 +1897,76 @@ async function eloDatos(env) {
   if (!d || !Array.isArray(d.jugadores)) d = await eloCalcula(env);
   return d;
 }
+// ----- Torneos puntuales de New Recruit para el ELO (admin) -----
+// Lee el torneo de la página pública de New Recruit (llamadas internas `tourny_get` y `report_get_bulk`: la API oficial
+// no da partidas; con permiso del propietario, solo a mano). Devuelve sus jugadores con sugerencias de socios y lo
+// leído queda guardado (nr_cache 'elo-torneo:ID', 1 día) para «Añadir al ELO».
+async function eloTorneoLee(env, nr) {
+  const t = await nrRpc("tourny_get", [nr]);
+  if (!t || !Array.isArray(t.participant_list)) throw new Error("New Recruit no devolvió el torneo. ¿Es correcto el enlace?");
+  const ids = (t.matches || []).map((m) => m.id_report).filter(Boolean);
+  const informes = [];
+  for (let i = 0; i < ids.length; i += 300) informes.push(...((await nrRpc("report_get_bulk", [ids.slice(i, i + 300)])) || []));
+  const porId = new Map(informes.map((r) => [String(r._id), r]));
+  const pv = (sc) => { if (!sc) return null; if (Number.isFinite(sc.VP)) return sc.VP; if (Number.isFinite(sc.PV)) return sc.PV; const v = Object.values(sc).find((x) => Number.isFinite(x)); return v == null ? null : v; };
+  const mesas = {}, partidas = [];
+  for (const m of (t.matches || []).slice().sort((a, b) => (a.round || 0) - (b.round || 0))) {
+    const [a, b] = m.participants || [], r = porId.get(String(m.id_report));
+    if (!a || !b || !r) continue;
+    const i = (r.players || []).findIndex((x) => x.id_participant === a), k = (r.players || []).findIndex((x) => x.id_participant === b);
+    if (i < 0 || k < 0) continue;
+    const va = pv((r.score || [])[i]), vb = pv((r.score || [])[k]);
+    if (va == null || vb == null) continue;
+    const ronda = Number(m.round) || 1;
+    mesas[ronda] = (mesas[ronda] || 0) + 1;
+    partidas.push({ r: ronda, m: mesas[ronda], a, b, pa: va, pb: vb });
+  }
+  const juegan = new Set(partidas.flatMap((x) => [x.a, x.b]));
+  const jugadores = t.participant_list.filter((x) => juegan.has(x._id)).map((x) => ({ p: x._id, n: String(x.name || "?").slice(0, 60), real: x.member_name ? String(x.member_name).slice(0, 80) : null }));
+  const datos = { nr, nombre: String(t.name || "Torneo").slice(0, 80), fecha: t.start ? String(t.start).slice(0, 10) : null, jugadores, partidas };
+  await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now')")
+    .bind("elo-torneo:" + nr, JSON.stringify(datos)).run();
+  return datos;
+}
+// Sugerencias de socio para cada jugador del torneo: mismo usuario de New Recruit (en su ficha, en la liga o en otro
+// torneo ya añadido) y, si no, nombres parecidos (apodo sin paréntesis, nombre de pila o el nombre real de NR).
+async function eloTorneoSugerencias(env, jugadores) {
+  const norm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const lev = (a, b) => {
+    if (Math.abs(a.length - b.length) > 2) return 9;
+    let q = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) { const c = [i]; for (let j = 1; j <= b.length; j++) c[j] = Math.min(q[j] + 1, c[j - 1] + 1, q[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); q = c; }
+    return q[b.length];
+  };
+  const us = (await env.DB.prepare("SELECT discord_id, name, nr_username FROM users").all()).results;
+  const nrDe = new Map();
+  const pon = (nr, id) => { const k = norm(nr); if (k && id && !nrDe.has(k)) nrDe.set(k, id); };
+  us.forEach((u) => pon(u.nr_username, u.discord_id));
+  (await env.DB.prepare("SELECT nr_nombre, discord_id FROM liga_jugadores WHERE discord_id IS NOT NULL").all()).results.forEach((j) => pon(j.nr_nombre, j.discord_id));
+  (await env.DB.prepare("SELECT nr_nombre, discord_id FROM elo_torneo_jugadores WHERE discord_id IS NOT NULL").all()).results.forEach((j) => pon(j.nr_nombre, j.discord_id));
+  const nombre = new Map(us.map((u) => [u.discord_id, u.name]));
+  return jugadores.map((j) => {
+    const out = new Map();
+    const exacto = nrDe.get(norm(j.n));
+    if (exacto && nombre.has(exacto)) out.set(exacto, 1);
+    const claves = [j.n, j.real].map(norm).filter((k) => k.length >= 3);
+    for (const u of us) {
+      if (out.has(u.discord_id)) continue;
+      const pila = (/\(([^)]+)\)/.exec(u.name) || [])[1];
+      const ks = [u.name, sinParentesis(u.name), pila].map(norm).filter((k) => k.length >= 3);
+      let p = 0;
+      for (const a of claves) for (const k of ks) {
+        if (a === k) p = Math.max(p, 0.9);
+        else if (Math.min(a.length, k.length) >= 4 && (a.includes(k) || k.includes(a))) p = Math.max(p, 0.7);
+        else if (a.length >= 5 && lev(a, k) <= 2) p = Math.max(p, 0.6);
+      }
+      if (p) out.set(u.discord_id, p);
+    }
+    const sug = [...out].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, p]) => ({ id, name: nombre.get(id), seguro: p === 1 }));
+    return { ...j, sugerencias: sug };
+  });
+}
+
 // Una vez al día (desde el temporizador), por si cambió algo sin pasar por la sincronización.
 async function eloDiario(env) {
   const c = await env.DB.prepare("SELECT 1 FROM nr_cache WHERE clave=?1 AND actualizado > datetime('now','-1 day')").bind(ELO.clave).first();
@@ -3335,6 +3417,7 @@ export default {
       const d = await eloDatos(env);
       const us = new Map((await env.DB.prepare("SELECT discord_id, name, avatar, role FROM users").all()).results.map((u) => [u.discord_id, u]));
       const ljs = new Map((await env.DB.prepare("SELECT id, discord, nombre FROM liga_jugadores").all()).results.map((j) => ["j" + j.id, j]));
+      for (const j of (await env.DB.prepare("SELECT id, nr_nombre FROM elo_torneo_jugadores WHERE discord_id IS NULL").all()).results) ljs.set("t" + j.id, { discord: j.nr_nombre, nombre: null });
       const nombres = {};
       const nombre = (id) => {
         if (nombres[id]) return;
@@ -3626,6 +3709,85 @@ export default {
         if (!r.meta.changes) return Response.json({ error: "Solo se pueden marcar partidas con resultado" }, { status: 400, headers: noStore });
         await eloCalcula(env);
         return Response.json({ ok: true, handshake: b.handshake }, { headers: noStore });
+      }
+      // Torneos puntuales para el ELO: leer uno de New Recruit, añadirlo con los jugadores asignados, listarlos y quitarlos.
+      if (path === "/api/admin/elo/torneo/leer" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const nr = (/([0-9a-f]{24})/i.exec(String(b.nr || "")) || [])[1];
+        if (!nr) return Response.json({ error: "Pega el enlace del torneo en New Recruit" }, { status: 400, headers: noStore });
+        if (await env.DB.prepare("SELECT 1 FROM elo_torneos WHERE nr_torneo=?1").bind(nr).first())
+          return Response.json({ error: "Ese torneo ya está en el ELO" }, { status: 409, headers: noStore });
+        if (await env.DB.prepare("SELECT 1 FROM liga_fases WHERE nr_torneo=?1").bind(nr).first())
+          return Response.json({ error: "Ese torneo es una fase de la Gran Liga: ya cuenta para el ELO" }, { status: 409, headers: noStore });
+        const res = await env.DB.prepare(
+          `INSERT INTO nr_cache (clave, intento) VALUES (?1, datetime('now'))
+           ON CONFLICT(clave) DO UPDATE SET intento=excluded.intento WHERE nr_cache.intento IS NULL OR nr_cache.intento < datetime('now', '-1 minutes')`
+        ).bind("elo-lectura:" + nr).run();
+        if (!res.meta.changes) return Response.json({ error: "Se leyó hace menos de 1 minuto. Espera un poco." }, { status: 429, headers: noStore });
+        let d;
+        try { d = await eloTorneoLee(env, nr); } catch (e) { return Response.json({ error: String(e.message || e).slice(0, 200) }, { status: 400, headers: noStore }); }
+        if (!d.partidas.length) return Response.json({ error: "Ese torneo no tiene partidas con resultado" }, { status: 400, headers: noStore });
+        const usuarios = (await env.DB.prepare("SELECT discord_id, name FROM users ORDER BY name COLLATE NOCASE").all()).results;
+        return Response.json({ nr, nombre: d.nombre, fecha: d.fecha, partidas: d.partidas.length, rondas: new Set(d.partidas.map((x) => x.r)).size,
+          jugadores: await eloTorneoSugerencias(env, d.jugadores), usuarios }, { headers: noStore });
+      }
+      if (path === "/api/admin/elo/torneo" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const nr = (/^([0-9a-f]{24})$/i.exec(String(b.nr || "")) || [])[1];
+        const c = nr && await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1 AND actualizado > datetime('now','-1 day')").bind("elo-torneo:" + nr).first();
+        if (!c) return Response.json({ error: "Vuelve a leer el torneo" }, { status: 400, headers: noStore });
+        if (await env.DB.prepare("SELECT 1 FROM elo_torneos WHERE nr_torneo=?1").bind(nr).first())
+          return Response.json({ error: "Ese torneo ya está en el ELO" }, { status: 409, headers: noStore });
+        const d = JSON.parse(c.datos), asig = b.asignaciones && typeof b.asignaciones === "object" ? b.asignaciones : {};
+        // Cada jugador: un socio (su id) o «redacted» (jugador antiguo). Ningún socio dos veces.
+        const ids = [];
+        for (const j of d.jugadores) {
+          const v = asig[j.p];
+          if (v !== "redacted" && typeof v !== "string") return Response.json({ error: "Falta decidir quién es " + j.n }, { status: 400, headers: noStore });
+          if (v !== "redacted") ids.push(v);
+        }
+        if (new Set(ids).size !== ids.length) return Response.json({ error: "Hay un socio asignado a dos jugadores" }, { status: 400, headers: noStore });
+        if (ids.length) {
+          const n = (await env.DB.prepare("SELECT count(*) AS n FROM users WHERE discord_id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(ids)).first()).n;
+          if (n !== ids.length) return Response.json({ error: "Algún socio no existe" }, { status: 400, headers: noStore });
+        }
+        const ahora = nowLocal().replace("T", " ").slice(0, 16);
+        const ins = await env.DB.prepare("INSERT INTO elo_torneos (nr_torneo, nombre, fecha, anadido) VALUES (?1, ?2, ?3, ?4)").bind(nr, d.nombre, d.fecha, ahora).run();
+        const tid = ins.meta.last_row_id;
+        await env.DB.batch([
+          env.DB.prepare(`INSERT INTO elo_torneo_jugadores (torneo_id, nr_participante, nr_nombre, discord_id)
+            SELECT ?1, json_extract(value,'$.p'), json_extract(value,'$.n'), json_extract(value,'$.d') FROM json_each(?2)`)
+            .bind(tid, JSON.stringify(d.jugadores.map((j) => ({ p: j.p, n: j.n, d: asig[j.p] === "redacted" ? null : asig[j.p] })))),
+          env.DB.prepare(`INSERT INTO elo_torneo_partidas (torneo_id, ronda, mesa, jugador_a, jugador_b, pv_a, pv_b)
+            SELECT ?1, json_extract(c.value,'$.r'), json_extract(c.value,'$.m'),
+              (SELECT id FROM elo_torneo_jugadores WHERE torneo_id=?1 AND nr_participante=json_extract(c.value,'$.a')),
+              (SELECT id FROM elo_torneo_jugadores WHERE torneo_id=?1 AND nr_participante=json_extract(c.value,'$.b')),
+              json_extract(c.value,'$.pa'), json_extract(c.value,'$.pb') FROM json_each(?2) c`).bind(tid, JSON.stringify(d.partidas)),
+          env.DB.prepare("DELETE FROM nr_cache WHERE clave=?1").bind("elo-torneo:" + nr),
+        ]);
+        await eloCalcula(env);
+        return Response.json({ ok: true, id: tid, partidas: d.partidas.length }, { headers: noStore });
+      }
+      if (path === "/api/admin/elo/torneos" && request.method === "GET") {
+        const ts = (await env.DB.prepare(
+          `SELECT t.id, t.nombre, t.fecha, t.anadido, t.nr_torneo, (SELECT count(*) FROM elo_torneo_partidas p WHERE p.torneo_id=t.id) AS partidas,
+             (SELECT count(*) FROM elo_torneo_jugadores j WHERE j.torneo_id=t.id) AS jugadores
+           FROM elo_torneos t ORDER BY t.anadido DESC`).all()).results;
+        return Response.json(ts, { headers: noStore });
+      }
+      const etm = path.match(/^\/api\/admin\/elo\/torneo\/(\d+)$/);
+      if (etm && request.method === "DELETE") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        const id = Number(etm[1]);
+        await env.DB.batch([
+          env.DB.prepare("DELETE FROM elo_torneo_partidas WHERE torneo_id=?1").bind(id),
+          env.DB.prepare("DELETE FROM elo_torneo_jugadores WHERE torneo_id=?1").bind(id),
+          env.DB.prepare("DELETE FROM elo_torneos WHERE id=?1").bind(id),
+        ]);
+        await eloCalcula(env);
+        return Response.json({ ok: true }, { headers: noStore });
       }
       // ELO del club: partidas necesarias para dejar de estar «Clasificando» (0 = salen todos). Se recalcula al cambiarlo.
       if (path === "/api/admin/elo") {

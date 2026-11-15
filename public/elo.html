@@ -74,6 +74,19 @@ tbody tr.sel{background:#2A2618}
 .hist tbody tr.resaltada td:first-child{box-shadow:inset 3px 0 0 #D9B25A}
 tr.apagada td{opacity:.45}
 .hsx{display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid #6B6558;color:#CFC9BA;font:600 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase}
+#adm{margin:0 0 24px}
+#adm h2{margin:0 0 6px;font-size:20px}
+#adm form{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+#adm input,#adm select{min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;color-scheme:dark}
+#adm input[type=url]{flex:1 1 320px}
+#adm select{width:100%;max-width:340px}
+#adm .btn{background:#A3211B;color:#fff;border:0;border-radius:8px;padding:10px 18px;font:600 15px Inter,sans-serif;cursor:pointer;min-height:44px}
+#adm .btn:disabled{opacity:.6;cursor:default}
+#adm table td{white-space:normal}
+#adm .err{color:#F0A39E}
+#adm .ok{color:#9FD39B}
+#adm .tlist{list-style:none;margin:8px 0 0;padding:0}
+#adm .tlist li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #2C3036}
 .rv.clic{cursor:pointer;color:#F0CE82;text-decoration:underline dotted rgba(217,178,90,.7);text-underline-offset:3px}
 .rv.clic:hover,.rv.clic:focus-visible{color:#FFE3A3;outline:none}
 /* Mini gráfica (al pasar el ratón) */
@@ -92,6 +105,7 @@ tr.apagada td{opacity:.45}
   <h1>Ranking ELO del club</h1>
   <p class="lead">Todos empiezan en 1500 y cada partida de la Gran Liga lo mueve. Pasa el ratón por un jugador para ver sus últimas 5 partidas, o púlsalo para ver toda su evolución.</p>
   <div class="acc"><a class="chip" href="/miembros.html">← Volver a Miembros</a></div>
+  <section id="adm" class="card" hidden></section>
   <p class="m" id="msg">Cargando...</p>
   <section id="graf" class="card" hidden aria-live="polite"></section>
   <div id="app" hidden>
@@ -335,7 +349,133 @@ function grande(x, tr) {
   g.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
 }
 
-fetch("/api/elo").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
+// ----- Admin: torneos puntuales de New Recruit para el ELO -----
+// Se lee el torneo, se asigna cada jugador a un socio (con sugerencias) o a «REDACTED» (jugador antiguo) y se añade:
+// sus partidas cuentan desde ese momento, después de las de la Gran Liga ya jugadas.
+function panelAdmin() {
+  const box = $("adm");
+  box.hidden = false;
+  box.textContent = "";
+  box.append(el("h2", "", "Torneos puntuales"),
+    el("p", "m", "Pega el enlace de un torneo de New Recruit: se leen sus jugadores y resultados, y sus partidas cuentan para el ELO desde el momento en que lo añades."));
+  const f = el("form");
+  const inp = Object.assign(el("input"), { type: "url", required: true, placeholder: "https://www.newrecruit.eu/app/tournydetails/details?id=…" });
+  inp.setAttribute("aria-label", "Enlace del torneo en New Recruit");
+  const leer = el("button", "btn", "Leer torneo"); leer.type = "submit";
+  f.append(inp, leer);
+  const msg = el("p", "m"); msg.setAttribute("role", "status");
+  const zona = el("div");
+  const lista = el("div");
+  box.append(f, msg, zona, lista);
+  const pide = async (metodo, ruta, cuerpo) => {
+    const r = await fetch(ruta, { method: metodo, headers: { "content-type": "application/json" }, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    const y = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(y.error || "No se pudo guardar.");
+    return y;
+  };
+  f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    leer.disabled = true; msg.className = "m"; msg.textContent = "Leyendo el torneo en New Recruit..."; zona.textContent = "";
+    try { const d = await pide("POST", "/api/admin/elo/torneo/leer", { nr: inp.value }); msg.textContent = ""; asignar(d); }
+    catch (e) { msg.className = "m err"; msg.textContent = e.message; }
+    leer.disabled = false;
+  };
+  function asignar(d) {
+    zona.textContent = "";
+    const cab = el("p", ""); const n = el("strong", "", d.nombre); n.setAttribute("translate", "no");
+    cab.append(n, el("span", "m", " · " + (d.fecha ? fecha(d.fecha) + " · " : "") + d.partidas + " partidas · " + d.rondas + " rondas"));
+    zona.append(cab, el("p", "m", "Elige quién es cada jugador: un socio de la web (las sugerencias salen primero) o «REDACTED» si es un jugador antiguo."));
+    const t = el("table");
+    const th = t.createTHead().insertRow();
+    [["Jugador en New Recruit", "izq"], ["Socio de la web", "izq"]].forEach(([x, c]) => th.appendChild(el("th", c, x)));
+    const tb = t.createTBody();
+    const sels = d.jugadores.map((j) => {
+      const r = tb.insertRow(); r.style.cursor = "default";
+      const c1 = el("td", "izq"); const nn = el("strong", "", j.n); nn.setAttribute("translate", "no"); c1.appendChild(nn);
+      if (j.real && j.real !== j.n) { const rr = el("span", "m", " (" + j.real + ")"); rr.setAttribute("translate", "no"); c1.appendChild(rr); }
+      const c2 = el("td", "izq");
+      const sel = el("select"); sel.setAttribute("aria-label", "Socio de " + j.n);
+      const op = (v, txt, padre) => { const o = el("option", "", txt); o.value = v; (padre || sel).appendChild(o); return o; };
+      op("", "— Elige —");
+      if (j.sugerencias.length) {
+        const g = document.createElement("optgroup"); g.label = "Sugerencias";
+        j.sugerencias.forEach((u) => op(u.id, u.name + (u.seguro ? " ✓" : ""), g).setAttribute("translate", "no"));
+        sel.appendChild(g);
+      }
+      op("redacted", "REDACTED · jugador antiguo");
+      const g2 = document.createElement("optgroup"); g2.label = "Todos los socios";
+      d.usuarios.forEach((u) => op(u.discord_id, u.name, g2).setAttribute("translate", "no"));
+      sel.appendChild(g2);
+      // El mismo usuario de New Recruit ya conocido: se elige solo.
+      const seguro = j.sugerencias.find((u) => u.seguro);
+      if (seguro) sel.value = seguro.id;
+      c2.appendChild(sel);
+      // Sugerencia no segura (nombre parecido): se muestra debajo, con «Usar».
+      if (!seguro && j.sugerencias.length) {
+        const u = j.sugerencias[0];
+        const pista = el("p", "m", "Sugerencia: ");
+        pista.style.margin = "6px 0 0";
+        const nn2 = el("span", "", u.name); nn2.setAttribute("translate", "no");
+        const usar = el("button", "chip", "Usar"); usar.type = "button"; usar.style.cssText = "min-height:32px;padding:2px 12px;margin-left:8px";
+        usar.onclick = () => { sel.value = u.id; };
+        pista.append(nn2, usar);
+        c2.appendChild(pista);
+      }
+      r.append(c1, c2);
+      return [j, sel];
+    });
+    const cajaT = el("div", "tabla"); cajaT.appendChild(t);
+    const ok = el("button", "btn", "Añadir al ELO"); ok.type = "button"; ok.style.marginTop = "12px";
+    ok.onclick = async () => {
+      const asignaciones = {};
+      for (const [j, sel] of sels) { if (!sel.value) { msg.className = "m err"; msg.textContent = "Falta decidir quién es " + j.n; sel.focus(); return; } asignaciones[j.p] = sel.value; }
+      if (!confirm("¿Añadir «" + d.nombre + "» al ELO? Sus partidas contarán desde ahora.")) return;
+      ok.disabled = true;
+      try {
+        const y = await pide("POST", "/api/admin/elo/torneo", { nr: d.nr, asignaciones });
+        zona.textContent = ""; inp.value = "";
+        msg.className = "m ok"; msg.textContent = "Torneo añadido: " + y.partidas + " partidas. El ELO ya está recalculado.";
+        await cargaLista(); recarga();
+      } catch (e) { msg.className = "m err"; msg.textContent = e.message; ok.disabled = false; }
+    };
+    zona.append(cajaT, ok);
+  }
+  async function cargaLista() {
+    lista.textContent = "";
+    let ts = [];
+    try { ts = await (await fetch("/api/admin/elo/torneos")).json(); } catch (e) { return; }
+    if (!ts.length) return;
+    lista.appendChild(el("h3", "", "Torneos en el ELO"));
+    lista.lastChild.style.cssText = "font:700 16px Cinzel,Georgia,serif;margin:18px 0 0";
+    const ul = el("ul", "tlist");
+    ts.forEach((t) => {
+      const li = el("li");
+      const iz = el("span"); const n = el("strong", "", t.nombre); n.setAttribute("translate", "no");
+      iz.append(n, el("span", "m", " · añadido el " + fecha(t.anadido.slice(0, 10)) + " · " + t.partidas + " partidas"));
+      const q = el("button", "chip", "Quitar"); q.type = "button";
+      q.onclick = async () => {
+        if (!confirm("¿Quitar «" + t.nombre + "» del ELO? Se recalculará sin sus partidas.")) return;
+        q.disabled = true;
+        try { await pide("DELETE", "/api/admin/elo/torneo/" + t.id); msg.className = "m ok"; msg.textContent = "Torneo quitado del ELO."; await cargaLista(); recarga(); }
+        catch (e) { msg.className = "m err"; msg.textContent = e.message; q.disabled = false; }
+      };
+      li.append(iz, q);
+      ul.appendChild(li);
+    });
+    lista.appendChild(ul);
+  }
+  cargaLista();
+}
+fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => { if (me && me.role === "admin" && !me.ver_como) panelAdmin(); });
+
+// Carga (y recarga tras añadir o quitar un torneo) del ranking.
+function recarga() {
+  abierto = null; $("graf").hidden = true;
+  $("tCla").querySelector("tbody").textContent = ""; $("tCdo").querySelector("tbody").textContent = "";
+  carga(true);
+}
+function carga(fresco) {
+fetch("/api/elo" + (fresco ? "?t=" + Date.now() : "")).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
   D = d;
   porId = new Map(d.clasificados.concat(d.clasificando).map((x) => [x.id, x]));
   $("msg").hidden = true; $("app").hidden = false;
@@ -354,6 +494,8 @@ fetch("/api/elo").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => 
   const tr = id && document.querySelector('tbody tr[data-id="' + CSS.escape(id) + '"]');
   if (tr) tr.click();
 }).catch(() => { $("msg").textContent = "No se pudo cargar el ranking."; });
+}
+carga();
 </script>
 <script src="/trofeos.js"></script>
 <script src="/ficha-hover.js"></script>

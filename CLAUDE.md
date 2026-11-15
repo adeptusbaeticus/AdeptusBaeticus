@@ -259,4 +259,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   gris, línea plana) con zona de toque amplia; al tocar un punto se resalta su fila (la lista se desplaza) y se muestra
   su etiqueta, y al pulsar una fila se marca su punto. En esa lista, el rival: al pasar el ratón, su ficha rápida
   (`abFicha(el, id, { soloRaton: true })`, que deja el clic libre); al pulsarlo, su desglose. Torneos puntuales: preparado en `eloPartidas` (sus partidas con su fecha en
-  `orden`), de momento ninguno.
+  `orden`). **Torneos puntuales** (solo admin, en `elo.html`, «Torneos puntuales»; tablas `elo_torneos`,
+  `elo_torneo_jugadores` y `elo_torneo_partidas`, migración 0038): se pega el enlace de New Recruit, «Leer torneo»
+  (`eloTorneoLee`: `tourny_get` y `report_get_bulk`, con permiso del propietario, solo a mano y como mucho cada minuto;
+  lo leído queda en `nr_cache` `elo-torneo:ID` un día), se asigna cada jugador a un socio (`eloTorneoSugerencias`: ✓ si
+  su usuario de NR ya se conoce por su ficha, la liga u otro torneo; si no, nombres parecidos) o a «REDACTED» (jugador
+  antiguo, «t» + su fila) y «Añadir al ELO». Sus partidas cuentan desde el momento en que se añade (`anadido`, hora de
+  Madrid), después de las de la Gran Liga ya jugadas. Lista de torneos añadidos con «Quitar» (recalcula).
