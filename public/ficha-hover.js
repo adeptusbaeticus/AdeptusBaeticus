@@ -210,10 +210,18 @@
   // Al desplazarse se cierra (salvo justo al abrirla, que el propio toque o el foco pueden mover la página).
   window.addEventListener("scroll", () => { if (abierta && Date.now() - abierta.t > 600 && !abierta.c.matches(":hover")) cierra(); }, { passive: true });
 
-  window.abFicha = function (n, id) {
+  // Opciones: { soloRaton: true } → la ficha solo sale al pasar el ratón; el clic y el teclado quedan para quien la usa
+  // (p. ej. en el ranking ELO, donde pulsar un rival abre su desglose).
+  window.abFicha = function (n, id, opc) {
     if (!n) return n;
     id = id || null; // sin cuenta en la web: ficha «REDACTED»
     n.classList.add("abf-n");
+    if (opc && opc.soloRaton) {
+      n.addEventListener("mouseenter", () => { if (Date.now() - ultimoToque < 1000) return; clearTimeout(timerCierra); clearTimeout(timerAbre); timerAbre = setTimeout(() => abre(n, id), 250); });
+      n.addEventListener("mouseleave", () => { clearTimeout(timerAbre); timerCierra = setTimeout(cierra, 250); });
+      n.addEventListener("click", () => { clearTimeout(timerAbre); cierra(); });
+      return n;
+    }
     n.tabIndex = 0;
     n.setAttribute("role", "button");
     n.setAttribute("aria-expanded", "false");

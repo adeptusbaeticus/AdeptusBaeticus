@@ -70,6 +70,8 @@ tbody tr.sel{background:#2A2618}
 .gcab .dat{color:#CFC9BA}
 .lienzo{width:100%;height:auto;display:block}
 .hist{margin-top:14px;max-height:420px;overflow:auto}
+.rv.clic{cursor:pointer;color:#F0CE82;text-decoration:underline dotted rgba(217,178,90,.7);text-underline-offset:3px}
+.rv.clic:hover,.rv.clic:focus-visible{color:#FFE3A3;outline:none}
 /* Mini gráfica (al pasar el ratón) */
 .mini{position:absolute;z-index:60;background:#1F2328;border:1px solid #6B5A2E;border-radius:12px;padding:10px 12px;box-shadow:0 12px 32px rgba(0,0,0,.5);pointer-events:none;font-size:13px}
 .mini strong{display:block;font:700 14px Cinzel,Georgia,serif;margin-bottom:4px}
@@ -118,7 +120,7 @@ const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) 
 const NS = "http://www.w3.org/2000/svg";
 const sv = (tag, at, padre) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (padre) padre.appendChild(e); return e; };
 const COL = { V: "#9DB05C", D: "#E0574C", E: "#D9B25A" };
-let D = null, abierto = null;
+let D = null, abierto = null, porId = new Map();
 const resDe = (h) => (h.m > h.s ? "V" : h.m < h.s ? "D" : "E");
 const signo = (d) => (d > 0 ? "+" + d : String(d));
 const clase = (d) => (d > 0 ? "up" : d < 0 ? "down" : "eq");
@@ -192,7 +194,7 @@ function grande(x, tr) {
   document.querySelectorAll("tbody tr.sel").forEach((t) => t.classList.remove("sel"));
   if (abierto === x.id) { abierto = null; g.hidden = true; return; }
   abierto = x.id;
-  tr.classList.add("sel");
+  if (tr) tr.classList.add("sel");
   g.textContent = "";
   const cab = el("div", "gcab");
   const h = el("h2"); h.appendChild(jugador(x));
@@ -200,7 +202,7 @@ function grande(x, tr) {
   if (x.titulo) dat.appendChild(el("span", "tit t-" + x.titulo, x.titulo + " "));
   dat.append("ELO " + x.elo + " · " + x.n + " partidas");
   const cerrar = el("button", "chip", "Cerrar"); cerrar.type = "button";
-  cerrar.onclick = () => { abierto = null; g.hidden = true; tr.classList.remove("sel"); };
+  cerrar.onclick = () => { abierto = null; g.hidden = true; if (tr) tr.classList.remove("sel"); };
   const izq = el("div"); izq.append(h, dat);
   cab.append(izq, cerrar);
   g.appendChild(cab);
@@ -239,7 +241,19 @@ function grande(x, tr) {
     const r = tb.insertRow(); r.style.cursor = "default";
     const td = (c, cls) => { const q = el("td", cls || ""); if (c instanceof Node) q.appendChild(c); else q.textContent = c; r.appendChild(q); return q; };
     td(String(i + 1), "oc"); td(fecha(p.f), "oc"); td(p.l, "izq");
-    const rv = td(nombre(p.r), "izq"); rv.setAttribute("translate", "no");
+    // Rival: con el ratón, su ficha; al pulsarlo (si está en el ranking), su desglose.
+    const rv = td("", "izq");
+    const rn = el("span", "rv", nombre(p.r)); rn.setAttribute("translate", "no");
+    const suyo = porId.get(p.r);
+    if (suyo) {
+      rn.classList.add("clic"); rn.tabIndex = 0; rn.setAttribute("role", "button");
+      rn.title = "Ver su desglose";
+      const ir = (ev) => { ev.stopPropagation(); grande(suyo, document.querySelector('tbody tr[data-id="' + CSS.escape(p.r) + '"]')); };
+      rn.addEventListener("click", ir);
+      rn.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ir(ev); } });
+    }
+    if (window.abFicha) window.abFicha(rn, (D.nombres[p.r] || {}).socio ? p.r : null, { soloRaton: true });
+    rv.appendChild(rn);
     const rs = el("span"); const b = el("span", "res " + resDe(p), resDe(p)); rs.append(b, p.m + " – " + p.s); td(rs);
     td(signo(p.d), clase(p.d)); td(String(p.e));
   });
@@ -251,6 +265,7 @@ function grande(x, tr) {
 
 fetch("/api/elo").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => {
   D = d;
+  porId = new Map(d.clasificados.concat(d.clasificando).map((x) => [x.id, x]));
   $("msg").hidden = true; $("app").hidden = false;
   const tb = $("tCla").querySelector("tbody");
   d.clasificados.forEach((x) => tb.appendChild(fila(x, true)));
@@ -268,6 +283,8 @@ fetch("/api/elo").then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => 
   if (tr) tr.click();
 }).catch(() => { $("msg").textContent = "No se pudo cargar el ranking."; });
 </script>
+<script src="/trofeos.js"></script>
+<script src="/ficha-hover.js"></script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>
 </body>

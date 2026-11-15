@@ -189,7 +189,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   partidas y V-D-E) y, debajo, los que aún están clasificando (con al menos una partida). Al pasar el ratón por uno,
   una gráfica de sus últimas 5 partidas (victoria, derrota o empate y cuánto subió o bajó); al pulsarlo, arriba de la
   tabla, la gráfica de toda su evolución y todas sus partidas en orden (fecha, liga y ronda, rival, resultado, cambio y
-  ELO). Desde la ficha de Miembros, «Ver su evolución en el ranking ELO».
+  ELO). En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
+  Miembros, «Ver su evolución en el ranking ELO».
 - **Calendario de la liga** para el móvil.
 - **Recordatorios por Discord** (mensaje privado del bot): tu partida de cada ronda y el aviso antes del cierre.
 - Ficha rápida de cada jugador al pasar el ratón por su nombre.

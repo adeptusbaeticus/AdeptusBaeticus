@@ -295,7 +295,7 @@
     "ELO del club": "Club ELO", "Clasificando": "Placement", "Maestro": "Master", "Oro": "Gold", "Plata": "Silver", "Bronce": "Bronze", "Aprendiz": "Apprentice",
     "Todavía no ha jugado ninguna partida de la Gran Liga.": "Has not played any Grand League game yet.",
     "Empieza en 1500 y se mueve con cada partida de la Gran Liga desde 2026. Se muestra a partir de 10 partidas.": "Starts at 1500 and moves with every Grand League game since 2026. Shown after 10 games.",
-    "Ranking ELO": "ELO ranking",
+    "Ranking ELO": "ELO ranking", "Ver su desglose": "See their breakdown",
     "Ranking ELO del club": "Club ELO ranking",
     "Todos empiezan en 1500 y cada partida de la Gran Liga lo mueve. Pasa el ratón por un jugador para ver sus últimas 5 partidas, o púlsalo para ver toda su evolución.": "Everyone starts at 1500 and every Grand League game moves it. Hover over a player to see their last 5 games, or click to see their whole history.",
     "← Volver a Miembros": "← Back to Members",

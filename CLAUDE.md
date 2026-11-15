@@ -249,5 +249,6 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Aprendiz) y número. `/api/miembros` lo da en `m.elo`; `/api/elo` (público) da clasificados, «clasificando» (con al
   menos una partida), historiales y nombres para `elo.html` («Ranking ELO», botón en Miembros): tabla, mini gráfica de
   las últimas 5 partidas al pasar el ratón y, al pulsar, gráfica de toda la evolución arriba (con scroll hasta ella) y
-  la lista de partidas; `elo.html#ID` la abre directamente. Torneos puntuales: preparado en `eloPartidas` (sus partidas con su fecha en
+  la lista de partidas; `elo.html#ID` la abre directamente. En esa lista, el rival: al pasar el ratón, su ficha rápida
+  (`abFicha(el, id, { soloRaton: true })`, que deja el clic libre); al pulsarlo, su desglose. Torneos puntuales: preparado en `eloPartidas` (sus partidas con su fecha en
   `orden`), de momento ninguno.
