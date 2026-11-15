@@ -708,7 +708,9 @@
 
   const cache = leeCache();
   if (cache !== undefined && !q) pinta(cache);
-  fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => {
+  // La sesión se pide una sola vez por página: la propia página, este script y los paneles de admin comparten la petición
+  // (window.abMe).
+  (window.abMe = window.abMe || fetch("/api/me").then((r) => r.json()).catch(() => null)).then((me) => {
     if (cache === undefined || q || JSON.stringify(me) !== JSON.stringify(cache)) pinta(me);
     guarda(me);
     if (!me && (q === "nomember" || q === "norole")) {

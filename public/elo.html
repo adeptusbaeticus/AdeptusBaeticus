@@ -487,7 +487,7 @@ function panelAdmin() {
   }
   cargaLista();
 }
-fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => { if (me && me.role === "admin" && !me.ver_como) panelAdmin(); });
+(window.abMe = window.abMe || fetch("/api/me").then((r) => r.json()).catch(() => null)).then((me) => { if (me && me.role === "admin" && !me.ver_como) panelAdmin(); });
 
 // Carga (y recarga tras añadir o quitar un torneo) del ranking.
 function recarga() {

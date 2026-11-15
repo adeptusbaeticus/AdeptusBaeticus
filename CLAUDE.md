@@ -41,6 +41,12 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   consentimiento de la inscripción y en «Mis datos»): si cambia qué datos se guardan, quién los ve, los servicios usados
   o cuánto se conservan, actualizarla (y su traducción). Las solicitudes rechazadas se borran al rechazarlas.
 
+- **Rendimiento (ya optimizado; mantenerlo):** la sesión se pide una sola vez por página (`window.abMe`, una promesa
+  compartida por la página, `auth.js` y `admin-paneles.js`: usarla en lugar de otro `fetch("/api/me")`); en el servidor la
+  sesión se lee una vez por petición (`leeSesion` guarda el resultado de cada petición) y el «sí» de `tieneDatos` se
+  recuerda 5 minutos por proceso. El temporizador de cada minuto lee la fase en curso una vez y una sola consulta dice si
+  toca roles (semanal) o ELO (diario). Nada de consultas a D1 dentro de bucles: una consulta con `json_each`.
+
 ## Avisos
 
 - **Notificaciones en el móvil (Web Push):** cada socio las activa por dispositivo desde su menú y elige

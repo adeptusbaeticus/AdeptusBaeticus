@@ -452,7 +452,7 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
   }
 
   // Botón para abrir el panel, solo si quien entra es admin.
-  fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => {
+  (window.abMe = window.abMe || fetch("/api/me").then((r) => r.json()).catch(() => null)).then((me) => {
     if (!me || me.role !== "admin" || me.ver_como) return;
     const sitio = ES_CAL ? document.querySelector(".top h1") : document.querySelector(".cab h1");
     if (!sitio) return;

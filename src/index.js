@@ -51,7 +51,15 @@ async function makeSession(env, user) {
 }
 
 // Sesión firmada tal cual (incluida la de «ver como invitado»).
+// La sesión se lee (y su firma se comprueba) una sola vez por petición: el resultado se guarda para esa petición.
+const sesionesDePeticion = new WeakMap();
 async function leeSesion(env, request) {
+  if (sesionesDePeticion.has(request)) return sesionesDePeticion.get(request);
+  const p = leeSesionSinCache(env, request);
+  sesionesDePeticion.set(request, p);
+  return p;
+}
+async function leeSesionSinCache(env, request) {
   const m = (request.headers.get("cookie") || "").match(new RegExp(COOKIE + "=([^;]+)"));
   if (!m) return null;
   const [body, sig] = m[1].split(".");
@@ -548,9 +556,9 @@ async function actualizaRoles(env, miembros) {
   return res;
 }
 // Una vez a la semana (lo llama el temporizador cada minuto; solo actúa si han pasado 7 días).
-async function rolesSemanal(env) {
+async function rolesSemanal(env, alDia) {
   if (!env.DISCORD_BOT_TOKEN || !env.GUILD_ID) return;
-  const c = await env.DB.prepare("SELECT 1 FROM nr_cache WHERE clave='discord:roles' AND actualizado > datetime('now','-7 days')").first();
+  const c = alDia !== undefined ? alDia : await env.DB.prepare("SELECT 1 FROM nr_cache WHERE clave='discord:roles' AND actualizado > datetime('now','-7 days')").first();
   if (c) return;
   const r = await actualizaRoles(env);
   // Si Discord falla, se apunta igualmente para no reintentar cada minuto (vuelve a probar en un día).
@@ -618,6 +626,7 @@ async function anunciosDe(env, id) {
 // votos, bendiciones, trofeos, notificaciones… y quita su vínculo con la liga. Las fotos de la galería y los posts se
 // quedan (son del club y están en Discord). Si sigue en Discord con rol del club y vuelve a entrar, empieza de cero.
 async function borraPerfil(env, id) {
+  conDatos.delete(id);
   await env.DB.batch([
     env.DB.prepare("DELETE FROM partida_players WHERE discord_id=?1 OR partida_id IN (SELECT id FROM partidas WHERE created_by=?1)").bind(id),
     env.DB.prepare("DELETE FROM partidas WHERE created_by=?1").bind(id),
@@ -643,9 +652,15 @@ async function faltanDatos(env, s) {
   if (!s || s.role === "admin") return false;
   return !(await tieneDatos(env, s.id));
 }
+// Quien ya tiene sus datos completos casi nunca deja de tenerlos: ese «sí» se recuerda 5 minutos en este proceso del
+// servidor (evita una consulta en cada llamada a la API). El «no» se consulta siempre (para que al completarlos entre ya).
+const conDatos = new Map();
 async function tieneDatos(env, id) {
+  const t = conDatos.get(id);
+  if (t && Date.now() - t < 300000) return true;
   const r = await env.DB.prepare(`SELECT EXISTS (SELECT 1 FROM socios_datos WHERE discord_id=?1 AND completado_at IS NOT NULL)
     OR EXISTS (SELECT 1 FROM solicitudes WHERE discord_id=?1 AND estado='aprobada') AS ok`).bind(id).first();
+  if (r && r.ok) conDatos.set(id, Date.now()); else conDatos.delete(id);
   return !!(r && r.ok);
 }
 
@@ -1225,9 +1240,9 @@ async function avisoCanal(env, nombreCanal, texto) {
   } catch (e) {}
 }
 const fechaLarga = (dia) => new Date(dia + "T12:00:00Z").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
-async function ligaRecordatorios(env, ahora = nowLocal()) {
+async function ligaRecordatorios(env, ahora = nowLocal(), faseDada) {
   if (!env.DISCORD_BOT_TOKEN) return [];
-  const fase = await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
+  const fase = faseDada !== undefined ? faseDada : await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first();
   if (!fase) return [];
   const hechos = [];
   const dia0 = fase.inicio.slice(0, 10), hora = fase.inicio.slice(11, 16) || "22:00";
@@ -1502,10 +1517,9 @@ async function faqSync(env) {
       if (rr.ok) for (const x of await rr.json()) if (idsRol.includes(x.id)) roles[x.id] = x.name;
     }
     for (const id of idsRol) if (!roles[id] && (prev.roles || {})[id]) roles[id] = prev.roles[id];
-    for (const id of idsDe(/<@!?(\d+)>/g).slice(0, 50)) {
-      const u = await env.DB.prepare("SELECT name FROM users WHERE discord_id=?1").bind(id).first();
-      if (u) usuarios[id] = u.name;
-    }
+    // Nombres de los usuarios mencionados, en una sola consulta.
+    const idsUsu = idsDe(/<@!?(\d+)>/g).slice(0, 50);
+    if (idsUsu.length) for (const u of (await env.DB.prepare("SELECT discord_id, name FROM users WHERE discord_id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(idsUsu)).all()).results) usuarios[u.discord_id] = u.name;
     const datos = JSON.stringify({ guild: env.GUILD_ID, canal_id: canalId, mensajes, canales, roles, usuarios });
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=?3, error=NULL WHERE clave=?1").bind(FAQ_CLAVE, datos, ahora).run();
     // Traducción al inglés de lo nuevo o editado (no bloquea la copia en español si falla).
@@ -2037,8 +2051,8 @@ async function eloTorneoSugerencias(env, jugadores) {
 }
 
 // Una vez al día (desde el temporizador), por si cambió algo sin pasar por la sincronización.
-async function eloDiario(env) {
-  const c = await env.DB.prepare("SELECT 1 FROM nr_cache WHERE clave=?1 AND actualizado > datetime('now','-1 day')").bind(ELO.clave).first();
+async function eloDiario(env, alDia) {
+  const c = alDia !== undefined ? alDia : await env.DB.prepare("SELECT 1 FROM nr_cache WHERE clave=?1 AND actualizado > datetime('now','-1 day')").bind(ELO.clave).first();
   if (!c) await eloCalcula(env);
 }
 
@@ -2179,13 +2193,22 @@ async function ligaVincula(env, discordId) {
 export default {
   // Temporizador de Cloudflare (cada minuto): recordatorios de la Gran Liga y envío de la cola de avisos.
   async scheduled(event, env, ctx) {
+    // Cada minuto. Para gastar pocas consultas: la fase en curso se lee una vez (recordatorios y resultados) y una sola
+    // consulta dice si los roles (semanal) y el ELO (diario) están al día.
     ctx.waitUntil((async () => {
-      await ligaRecordatorios(env).catch(() => {});
+      let fase = null, frescos = new Set();
+      try { fase = await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first(); } catch (e) {}
+      try {
+        frescos = new Set((await env.DB.prepare(
+          `SELECT clave FROM nr_cache WHERE (clave='discord:roles' AND actualizado > datetime('now','-7 days'))
+             OR (clave=?1 AND actualizado > datetime('now','-1 day'))`
+        ).bind(ELO.clave).all()).results.map((x) => x.clave));
+      } catch (e) {}
+      await ligaRecordatorios(env, nowLocal(), fase).catch(() => {});
       await procesaCola(env, 25).catch(() => {});
-      await rolesSemanal(env).catch(() => {});
-      await eloDiario(env).catch(() => {});
+      await rolesSemanal(env, frescos.has("discord:roles")).catch(() => {});
+      await eloDiario(env, frescos.has(ELO.clave)).catch(() => {});
       // Resultados de la Gran Liga desde New Recruit (fase en curso; `ligaAuto` decide si toca consultar).
-      const fase = await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first().catch(() => null);
       if (fase) await ligaAuto(env, fase).catch(() => {});
     })());
   },
@@ -2295,14 +2318,14 @@ export default {
     // Posts de Inicio (públicos), con el enlace de la imagen renovado si va a caducar.
     if (path === "/api/posts" && request.method === "GET") {
       const { results } = await env.DB.prepare(
-        `SELECT id, titulo, descripcion, autor, image_url, width, height, created_at, updated_at
+        `SELECT id, titulo, descripcion, autor, image_url, width, height, created_at, updated_at, channel_id, message_id, image_filename
          FROM posts WHERE status='publicado' ORDER BY id DESC LIMIT 20`
       ).all();
       const upd = [];
       // Posts sin enlace de imagen guardado: se recupera del mensaje del bot.
       for (const r of results.filter((x) => !x.image_url).slice(0, 5)) {
-        const p = await env.DB.prepare("SELECT channel_id, message_id, image_filename FROM posts WHERE id=?1").bind(r.id).first();
-        if (!p || !p.message_id || !env.DISCORD_BOT_TOKEN) continue;
+        const p = r; // ya trae channel_id, message_id e image_filename
+        if (!p.message_id || !env.DISCORD_BOT_TOKEN) continue;
         try {
           const gm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`);
           if (!gm.ok) continue;
@@ -2318,7 +2341,8 @@ export default {
         if (nu && nu !== r.image_url) { r.image_url = nu; upd.push(env.DB.prepare("UPDATE posts SET image_url=?2 WHERE id=?1").bind(r.id, nu)); }
       });
       if (upd.length) await env.DB.batch(upd);
-      return Response.json(results, { headers: noStore });
+      // Los datos del mensaje de Discord solo se usan aquí: la respuesta es la de siempre.
+      return Response.json(results.map(({ channel_id, message_id, image_filename, ...r }) => r), { headers: noStore });
     }
 
     // Gran Liga (pública): fase, jugadores, calendario y resultados (sin las listas, que se piden aparte).

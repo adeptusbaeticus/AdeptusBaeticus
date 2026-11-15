@@ -603,7 +603,7 @@ $("fase").onchange = () => {
   location.href = "/gran-liga.html" + (f && actual && f.id === actual.id ? "" : "?fase=" + $("fase").value);
 };
 // ¿Es admin? Se pide antes de pintar para mostrar los botones de aplazar.
-fetch("/api/me").then((r) => r.json()).catch(() => null).then((me) => { esAdmin = !!(me && me.role === "admin"); carga(new URLSearchParams(location.search).get("fase")); });
+(window.abMe = window.abMe || fetch("/api/me").then((r) => r.json()).catch(() => null)).then((me) => { esAdmin = !!(me && me.role === "admin"); carga(new URLSearchParams(location.search).get("fase")); });
 </script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>

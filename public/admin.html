@@ -345,7 +345,7 @@ $("dreg").onclick = async () => {
   $("dreg").disabled = false;
 };
 
-fetch("/api/me").then((r) => r.json()).then((me) => {
+(window.abMe = window.abMe || fetch("/api/me").then((r) => r.json()).catch(() => null)).then((me) => {
   if (me && me.role === "admin") { $("gate").hidden = true; $("app").hidden = false; navidad(); eloMin(); discordStatus(); faqStatus(); nrStatus(); socios(); }
   else $("gate").textContent = me && !me.invitado ? "Esta página es solo para administradores." : "Inicia sesión con Discord para continuar.";
 }).catch(() => { $("gate").textContent = "No se pudo comprobar la sesión."; });
