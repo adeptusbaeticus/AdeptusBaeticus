@@ -177,7 +177,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   partida acordada: lleva la etiqueta «Handshake» y no cuenta para el ELO del club.
 - **Aplazar una partida** a la ronda de aplazadas, o quitar el aplazamiento. «Subir resultado» solo sale en la ronda
   final.
-- **Listas** de cada jugador. Se guardan, pero de momento no se publican.
+- **Listas:** de momento ni se publican ni se guardan; de cada partida solo se toman la facción y el destacamento.
 - **Resultados de New Recruit:** se leen solos (el servidor los consulta cada hora durante la fase, sin depender de las visitas) y una vez tras cada cierre
   de ronda. La web nunca escribe en New Recruit.
 - **ELO del club** (propio, no el de New Recruit): todos empiezan en 1500 y cada partida de la Gran Liga lo mueve

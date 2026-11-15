@@ -1689,17 +1689,29 @@ async function nrSync(env, tipo, idTorneo) {
     estado = res.status;
     texto = await res.text();
     if (!res.ok) throw new Error("New Recruit respondió " + res.status + ": " + texto.slice(0, 200));
+    // Si New Recruit devuelve exactamente lo mismo que la última vez (huella del texto), no se procesa nada: así la
+    // consulta de cada hora casi no gasta CPU (la respuesta de los informes pesa cientos de KB, con las listas).
+    const huella = tipo === "reports" ? [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto)))].map((b) => b.toString(16).padStart(2, "0")).join("") : null;
+    if (huella) {
+      const h0 = await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind("huella:" + clave).first();
+      if (h0 && h0.datos === huella) {
+        await env.DB.prepare("UPDATE nr_cache SET actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(clave).run();
+        await avisoEstado(env, "nr-reports", "la sincronización de resultados con New Recruit", null);
+        return { ok: true, bytes: texto.length, sin_cambios: true };
+      }
+    }
     const json = JSON.parse(texto);
     if (json && (json.error || json.message)) throw new Error("New Recruit: " + (json.error || json.message));
-    // Los resultados se asignan a las partidas de la liga (con sus listas); la copia se guarda sin listas.
+    // Los resultados se asignan a las partidas de la liga; la copia se guarda sin listas.
     let liga = null;
     if (tipo === "reports" && Array.isArray(json)) liga = await ligaProcesa(env, idTorneo, json);
     const guardar = tipo === "reports"
       ? JSON.stringify(json, (k, v) => (k === "exported_list" || k === "report_list" || k === "scoring" ? undefined : v))
       : texto;
     await env.DB.prepare("UPDATE nr_cache SET datos=?2, actualizado=datetime('now'), error=NULL WHERE clave=?1").bind(clave, guardar).run();
-    // Con los resultados nuevos se recalcula el ELO del club.
-    const elo = tipo === "reports" ? await eloCalcula(env).then((x) => ({ ok: true, jugadores: x.jugadores.length })).catch((e) => ({ ok: false, error: String(e.message || e) })) : null;
+    if (huella) await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now')").bind("huella:" + clave, huella).run();
+    // El ELO del club se recalcula solo si cambió algún resultado.
+    const elo = tipo === "reports" && liga && liga.resultados ? await eloCalcula(env).then((x) => ({ ok: true, jugadores: x.jugadores.length })).catch((e) => ({ ok: false, error: String(e.message || e) })) : null;
     await avisoEstado(env, "nr-" + tipo, tipo === "reports" ? "la sincronización de resultados con New Recruit" : "la sincronización del torneo con New Recruit", null);
     return { ok: true, bytes: texto.length, guardado: guardar.length, resumen: resumenNr(json), liga, elo };
   } catch (e) {
@@ -1734,7 +1746,10 @@ async function ligaProcesa(env, nrTorneo, reports) {
   const fase = await env.DB.prepare("SELECT id FROM liga_fases WHERE nr_torneo=?1 AND terminada=0").bind(nrTorneo).first();
   if (!fase) return { asignados: 0, sin_asignar: reports.length };
   const js = (await env.DB.prepare("SELECT id, nr_participante, nr_nombre, nr_anteriores FROM liga_jugadores WHERE fase_id=?1").bind(fase.id).all()).results;
-  const ps = (await env.DB.prepare("SELECT id, jugador_a, jugador_b FROM liga_partidas WHERE fase_id=?1").bind(fase.id).all()).results;
+  // Con sus datos actuales, para escribir solo las partidas que cambian (menos escrituras y menos CPU).
+  const ps = (await env.DB.prepare(
+    "SELECT id, jugador_a, jugador_b, pv_a, pv_b, jugada, nr_informe, nr_partida, faccion_a, faccion_b, destac_a, destac_b FROM liga_partidas WHERE fase_id=?1"
+  ).bind(fase.id).all()).results;
   const porPart = new Map(js.filter((j) => j.nr_participante).map((j) => [j.nr_participante, j.id]));
   // Reemplazos: los id de New Recruit de los jugadores sustituidos siguen apuntando a la fila (sus resultados se quedan).
   for (const j of js) { try { for (const v of JSON.parse(j.nr_anteriores || "[]")) if (!porPart.has(v)) porPart.set(v, j.id); } catch (e) {} }
@@ -1743,7 +1758,7 @@ async function ligaProcesa(env, nrTorneo, reports) {
   const clavePar = (a, b) => (a < b ? a + "-" + b : b + "-" + a);
   const porPar = new Map(ps.map((p) => [clavePar(p.jugador_a, p.jugador_b), p]));
   const upd = [], informes = [];
-  let sinAsignar = 0;
+  let sinAsignar = 0, resultados = 0; // resultados = partidas cuyo resultado cambió (para recalcular el ELO)
   for (const r of reports) {
     const pl = r.players || [];
     if (r.id_tourny !== nrTorneo || pl.length !== 2) continue;
@@ -1758,27 +1773,35 @@ async function ligaProcesa(env, nrTorneo, reports) {
     const p = j0 && j1 ? porPar.get(clavePar(j0, j1)) : null;
     if (!p) { sinAsignar++; continue; }
     const pv = (i) => { const v = ((r.score || [])[i] || {}).PV; return Number.isFinite(v) ? v : null; };
+    // Las listas ya no se guardan (no se publican): solo la facción y el destacamento que se sacan de ellas.
     const dato = (i) => ({
       pv: pv(i), faccion: faccionDeLista(pl[i].exported_list),
       destac: (pl[i].report_list && pl[i].report_list.detachment) || null,
-      lista: pl[i].exported_list ? String(pl[i].exported_list).slice(0, 20000) : null,
     });
     const [a, b] = p.jugador_a === j0 ? [dato(0), dato(1)] : [dato(1), dato(0)];
     informes.push(String(r._id));
+    const jugada = String(r.date || "").slice(0, 10) || null, nrp = r.id_match || p.nr_partida || null;
+    const igual = p.pv_a === a.pv && p.pv_b === b.pv && p.jugada === jugada && p.nr_informe === String(r._id) && p.nr_partida === nrp &&
+      p.faccion_a === a.faccion && p.faccion_b === b.faccion && p.destac_a === a.destac && p.destac_b === b.destac;
+    if (igual) continue;
+    if (p.pv_a !== a.pv || p.pv_b !== b.pv) resultados++;
     upd.push(env.DB.prepare(
-      `UPDATE liga_partidas SET pv_a=?2, pv_b=?3, jugada=?4, nr_informe=?5, nr_partida=COALESCE(?6, nr_partida),
-         faccion_a=?7, faccion_b=?8, destac_a=?9, destac_b=?10, lista_a=?11, lista_b=?12 WHERE id=?1`
-    ).bind(p.id, a.pv, b.pv, String(r.date || "").slice(0, 10) || null, String(r._id), r.id_match || null,
-      a.faccion, b.faccion, a.destac, b.destac, a.lista, b.lista));
+      `UPDATE liga_partidas SET pv_a=?2, pv_b=?3, jugada=?4, nr_informe=?5, nr_partida=?6,
+         faccion_a=?7, faccion_b=?8, destac_a=?9, destac_b=?10 WHERE id=?1`
+    ).bind(p.id, a.pv, b.pv, jugada, String(r._id), nrp, a.faccion, b.faccion, a.destac, b.destac));
   }
-  // Informes borrados en New Recruit: se quita su resultado.
-  upd.push(env.DB.prepare(
-    `UPDATE liga_partidas SET pv_a=NULL, pv_b=NULL, jugada=NULL, nr_informe=NULL, faccion_a=NULL, faccion_b=NULL,
-       destac_a=NULL, destac_b=NULL, lista_a=NULL, lista_b=NULL
-     WHERE fase_id=?1 AND nr_informe IS NOT NULL AND nr_informe NOT IN (SELECT value FROM json_each(?2))`
-  ).bind(fase.id, JSON.stringify(informes)));
+  // Informes borrados en New Recruit: se quita su resultado (solo si hay alguno que quitar).
+  const vistos = new Set(informes);
+  if (ps.some((p) => p.nr_informe && !vistos.has(p.nr_informe))) {
+    resultados++;
+    upd.push(env.DB.prepare(
+      `UPDATE liga_partidas SET pv_a=NULL, pv_b=NULL, jugada=NULL, nr_informe=NULL, faccion_a=NULL, faccion_b=NULL,
+         destac_a=NULL, destac_b=NULL, lista_a=NULL, lista_b=NULL
+       WHERE fase_id=?1 AND nr_informe IS NOT NULL AND nr_informe NOT IN (SELECT value FROM json_each(?2))`
+    ).bind(fase.id, JSON.stringify(informes)));
+  }
   for (let i = 0; i < upd.length; i += 50) await env.DB.batch(upd.slice(i, i + 50));
-  return { asignados: informes.length, sin_asignar: sinAsignar };
+  return { asignados: informes.length, sin_asignar: sinAsignar, escritas: upd.length, resultados };
 }
 
 // Fecha y hora de Madrid ('YYYY-MM-DDTHH:MM') de un instante.
@@ -3577,6 +3600,9 @@ export default {
       const s = await readSession(env, request);
       if (!s) return new Response("No autorizado", { status: 401 });
       if (s.role !== "admin") return new Response("Prohibido", { status: 403 });
+      // Cualquier cambio del admin en la liga (cruces, jugadores, temporadas): la próxima sincronización con New Recruit
+      // vuelve a procesar los informes aunque no hayan cambiado (se borra su huella).
+      if (path.startsWith("/api/admin/liga/") && request.method !== "GET") await env.DB.prepare("DELETE FROM nr_cache WHERE clave LIKE 'huella:%'").run();
 
       // Estado del bot de Discord y registro de los comandos de la galería en el servidor.
       // New Recruit: estado de la copia local y sincronización manual (con espera mínima).

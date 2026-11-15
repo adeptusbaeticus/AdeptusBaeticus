@@ -226,7 +226,12 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   - **Cruces:** por ronda, cambiar, añadir o quitar partidas sin resultado (`/api/admin/liga/partida`); un jugador
     no puede jugar dos veces en la misma ronda y cada pareja una sola vez por fase. Al cambiar un cruce se borra su
     enlace de New Recruit (se reasigna por la pareja al sincronizar).
-- Las listas se guardan pero de momento no se publican (`LIGA_LISTAS_PUBLICAS = false`).
+- Las listas **no se guardan** (no se publican, `LIGA_LISTAS_PUBLICAS = false`): de cada informe solo se toman la
+  facción y el destacamento. Si un día se publican, volver a guardarlas en `ligaProcesa` (`lista_a`/`lista_b`).
+- **CPU de la sincronización** (límite de 10 ms del plan gratuito): `nrSync` guarda una huella (SHA-256) del texto de
+  los informes (`nr_cache` `huella:reports:ID`) y, si New Recruit devuelve lo mismo, no procesa nada; si cambia,
+  `ligaProcesa` solo escribe las partidas que cambian y el ELO solo se recalcula si cambió algún resultado. Cualquier
+  cambio del admin en la liga (`/api/admin/liga/*`) borra la huella para que se vuelva a procesar todo.
 - **Ligas pasadas** (`liga_fases.terminada = 1` y `fin`, migración 0034): temporadas cerradas en las mismas tablas,
   que la web nunca vuelve a consultar en New Recruit. La «fase en curso» es siempre la última **no terminada**
   (`WHERE terminada=0`): todo lo automático (`ligaAuto`, recordatorios, ELO, calendario, Administrar liga,
