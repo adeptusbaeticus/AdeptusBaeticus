@@ -249,8 +249,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   y lo guarda en `nr_cache` `elo:club` (`{ minimo, jugadores }`, con el historial `h` de cada uno: fecha, liga y
   ronda, rival, PV, cambio y ELO tras la partida). Partidas para dejar de estar «Clasificando»: ajuste `elo_minimo` en
   Admin («ELO del club», `/api/admin/elo`, 10 por defecto; 0 = salen todos; al cambiarlo se recalcula). Después,
-  título por puesto entre los socios clasificados (`ELO_TITULOS`: Maestro top 20 %, Oro 40 %, Plata 60 %, Bronce 80 %,
-  Aprendiz) y número. `/api/miembros` lo da en `m.elo`; `/api/elo` (público) da clasificados, «clasificando» (con al
+  título por puesto entre los socios clasificados (`ELO_TITULOS`: Instructor top 40 %, Iniciado top 60 %,
+  Aprendiz el resto) y número. `/api/miembros` lo da en `m.elo`; `/api/elo` (público) da clasificados, «clasificando» (con al
   menos una partida), historiales y nombres para `elo.html` («Ranking ELO», botón en Miembros): tabla, mini gráfica de
   las últimas 5 partidas al pasar el ratón y, al pulsar, gráfica de toda la evolución arriba (con scroll hasta ella) y
   la lista de partidas; `elo.html#ID` la abre directamente. En esa lista, el rival: al pasar el ratón, su ficha rápida

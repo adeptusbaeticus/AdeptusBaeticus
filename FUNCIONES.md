@@ -183,8 +183,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **ELO del club** (propio, no el de New Recruit): todos empiezan en 1500 y cada partida de la Gran Liga lo mueve
   (fórmula de Elo, K = 32), en orden desde la primera partida de la Gran Liga 2026 y siguiendo con la actual y las
   siguientes; no cuentan las partidas perdidas por abandono. Se recalcula al llegar resultados y una vez al día.
-  Hasta 10 partidas sale «Clasificando»; después, el título y el número: **Maestro** (top 20 %), **Oro** (40 %),
-  **Plata** (60 %), **Bronce** (80 %) y **Aprendiz**. Se ve en Miembros (listado y ficha) y en la ficha rápida.
+  Hasta 10 partidas sale «Clasificando»; después, el título y el número: **Instructor** (top 40 %), **Iniciado**
+  (top 60 %) y **Aprendiz** (el resto). Se ve en Miembros (listado y ficha) y en la ficha rápida.
   Preparado para sumar torneos puntuales más adelante. En Admin se elige cuántas partidas hacen falta para dejar de
   estar «Clasificando» (0 = salen todos).
 - **Ranking ELO** (botón en Miembros, página `elo.html`): los socios clasificados por su ELO (puesto, título, ELO,

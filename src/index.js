@@ -1818,13 +1818,13 @@ async function ligaAuto(env, fase) {
 // victoria 1, empate 0,5, derrota 0). Se recalcula de cero, partida a partida en orden, cada vez que llegan resultados
 // de New Recruit y una vez al día, y se guarda en nr_cache (clave 'elo:club', con el historial de cada jugador). Hasta
 // N partidas, «Clasificando» (N lo fija el admin: ajuste 'elo_minimo', 10 por defecto; con 0 salen todos).
-// Títulos por puesto entre los ya clasificados: Maestro (top 20 %), Oro (40 %), Plata (60 %), Bronce (80 %), Aprendiz.
+// Títulos por puesto entre los ya clasificados: Instructor (top 40 %), Iniciado (top 60 %) y Aprendiz (el resto).
 const ELO = { inicial: 1500, k: 32, minimo: 10, clave: "elo:club" };
 async function eloMinimo(env) {
   const n = parseInt(await ajuste(env, "elo_minimo"), 10);
   return Number.isInteger(n) && n >= 0 && n <= 100 ? n : ELO.minimo;
 }
-const ELO_TITULOS = [[0.2, "Maestro"], [0.4, "Oro"], [0.6, "Plata"], [0.8, "Bronce"], [1, "Aprendiz"]];
+const ELO_TITULOS = [[0.4, "Instructor"], [0.6, "Iniciado"], [1, "Aprendiz"]];
 // Partidas que cuentan, en orden. Cada una: { orden, a, b, pa, pb } (a y b: cuenta de la web, o el jugador de la liga
 // si no la tiene). Gran Liga: todas las fases (pasadas y en curso), desde la primera partida de la Gran Liga 2026,
 // por la fecha de su ronda y después ronda y mesa; no cuentan las perdidas por abandono (no se jugaron).
