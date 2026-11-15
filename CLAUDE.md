@@ -241,6 +241,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **ELO del club** (propio; ya no se lee el de New Recruit): 1500 al empezar, fórmula de Elo con K = 32 (victoria 1,
   empate 0,5), partida a partida en orden (`eloPartidas`: fecha de la ronda, fase, ronda y mesa; todas las fases desde
   la Gran Liga 2026; sin las perdidas por abandono; jugador = su cuenta de la web o, sin ella, su fila de la liga).
+  Partidas **«handshake»** (`liga_partidas.handshake`, migración 0037): el admin las marca o desmarca en la Gran Liga
+  (botón en cada partida con resultado, también en ligas pasadas; `/api/admin/liga/partida/:id/handshake`, recalcula
+  el ELO); llevan la etiqueta «Handshake», no cuentan para el ELO (ni partidas ni V-D-E) y en el ranking ELO salen
+  apagadas en la lista de partidas del jugador (`hs: 1` en su historial), fuera de las gráficas.
   `eloCalcula` lo rehace de cero tras cada sincronización de resultados y una vez al día (`eloDiario` en `scheduled`)
   y lo guarda en `nr_cache` `elo:club` (`{ minimo, jugadores }`, con el historial `h` de cada uno: fecha, liga y
   ronda, rival, PV, cambio y ELO tras la partida). Partidas para dejar de estar «Clasificando»: ajuste `elo_minimo` en

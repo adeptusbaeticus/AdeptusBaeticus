@@ -1830,7 +1830,7 @@ const ELO_TITULOS = [[0.2, "Maestro"], [0.4, "Oro"], [0.6, "Plata"], [0.8, "Bron
 // por la fecha de su ronda y después ronda y mesa; no cuentan las perdidas por abandono (no se jugaron).
 async function eloPartidas(env) {
   const liga = (await env.DB.prepare(
-    `SELECT f.inicio, f.nombre AS liga, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb
+    `SELECT f.inicio, f.nombre AS liga, p.ronda, p.mesa, p.pv_a, p.pv_b, p.handshake, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb
      FROM liga_partidas p JOIN liga_fases f ON f.id=p.fase_id
      JOIN liga_jugadores a ON a.id=p.jugador_a JOIN liga_jugadores b ON b.id=p.jugador_b
      WHERE p.pv_a IS NOT NULL AND p.pv_b IS NOT NULL AND p.abandono IS NULL`
@@ -1839,20 +1839,27 @@ async function eloPartidas(env) {
   const partidas = liga.map((p) => ({
     orden: masDias(p.inicio.slice(0, 10), 14 * (p.ronda - 1)) + " " + p.inicio + " " + n3(p.ronda) + " " + n3(p.mesa),
     a: p.da || "j" + p.ja, b: p.db || "j" + p.jb, pa: p.pv_a, pb: p.pv_b,
-    fecha: masDias(p.inicio.slice(0, 10), 14 * (p.ronda - 1)), etq: p.liga + " · R" + p.ronda,
+    fecha: masDias(p.inicio.slice(0, 10), 14 * (p.ronda - 1)), etq: p.liga + " · R" + p.ronda, hs: !!p.handshake,
   }));
   // Torneos puntuales (todavía no): sus partidas se añadirían aquí con el mismo formato (con `fecha`, `etq` = nombre
   // del torneo y su ronda, y la fecha «YYYY-MM-DD …» al principio de `orden` para que se intercalen por fecha).
   return partidas.sort((x, y) => (x.orden < y.orden ? -1 : x.orden > y.orden ? 1 : 0));
 }
 // Historial de cada jugador: { f: fecha, l: liga y ronda, r: rival, m/s: PV propios y del rival, d: cambio, e: ELO tras
-// la partida } (cambio y ELO redondeados, para que cuadren entre sí).
+// la partida, hs: 1 si es «handshake» (no cuenta) } (cambio y ELO redondeados, para que cuadren entre sí).
 async function eloCalcula(env) {
   const minimo = await eloMinimo(env);
   const t = new Map();
   const de = (id) => { if (!t.has(id)) t.set(id, { id, elo: ELO.inicial, n: 0, v: 0, e: 0, d: 0, h: [] }); return t.get(id); };
   for (const p of await eloPartidas(env)) {
     const A = de(p.a), B = de(p.b);
+    // «Handshake»: no cuenta (ni ELO, ni partidas, ni V-D-E); solo queda en el historial, marcada.
+    if (p.hs) {
+      const ra = Math.round(A.elo), rb = Math.round(B.elo);
+      A.h.push({ f: p.fecha, l: p.etq, r: p.b, m: p.pa, s: p.pb, d: 0, e: ra, hs: 1 });
+      B.h.push({ f: p.fecha, l: p.etq, r: p.a, m: p.pb, s: p.pa, d: 0, e: rb, hs: 1 });
+      continue;
+    }
     const esperado = 1 / (1 + Math.pow(10, (B.elo - A.elo) / 400));
     const res = p.pa > p.pb ? 1 : p.pa < p.pb ? 0 : 0.5;
     const cambio = ELO.k * (res - esperado);
@@ -2174,7 +2181,7 @@ export default {
       if (!fase) return Response.json({ fases, fase: null }, { headers: { "cache-control": "public, max-age=120" } });
       const jugadores = (await env.DB.prepare("SELECT id, discord, nombre, discord_id, puesto_final FROM liga_jugadores WHERE fase_id=?1 ORDER BY discord COLLATE NOCASE").bind(fase.id).all()).results;
       const partidas = (await env.DB.prepare(
-        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada, abandono,
+        `SELECT id, ronda, mesa, stream, jugador_a, jugador_b, nr_partida, aplazada, pv_a, pv_b, jugada, abandono, handshake,
            faccion_a, faccion_b, destac_a, destac_b, ${LIGA_LISTAS_PUBLICAS ? "(lista_a IS NOT NULL OR lista_b IS NOT NULL)" : "0"} AS listas
          FROM liga_partidas WHERE fase_id=?1 ORDER BY ronda, mesa`
       ).bind(fase.id).all()).results;
@@ -3608,6 +3615,18 @@ export default {
       }
 
       // Gran Liga: jugadores con su vínculo (y sugerencias) y usuarios de la web para vincular a mano.
+      // Marcar o desmarcar una partida con resultado como «handshake» (no cuenta para el ELO). Vale también en las ligas
+      // pasadas: no cambia el resultado, solo el ELO, que se recalcula.
+      const hsm = path.match(/^\/api\/admin\/liga\/partida\/(\d+)\/handshake$/);
+      if (hsm && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        if (typeof b.handshake !== "boolean") return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
+        const r = await env.DB.prepare("UPDATE liga_partidas SET handshake=?2 WHERE id=?1 AND pv_a IS NOT NULL AND pv_b IS NOT NULL").bind(Number(hsm[1]), b.handshake ? 1 : 0).run();
+        if (!r.meta.changes) return Response.json({ error: "Solo se pueden marcar partidas con resultado" }, { status: 400, headers: noStore });
+        await eloCalcula(env);
+        return Response.json({ ok: true, handshake: b.handshake }, { headers: noStore });
+      }
       // ELO del club: partidas necesarias para dejar de estar «Clasificando» (0 = salen todos). Se recalcula al cambiarlo.
       if (path === "/api/admin/elo") {
         if (request.method === "GET") return Response.json({ minimo: await eloMinimo(env) }, { headers: noStore });

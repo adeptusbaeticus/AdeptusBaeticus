@@ -173,6 +173,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Rondas y emparejamientos:** las partidas de cada ronda con su mesa (en la ronda de aplazadas, la ronda de
   origen), con el resultado, la facción de cada jugador y el enlace a la partida en New Recruit.
 - **Tu partida** destacada y «Recuerda subir el resultado a New Recruit antes del cierre».
+- **Handshake** (admin): botón en cada partida con resultado, también en las ligas pasadas, para marcarla como
+  partida acordada: lleva la etiqueta «Handshake» y no cuenta para el ELO del club.
 - **Aplazar una partida** a la ronda de aplazadas, o quitar el aplazamiento. «Subir resultado» solo sale en la ronda
   final.
 - **Listas** de cada jugador. Se guardan, pero de momento no se publican.
@@ -189,7 +191,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   partidas y V-D-E) y, debajo, los que aún están clasificando (con al menos una partida). Al pasar el ratón por uno,
   una gráfica de sus últimas 5 partidas (victoria, derrota o empate y cuánto subió o bajó); al pulsarlo, arriba de la
   tabla, la gráfica de toda su evolución y todas sus partidas en orden (fecha, liga y ronda, rival, resultado, cambio y
-  ELO). En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
+  ELO); las partidas «handshake» salen apagadas y sin cambio. En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
   Miembros, «Ver su evolución en el ranking ELO».
 - **Calendario de la liga** para el móvil.
 - **Recordatorios por Discord** (mensaje privado del bot): tu partida de cada ronda y el aviso antes del cierre.

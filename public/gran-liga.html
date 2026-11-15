@@ -57,6 +57,8 @@ h2{font:700 24px Cinzel,Georgia,serif;margin:40px 0 16px}
 /* Partida perdida por abandono */
 .aband{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;border:1px solid #A3211B;color:#F0A39E;font:600 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle}
 .res .aband{display:block;width:max-content;margin:4px auto 0}
+/* Partida «handshake» (no cuenta para el ELO) */
+.hs{display:block;width:max-content;margin:4px auto 0;padding:1px 8px;border-radius:999px;border:1px solid #6B6558;color:#CFC9BA;font:600 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase}
 .volver{display:inline-flex;margin-top:14px}
 .actual h3{font:700 22px Cinzel,Georgia,serif;margin:0 0 4px}
 .cierre{font-weight:600;color:#F0CE82;margin:8px 0 0}
@@ -327,6 +329,7 @@ function filaPartida(p, ronda) {
   if (hay) {
     centro = el("div", "res", p.pv_a + " – " + p.pv_b);
     if (p.abandono) centro.appendChild(el("span", "aband", "Abandono"));
+    if (p.handshake) { const h = el("span", "hs", "Handshake"); h.title = "No cuenta para el ELO"; centro.appendChild(h); }
   }
   else if (D.fase.terminada) centro = el("div", "est", "Sin resultado");
   else {
@@ -379,6 +382,27 @@ function filaPartida(p, ronda) {
       } catch (e) { alert("No se pudo guardar."); ba.disabled = false; }
     };
     acc.appendChild(ba);
+  }
+  // Admin: marcar o quitar «handshake» (en cualquier liga, solo con resultado; no cuenta para el ELO).
+  if (hay && esAdmin) {
+    const bh = el("button", "chip", p.handshake ? "Quitar handshake" : "Handshake");
+    bh.type = "button";
+    bh.title = "No cuenta para el ELO";
+    bh.onclick = async () => {
+      const nuevo = !p.handshake;
+      if (!confirm(nuevo ? "¿Marcar esta partida como handshake? No contará para el ELO." : "¿Quitar el handshake? La partida volverá a contar para el ELO.")) return;
+      bh.disabled = true;
+      try {
+        const r = await fetch("/api/admin/liga/partida/" + p.id + "/handshake", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handshake: nuevo }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { alert(d.error || "No se pudo guardar."); bh.disabled = false; return; }
+        p.handshake = nuevo ? 1 : 0;
+        const abiertas = [...document.querySelectorAll("details.ronda[open]")].map((x) => x.id);
+        pintaRondas();
+        abiertas.forEach((id) => { const x = $(id); if (x) x.open = true; });
+      } catch (e) { alert("No se pudo guardar."); bh.disabled = false; }
+    };
+    acc.appendChild(bh);
   }
   // Una partida aplazada sin resultado solo se sube desde la ronda de aplazadas (la última), no desde la suya.
   const fueraDeSuRonda = p.aplazada && !hay && ronda <= D.fase.rondas;

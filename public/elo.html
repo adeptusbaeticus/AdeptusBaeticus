@@ -70,6 +70,8 @@ tbody tr.sel{background:#2A2618}
 .gcab .dat{color:#CFC9BA}
 .lienzo{width:100%;height:auto;display:block}
 .hist{margin-top:14px;max-height:420px;overflow:auto}
+tr.apagada td{opacity:.45}
+.hsx{display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid #6B6558;color:#CFC9BA;font:600 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase}
 .rv.clic{cursor:pointer;color:#F0CE82;text-decoration:underline dotted rgba(217,178,90,.7);text-underline-offset:3px}
 .rv.clic:hover,.rv.clic:focus-visible{color:#FFE3A3;outline:none}
 /* Mini gráfica (al pasar el ratón) */
@@ -161,7 +163,7 @@ function quitaMini() { if (caja) { caja.remove(); caja = null; } }
 function mini(x, tr) {
   if (matchMedia("(hover: none)").matches) return;
   quitaMini();
-  const ult = x.h.slice(-5);
+  const ult = x.h.filter((h) => !h.hs).slice(-5); // las «handshake» no cuentan
   if (!ult.length) return;
   caja = el("div", "mini");
   caja.setAttribute("aria-hidden", "true");
@@ -207,7 +209,7 @@ function grande(x, tr) {
   cab.append(izq, cerrar);
   g.appendChild(cab);
   // Línea del ELO: empieza en 1500 y un punto por partida (color según el resultado).
-  const pts = [{ e: 1500 }].concat(x.h);
+  const pts = [{ e: 1500 }].concat(x.h.filter((h) => !h.hs)); // las «handshake» no mueven el ELO
   // Del ancho real (en el móvil, más estrecha: así el texto no se encoge).
   g.hidden = false;
   const W = Math.round(Math.min(900, Math.max(300, g.clientWidth - 40))), H = W < 600 ? 220 : 280, PI = 46, PD = 12, PA = 16, PB = 30;
@@ -239,6 +241,7 @@ function grande(x, tr) {
   const tb = t.createTBody();
   x.h.forEach((p, i) => {
     const r = tb.insertRow(); r.style.cursor = "default";
+    if (p.hs) { r.className = "apagada"; r.title = "Handshake: no cuenta para el ELO"; }
     const td = (c, cls) => { const q = el("td", cls || ""); if (c instanceof Node) q.appendChild(c); else q.textContent = c; r.appendChild(q); return q; };
     td(String(i + 1), "oc"); td(fecha(p.f), "oc"); td(p.l, "izq");
     // Rival: con el ratón, su ficha; al pulsarlo (si está en el ranking), su desglose.
@@ -255,7 +258,8 @@ function grande(x, tr) {
     if (window.abFicha) window.abFicha(rn, (D.nombres[p.r] || {}).socio ? p.r : null, { soloRaton: true });
     rv.appendChild(rn);
     const rs = el("span"); const b = el("span", "res " + resDe(p), resDe(p)); rs.append(b, p.m + " – " + p.s); td(rs);
-    td(signo(p.d), clase(p.d)); td(String(p.e));
+    if (p.hs) { td(el("span", "hsx", "Handshake")); td("—"); }
+    else { td(signo(p.d), clase(p.d)); td(String(p.e)); }
   });
   caja2.appendChild(t);
   g.appendChild(caja2);
