@@ -322,6 +322,7 @@
     "Partidas que hay que jugar para dejar de estar «Clasificando» y salir en la clasificación (0 = salen todos).": "Games needed to leave “Placement” and appear in the ranking (0 = everyone appears).",
     "Partidas para clasificar": "Games to be ranked",
     "Tiene que ser un número entre 0 y 100": "It must be a number between 0 and 100",
+    "Pareja:": "Partner:", "· Por parejas (2 contra 2)": "· Pairs (2 vs 2)",
     "Torneos puntuales": "One-off tournaments", "Sugerencia:": "Suggestion:", "Usar": "Use",
     "Pega el enlace de un torneo de New Recruit: se leen sus jugadores y resultados, y sus partidas cuentan para el ELO desde el momento en que lo añades.": "Paste the link of a New Recruit tournament: its players and results are read, and its games count for ELO from the moment you add it.",
     "Leer torneo": "Read tournament",

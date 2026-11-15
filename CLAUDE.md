@@ -266,3 +266,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   su usuario de NR ya se conoce por su ficha, la liga u otro torneo; si no, nombres parecidos) o a «REDACTED» (jugador
   antiguo, «t» + su fila) y «Añadir al ELO». Sus partidas cuentan desde el momento en que se añade (`anadido`, hora de
   Madrid), después de las de la Gran Liga ya jugadas. Lista de torneos añadidos con «Quitar» (recalcula).
+  Por equipos: con equipos de más de 2, cada mesa es una partida independiente; **por parejas** (equipos de 2,
+  `elo_torneos.parejas`, migración 0039), cada cruce es UNA partida 2 contra 2 (`jugador_a2`/`jugador_b2`) con el
+  resultado de su primera mesa (New Recruit la guarda como dos mesas con el mismo resultado); en el ELO cada pareja
+  juega con la media de su ELO y los dos ganan o pierden lo mismo (historial con `r2` = otro rival y `c` = compañero).
+  Cargado a mano desde aquí: «Adeptus Baeticus Duo I» (7-2-2026, por parejas), situado entre la Gran Liga 2026 y la
+  2026/27 (`anadido` = 2026-02-28 23:59).

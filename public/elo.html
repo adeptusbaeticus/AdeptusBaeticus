@@ -205,6 +205,20 @@ function mini(x, tr) {
   caja.style.left = x0 + "px"; caja.style.top = y0 + "px";
 }
 
+// Nombre de un jugador en la lista de partidas: su ficha al pasar el ratón y, si está en el ranking, su desglose al pulsarlo.
+function jugadorClic(id) {
+  const rn = el("span", "rv", nombre(id)); rn.setAttribute("translate", "no");
+  const suyo = porId.get(id);
+  if (suyo) {
+    rn.classList.add("clic"); rn.tabIndex = 0; rn.setAttribute("role", "button");
+    rn.title = "Ver su desglose";
+    const ir = (ev) => { ev.stopPropagation(); grande(suyo, document.querySelector('tbody tr[data-id="' + CSS.escape(id) + '"]')); };
+    rn.addEventListener("click", ir);
+    rn.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ir(ev); } });
+  }
+  if (window.abFicha) window.abFicha(rn, (D.nombres[id] || {}).socio ? id : null, { soloRaton: true });
+  return rn;
+}
 // Gráfica grande, arriba de la tabla: todo el historial (ELO tras cada partida) y la tabla de partidas.
 function grande(x, tr) {
   quitaMini();
@@ -293,7 +307,7 @@ function grande(x, tr) {
     marca.textContent = "";
     if (i < 1) return;
     const p = pts[i];
-    const txt = "#" + (hi2[i] + 1) + " · " + nombre(p.r) + " · " + p.m + "–" + p.s + " · " + (p.hs ? "Handshake" : signo(p.d) + " → " + p.e);
+    const txt = "#" + (hi2[i] + 1) + " · " + nombre(p.r) + (p.r2 ? " & " + nombre(p.r2) : "") + " · " + p.m + "–" + p.s + " · " + (p.hs ? "Handshake" : signo(p.d) + " → " + p.e);
     const ancho = txt.length * 6.6 + 16, bx = Math.min(Math.max(PI, X(i) - ancho / 2), W - PD - ancho);
     const by = Y(p.e) - 36 < PA - 6 ? Y(p.e) + 12 : Y(p.e) - 34;
     sv("rect", { x: bx, y: by, width: ancho, height: 22, rx: 6, fill: "#15171A", stroke: color(p), "stroke-width": 1 }, marca);
@@ -325,20 +339,14 @@ function grande(x, tr) {
     r.addEventListener("click", () => resalta(i, false));
     if (p.hs) { r.className = "apagada"; r.title = "Handshake: no cuenta para el ELO"; }
     const td = (c, cls) => { const q = el("td", cls || ""); if (c instanceof Node) q.appendChild(c); else q.textContent = c; r.appendChild(q); return q; };
-    td(String(i + 1), "oc"); td(fecha(p.f), "oc"); td(p.l, "izq");
-    // Rival: con el ratón, su ficha; al pulsarlo (si está en el ranking), su desglose.
+    td(String(i + 1), "oc"); td(fecha(p.f), "oc");
+    const pl = td(p.l, "izq");
+    // Por parejas: con quién jugó.
+    if (p.c) { const q = el("div", "m", "Pareja: "); q.style.fontSize = "13px"; q.appendChild(jugadorClic(p.c)); pl.appendChild(q); }
+    // Rival (o los dos rivales, por parejas): con el ratón, su ficha; al pulsarlo (si está en el ranking), su desglose.
     const rv = td("", "izq");
-    const rn = el("span", "rv", nombre(p.r)); rn.setAttribute("translate", "no");
-    const suyo = porId.get(p.r);
-    if (suyo) {
-      rn.classList.add("clic"); rn.tabIndex = 0; rn.setAttribute("role", "button");
-      rn.title = "Ver su desglose";
-      const ir = (ev) => { ev.stopPropagation(); grande(suyo, document.querySelector('tbody tr[data-id="' + CSS.escape(p.r) + '"]')); };
-      rn.addEventListener("click", ir);
-      rn.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ir(ev); } });
-    }
-    if (window.abFicha) window.abFicha(rn, (D.nombres[p.r] || {}).socio ? p.r : null, { soloRaton: true });
-    rv.appendChild(rn);
+    rv.appendChild(jugadorClic(p.r));
+    if (p.r2) { rv.append(" & "); rv.appendChild(jugadorClic(p.r2)); }
     const rs = el("span"); const b = el("span", "res " + resDe(p), resDe(p)); rs.append(b, p.m + " – " + p.s); td(rs);
     if (p.hs) { td(el("span", "hsx", "Handshake")); td("—"); }
     else { td(signo(p.d), clase(p.d)); td(String(p.e)); }
@@ -384,6 +392,7 @@ function panelAdmin() {
     zona.textContent = "";
     const cab = el("p", ""); const n = el("strong", "", d.nombre); n.setAttribute("translate", "no");
     cab.append(n, el("span", "m", " · " + (d.fecha ? fecha(d.fecha) + " · " : "") + d.partidas + " partidas · " + d.rondas + " rondas"));
+    if (d.parejas) cab.appendChild(el("span", "m", " · Por parejas (2 contra 2)"));
     zona.append(cab, el("p", "m", "Elige quién es cada jugador: un socio de la web (las sugerencias salen primero) o «REDACTED» si es un jugador antiguo."));
     const t = el("table");
     const th = t.createTHead().insertRow();

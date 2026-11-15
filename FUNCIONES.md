@@ -197,7 +197,9 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Torneos puntuales** (admin, en el Ranking ELO): se pega el enlace de un torneo de New Recruit y «Leer torneo» trae
   sus jugadores y resultados; cada jugador se asigna a un socio (con sugerencias: ✓ si su usuario de New Recruit ya se
   conoce, o nombres parecidos con «Usar») o a «REDACTED» si es un jugador antiguo. «Añadir al ELO» suma sus partidas,
-  que cuentan desde ese momento (después de las de la Gran Liga ya jugadas). Lista de torneos añadidos con «Quitar». En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
+  que cuentan desde ese momento (después de las de la Gran Liga ya jugadas). Lista de torneos añadidos con «Quitar».
+  En los torneos por parejas (2 contra 2) cada cruce cuenta como una sola partida de la pareja (con la media de su ELO)
+  y en la lista sale con quién jugó y contra qué dos rivales; en los de equipos más grandes, cada mesa cuenta aparte. En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
   Miembros, «Ver su evolución en el ranking ELO».
 - **Calendario de la liga** para el móvil.
 - **Recordatorios por Discord** (mensaje privado del bot): tu partida de cada ronda y el aviso antes del cierre.

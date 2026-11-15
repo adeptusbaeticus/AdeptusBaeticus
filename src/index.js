@@ -1846,24 +1846,46 @@ async function eloPartidas(env) {
   // y mesa. Jugador sin socio («REDACTED»): «t» + su fila del torneo.
   let tor = [];
   try { tor = (await env.DB.prepare(
-    `SELECT t.nombre, t.anadido, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb
+    `SELECT t.nombre, t.anadido, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb,
+       a2.discord_id AS da2, b2.discord_id AS db2, a2.id AS ja2, b2.id AS jb2
      FROM elo_torneo_partidas p JOIN elo_torneos t ON t.id=p.torneo_id
-     JOIN elo_torneo_jugadores a ON a.id=p.jugador_a JOIN elo_torneo_jugadores b ON b.id=p.jugador_b`
+     JOIN elo_torneo_jugadores a ON a.id=p.jugador_a JOIN elo_torneo_jugadores b ON b.id=p.jugador_b
+     LEFT JOIN elo_torneo_jugadores a2 ON a2.id=p.jugador_a2 LEFT JOIN elo_torneo_jugadores b2 ON b2.id=p.jugador_b2`
   ).all()).results; } catch (e) {}
   for (const p of tor) partidas.push({
     orden: p.anadido + " ~ " + n3(p.ronda) + " " + n3(p.mesa),
     a: p.da || "t" + p.ja, b: p.db || "t" + p.jb, pa: p.pv_a, pb: p.pv_b,
+    // Por parejas: el compañero de cada lado.
+    a2: p.ja2 ? p.da2 || "t" + p.ja2 : null, b2: p.jb2 ? p.db2 || "t" + p.jb2 : null,
     fecha: p.anadido.slice(0, 10), etq: p.nombre + " · R" + p.ronda, hs: false,
   });
   return partidas.sort((x, y) => (x.orden < y.orden ? -1 : x.orden > y.orden ? 1 : 0));
 }
 // Historial de cada jugador: { f: fecha, l: liga y ronda, r: rival, m/s: PV propios y del rival, d: cambio, e: ELO tras
-// la partida, hs: 1 si es «handshake» (no cuenta) } (cambio y ELO redondeados, para que cuadren entre sí).
+// la partida, hs: 1 si es «handshake» (no cuenta); en 2 contra 2, r2: el otro rival y c: el compañero } (cambio y ELO
+// redondeados, para que cuadren entre sí).
 async function eloCalcula(env) {
   const minimo = await eloMinimo(env);
   const t = new Map();
   const de = (id) => { if (!t.has(id)) t.set(id, { id, elo: ELO.inicial, n: 0, v: 0, e: 0, d: 0, h: [] }); return t.get(id); };
   for (const p of await eloPartidas(env)) {
+    // 2 contra 2 (torneo por parejas): cada pareja juega con la media de su ELO y los dos ganan o pierden lo mismo.
+    if (p.a2 && p.b2) {
+      const lados = [[de(p.a), de(p.a2)], [de(p.b), de(p.b2)]];
+      const media = (l) => (l[0].elo + l[1].elo) / 2;
+      const esperado = 1 / (1 + Math.pow(10, (media(lados[1]) - media(lados[0])) / 400));
+      const res = p.pa > p.pb ? 1 : p.pa < p.pb ? 0 : 0.5;
+      const cambio = ELO.k * (res - esperado);
+      const ids = [[p.a, p.a2], [p.b, p.b2]];
+      lados.forEach((lado, s) => lado.forEach((J, k) => {
+        const antes = Math.round(J.elo), sr = s ? 1 - res : res;
+        J.elo += s ? -cambio : cambio; J.n++;
+        if (sr === 1) J.v++; else if (sr === 0) J.d++; else J.e++;
+        const [r, r2] = ids[1 - s];
+        J.h.push({ f: p.fecha, l: p.etq, r, r2, c: ids[s][1 - k], m: s ? p.pb : p.pa, s: s ? p.pa : p.pb, d: Math.round(J.elo) - antes, e: Math.round(J.elo) });
+      }));
+      continue;
+    }
     const A = de(p.a), B = de(p.b);
     // «Handshake»: no cuenta (ni ELO, ni partidas, ni V-D-E); solo queda en el historial, marcada.
     if (p.hs) {
@@ -1910,7 +1932,31 @@ async function eloTorneoLee(env, nr) {
   const porId = new Map(informes.map((r) => [String(r._id), r]));
   const pv = (sc) => { if (!sc) return null; if (Number.isFinite(sc.VP)) return sc.VP; if (Number.isFinite(sc.PV)) return sc.PV; const v = Object.values(sc).find((x) => Number.isFinite(x)); return v == null ? null : v; };
   const mesas = {}, partidas = [];
-  for (const m of (t.matches || []).slice().sort((a, b) => (a.round || 0) - (b.round || 0))) {
+  // Por parejas (equipos de 2): cada cruce de equipos es UNA partida 2 contra 2, con el resultado de su primera mesa
+  // (New Recruit lo guarda como dos mesas con el mismo resultado). Equipos más grandes o individual: cada mesa cuenta
+  // como una partida independiente.
+  const parejas = Number(t.participants_per_team) === 2 && Array.isArray(t.teams) && t.teams.length > 0;
+  if (parejas) {
+    const equipoDe = new Map();
+    for (const e of t.teams) for (const x of e.participants || []) equipoDe.set(x, e.participants);
+    const companero = (x) => (equipoDe.get(x) || []).find((y) => y !== x) || null;
+    const hijas = (id) => (t.matches || []).filter((m) => m.id_parent === id && m.id_report).sort((a, b) => (a._id < b._id ? -1 : 1));
+    for (const tm of (t.matches || []).filter((m) => Number(m.type) === 1).sort((a, b) => (a.round || 0) - (b.round || 0) || (a._id < b._id ? -1 : 1))) {
+      for (const m of hijas(tm._id)) {
+        const [a, b] = m.participants || [], r = porId.get(String(m.id_report));
+        if (!a || !b || !r) continue;
+        const i = (r.players || []).findIndex((x) => x.id_participant === a), k = (r.players || []).findIndex((x) => x.id_participant === b);
+        const va = i < 0 ? null : pv((r.score || [])[i]), vb = k < 0 ? null : pv((r.score || [])[k]);
+        const a2 = companero(a), b2 = companero(b);
+        if (va == null || vb == null || !a2 || !b2) continue;
+        const ronda = Number(tm.round) || 1;
+        mesas[ronda] = (mesas[ronda] || 0) + 1;
+        partidas.push({ r: ronda, m: mesas[ronda], a, a2, b, b2, pa: va, pb: vb });
+        break; // solo la primera mesa del cruce
+      }
+    }
+  }
+  for (const m of parejas ? [] : (t.matches || []).slice().sort((a, b) => (a.round || 0) - (b.round || 0))) {
     const [a, b] = m.participants || [], r = porId.get(String(m.id_report));
     if (!a || !b || !r) continue;
     const i = (r.players || []).findIndex((x) => x.id_participant === a), k = (r.players || []).findIndex((x) => x.id_participant === b);
@@ -1921,9 +1967,9 @@ async function eloTorneoLee(env, nr) {
     mesas[ronda] = (mesas[ronda] || 0) + 1;
     partidas.push({ r: ronda, m: mesas[ronda], a, b, pa: va, pb: vb });
   }
-  const juegan = new Set(partidas.flatMap((x) => [x.a, x.b]));
+  const juegan = new Set(partidas.flatMap((x) => [x.a, x.b, x.a2, x.b2].filter(Boolean)));
   const jugadores = t.participant_list.filter((x) => juegan.has(x._id)).map((x) => ({ p: x._id, n: String(x.name || "?").slice(0, 60), real: x.member_name ? String(x.member_name).slice(0, 80) : null }));
-  const datos = { nr, nombre: String(t.name || "Torneo").slice(0, 80), fecha: t.start ? String(t.start).slice(0, 10) : null, jugadores, partidas };
+  const datos = { nr, nombre: String(t.name || "Torneo").slice(0, 80), fecha: t.start ? String(t.start).slice(0, 10) : null, parejas, jugadores, partidas };
   await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now')")
     .bind("elo-torneo:" + nr, JSON.stringify(datos)).run();
   return datos;
@@ -3425,7 +3471,7 @@ export default {
         nombres[id] = u ? { n: u.name, a: u.avatar || null, socio: true } : j ? { n: j.discord + (j.nombre ? " (" + j.nombre + ")" : ""), socio: false } : { n: "?", socio: false };
       };
       const socios = d.jugadores.filter((x) => us.has(x.id) && x.n > 0);
-      socios.forEach((x) => { nombre(x.id); x.h.forEach((h) => nombre(h.r)); });
+      socios.forEach((x) => { nombre(x.id); x.h.forEach((h) => { nombre(h.r); if (h.r2) nombre(h.r2); if (h.c) nombre(h.c); }); });
       const fila = (x) => ({ id: x.id, elo: x.elo, n: x.n, v: x.v, e: x.e, d: x.d, pos: x.pos || null, total: x.total || null, titulo: x.titulo || null, rol: us.get(x.id).role, h: x.h });
       return Response.json({
         minimo: d.minimo,
@@ -3729,7 +3775,7 @@ export default {
         try { d = await eloTorneoLee(env, nr); } catch (e) { return Response.json({ error: String(e.message || e).slice(0, 200) }, { status: 400, headers: noStore }); }
         if (!d.partidas.length) return Response.json({ error: "Ese torneo no tiene partidas con resultado" }, { status: 400, headers: noStore });
         const usuarios = (await env.DB.prepare("SELECT discord_id, name FROM users ORDER BY name COLLATE NOCASE").all()).results;
-        return Response.json({ nr, nombre: d.nombre, fecha: d.fecha, partidas: d.partidas.length, rondas: new Set(d.partidas.map((x) => x.r)).size,
+        return Response.json({ nr, nombre: d.nombre, fecha: d.fecha, parejas: !!d.parejas, partidas: d.partidas.length, rondas: new Set(d.partidas.map((x) => x.r)).size,
           jugadores: await eloTorneoSugerencias(env, d.jugadores), usuarios }, { headers: noStore });
       }
       if (path === "/api/admin/elo/torneo" && request.method === "POST") {
@@ -3754,16 +3800,18 @@ export default {
           if (n !== ids.length) return Response.json({ error: "Algún socio no existe" }, { status: 400, headers: noStore });
         }
         const ahora = nowLocal().replace("T", " ").slice(0, 16);
-        const ins = await env.DB.prepare("INSERT INTO elo_torneos (nr_torneo, nombre, fecha, anadido) VALUES (?1, ?2, ?3, ?4)").bind(nr, d.nombre, d.fecha, ahora).run();
+        const ins = await env.DB.prepare("INSERT INTO elo_torneos (nr_torneo, nombre, fecha, anadido, parejas) VALUES (?1, ?2, ?3, ?4, ?5)").bind(nr, d.nombre, d.fecha, ahora, d.parejas ? 1 : 0).run();
         const tid = ins.meta.last_row_id;
         await env.DB.batch([
           env.DB.prepare(`INSERT INTO elo_torneo_jugadores (torneo_id, nr_participante, nr_nombre, discord_id)
             SELECT ?1, json_extract(value,'$.p'), json_extract(value,'$.n'), json_extract(value,'$.d') FROM json_each(?2)`)
             .bind(tid, JSON.stringify(d.jugadores.map((j) => ({ p: j.p, n: j.n, d: asig[j.p] === "redacted" ? null : asig[j.p] })))),
-          env.DB.prepare(`INSERT INTO elo_torneo_partidas (torneo_id, ronda, mesa, jugador_a, jugador_b, pv_a, pv_b)
+          env.DB.prepare(`INSERT INTO elo_torneo_partidas (torneo_id, ronda, mesa, jugador_a, jugador_b, jugador_a2, jugador_b2, pv_a, pv_b)
             SELECT ?1, json_extract(c.value,'$.r'), json_extract(c.value,'$.m'),
               (SELECT id FROM elo_torneo_jugadores WHERE torneo_id=?1 AND nr_participante=json_extract(c.value,'$.a')),
               (SELECT id FROM elo_torneo_jugadores WHERE torneo_id=?1 AND nr_participante=json_extract(c.value,'$.b')),
+              (SELECT id FROM elo_torneo_jugadores WHERE torneo_id=?1 AND nr_participante=json_extract(c.value,'$.a2')),
+              (SELECT id FROM elo_torneo_jugadores WHERE torneo_id=?1 AND nr_participante=json_extract(c.value,'$.b2')),
               json_extract(c.value,'$.pa'), json_extract(c.value,'$.pb') FROM json_each(?2) c`).bind(tid, JSON.stringify(d.partidas)),
           env.DB.prepare("DELETE FROM nr_cache WHERE clave=?1").bind("elo-torneo:" + nr),
         ]);
