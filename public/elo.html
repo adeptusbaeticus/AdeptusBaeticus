@@ -75,7 +75,12 @@ tbody tr.sel{background:#2A2618}
 tr.apagada td{opacity:.45}
 .hsx{display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid #6B6558;color:#CFC9BA;font:600 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase}
 #adm{margin:0 0 24px}
-#adm h2{margin:0 0 6px;font-size:20px}
+#adm h2{margin:0;font-size:20px;display:inline}
+#adm summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;min-height:32px}
+#adm summary::-webkit-details-marker{display:none}
+#adm summary::before{content:"▸";color:#D9B25A;font-size:18px}
+#adm details[open] summary::before{content:"▾"}
+#adm details[open] summary{margin-bottom:6px}
 #adm form{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 #adm input,#adm select{min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;color-scheme:dark}
 #adm input[type=url]{flex:1 1 320px}
@@ -364,8 +369,15 @@ function panelAdmin() {
   const box = $("adm");
   box.hidden = false;
   box.textContent = "";
-  box.append(el("h2", "", "Torneos puntuales"),
-    el("p", "m", "Pega el enlace de un torneo de New Recruit: se leen sus jugadores y resultados, y sus partidas cuentan para el ELO desde el momento en que lo añades."));
+  // Desplegable (cerrado al entrar): «Torneos puntuales».
+  const det = document.createElement("details");
+  const sum = document.createElement("summary");
+  sum.appendChild(el("h2", "", "Torneos puntuales"));
+  det.appendChild(sum);
+  box.appendChild(det);
+  const cuerpo = el("div");
+  det.appendChild(cuerpo);
+  cuerpo.appendChild(el("p", "m", "Pega el enlace de un torneo de New Recruit: se leen sus jugadores y resultados, y sus partidas cuentan para el ELO desde el momento en que lo añades."));
   const f = el("form");
   const inp = Object.assign(el("input"), { type: "url", required: true, placeholder: "https://www.newrecruit.eu/app/tournydetails/details?id=…" });
   inp.setAttribute("aria-label", "Enlace del torneo en New Recruit");
@@ -374,7 +386,7 @@ function panelAdmin() {
   const msg = el("p", "m"); msg.setAttribute("role", "status");
   const zona = el("div");
   const lista = el("div");
-  box.append(f, msg, zona, lista);
+  cuerpo.append(f, msg, zona, lista);
   const pide = async (metodo, ruta, cuerpo) => {
     const r = await fetch(ruta, { method: metodo, headers: { "content-type": "application/json" }, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
     const y = await r.json().catch(() => ({}));

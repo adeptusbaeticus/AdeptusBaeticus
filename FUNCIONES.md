@@ -194,7 +194,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   gris; al tocar un punto se resalta su partida en la lista y al pulsar una partida se marca su punto) y todas sus
   partidas en orden (fecha, liga y ronda, rival, resultado, cambio y
   ELO); las partidas «handshake» salen apagadas y sin cambio.
-- **Torneos puntuales** (admin, en el Ranking ELO): se pega el enlace de un torneo de New Recruit y «Leer torneo» trae
+- **Torneos puntuales** (admin, en el Ranking ELO, en un desplegable): se pega el enlace de un torneo de New Recruit y «Leer torneo» trae
   sus jugadores y resultados; cada jugador se asigna a un socio (con sugerencias: ✓ si su usuario de New Recruit ya se
   conoce, o nombres parecidos con «Usar») o a «REDACTED» si es un jugador antiguo. «Añadir al ELO» suma sus partidas,
   que cuentan desde ese momento (después de las de la Gran Liga ya jugadas). Lista de torneos añadidos con «Quitar».
