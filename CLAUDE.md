@@ -23,6 +23,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   producción **antes** de subir el código que lo usa.
 - **Seguridad:** validación y permisos siempre en el servidor; en el cliente `textContent`/DOM,
   nunca `innerHTML`. No tocar `wrangler.jsonc` ni secretos sin permiso expreso.
+- **Iconos:** todos en dorado (oro `#D9B25A`/degradados de los medallones), salvo los que llevan significado por su
+  color: bendiciones (Emperador/Caos), laurel por rol y copas por puesto.
 - **Colores:** nunca azul. Paleta del club: dorado `#D9B25A`, rojo `#A3211B` y el verde Adeptus del logo
   `#343B20` (con icono o texto claro `#DCD8C2` y borde `#7C8A4C` cuando va sobre fondo oscuro).
   Los colores de los tipos de evento están en `public/colores.css` (variables, con la paleta anterior para volver
@@ -33,8 +35,11 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **Navegación (una sola fuente):** el menú lo dibuja `public/nav.js` (`ITEMS`); cada página solo lleva
   `<nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>` dentro de `.nav`, antes de
   `#auth`. Al añadir una página o sección, añadirla en `ITEMS` (y en `SECCIONES` de `src/index.js` si va dentro de una
-  categoría). Escritorio (≥ 1024 px): desplegables accesibles y barra de la categoría (`.nb-sub`). Móvil y tablet
-  (< 1024 px): cabecera compacta, barra inferior fija (`.nb-barra`, el `body` deja hueco abajo: los elementos fijos abajo
+  categoría). **La vista la elige el dispositivo, no el ancho:** `nav.js` pone en `<html>` la clase `ab-movil` (pantalla
+  táctil: `hover:none` + `pointer:coarse`, o móvil/tablet por el navegador) o `ab-escritorio` (y `window.abDispositivo`);
+  los estilos de cada vista cuelgan de esas clases (también los ajustes táctiles de las páginas: `html.ab-movil …`).
+  Escritorio: desplegables accesibles y barra de la categoría (`.nb-sub`). Móvil y tablet: cabecera compacta (sin botón
+  de menú: lo abre «Más»), barra inferior fija (`.nb-barra`, el `body` deja hueco abajo: los elementos fijos abajo
   deben subir por encima, como `.saltos` en Inicio) y menú lateral (`.nb-cajon`) con idioma e Inscripción/Entrar para
   invitados (`window.abNav.invitado`, desde `auth.js`). Zonas táctiles de 44-48 px en móvil y tablet.
   Iconos de menú: **medallones** propios (`EMBLEMAS` y `medalla(nombre, tamaño)` en `nav.js`, también

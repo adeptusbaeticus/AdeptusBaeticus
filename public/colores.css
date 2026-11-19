@@ -10,8 +10,8 @@
   --torneo-claro: #A9B776;
   --partida: #D9B25A;      --partida-txt: #15171A;  --partida-osc: #6B5A2E; --partida-osc-txt: #F0E2BC;
   --partida-claro: #F0CE82;
-  --fisico: #E6DCC3;       --fisico-txt: #15171A;   --fisico-borde: #FFF6E0;
-  --online: #2A2D33;       --online-txt: #E6DCC3;   --online-borde: #8A8F98;
+  --fisico: #E6DCC3;       --fisico-txt: #7A5A20;   --fisico-borde: #FFF6E0;
+  --online: #2A2D33;       --online-txt: #E2BC63;   --online-borde: #9C7A35;
 }
 /* Paleta anterior (por si se quiere volver):
 :root {

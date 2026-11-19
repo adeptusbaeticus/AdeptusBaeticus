@@ -95,7 +95,8 @@ details.ronda.en-curso>summary strong{color:#F0CE82}
 .pt .acc{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .chip.sube{background:#A3211B;border-color:#A3211B;color:#fff}
 .chip{background:#15171A;color:#ECE7DC;border:1px solid #6B6558;border-radius:999px;padding:6px 12px;min-height:36px;font:500 13px Inter,sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
-@media (max-width:1023px){.chip{min-height:44px;padding:6px 14px}}
+/* Vista móvil (pantallas táctiles, clase de nav.js) */
+html.ab-movil .chip{min-height:44px;padding:6px 14px}
 .listas{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .listas[hidden],.misl[hidden]{display:none}
 .jbtn{background:none;border:0;padding:4px 0;color:inherit;font:inherit;cursor:pointer;text-align:left;min-height:32px}

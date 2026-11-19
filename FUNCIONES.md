@@ -13,7 +13,9 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   Bowl están en preparación («Próximamente», con enlaces a la Gran Liga y al Calendario).
 - **Ordenador:** barra principal con desplegables para Warhammer 40K y Juegos de especialista (ratón, clic o teclado:
   Tab, Enter, flechas y Escape) y, dentro de una categoría, una barra con sus secciones; se marca dónde estás.
-- **Móvil y tablet:** cabecera compacta, **barra inferior fija** (Inicio, Calendario, 40K, Galería y Más) y un menú
+- La vista se elige **según el dispositivo**: en móvil y tablet (pantalla táctil) la vista móvil y en el ordenador la de
+  escritorio, aunque la ventana sea estrecha.
+- **Móvil y tablet:** cabecera compacta (sin botón de menú: lo abre «Más»), **barra inferior fija** (Inicio, Calendario, 40K, Galería y Más) y un menú
   lateral con acordeones para las dos categorías, el idioma y, para invitados, Inscripción y Entrar con Discord.
   Botones grandes (48 px o más), se cierra al elegir una sección, con Escape o tocando fuera.
 - Iconos en forma de **medallón** de bronce y oro (rueda dentada con un emblema en relieve) en los desplegables, la
