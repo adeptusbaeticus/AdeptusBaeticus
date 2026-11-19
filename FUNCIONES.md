@@ -112,12 +112,18 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - Cancelar la inscripción.
 - Los torneos pueden ser físicos u online; las quedadas son siempre físicas.
 - **Inscripción a torneos de New Recruit** (si el admin la activa): formato (individual, parejas o equipos de N),
-  puntos por persona y qué rangos de ELO y experiencia (Novel/Veterano) pueden apuntarse; si no puedes, se dice por qué.
+  puntos por persona y quién puede apuntarse (Instructor, Iniciado, Aprendiz, Clasificando novel, Clasificando
+  veterano; sin «Clasificando», solo los clasificados); si no puedes, se dice por qué. Se comprueba al inscribirse: si
+  después cambia tu ELO sigues inscrito, pero si te das de baja y ya no cumples, no puedes volver.
   - Individual: «Inscribirme» y se muestra el enlace para unirte en New Recruit.
-  - Parejas y equipos: nombre del equipo y compañeros; a ellos les llega un aviso en la servocalavera con enlace al
+  - Parejas y equipos: nombre del equipo y compañeros (solo salen los que pueden apuntarse y están libres); el capitán
+    es quien inscribe al equipo; a ellos les llega un aviso en la servocalavera con enlace al
     torneo, donde confirman (o rechazan); al confirmar ven el enlace de New Recruit.
   - Lista de inscritos (jugadores, o equipos con cada jugador confirmado o pendiente), con la ficha de cada uno.
   - Cancelar la inscripción (el capitán, la del equipo entero) o salir del equipo hasta que empieza el torneo.
+  - El admin, con «Gestionar inscritos»: cambiar nombres de equipo, añadir o quitar jugadores, crear equipos, marcar
+    confirmaciones, borrar equipos y mandar a un jugador (o a todos) un recordatorio en la servocalavera para que se
+    apunte en New Recruit.
 
 ### Partidas entre socios (aspirante, miembro, admin)
 - **Buscar partida:**

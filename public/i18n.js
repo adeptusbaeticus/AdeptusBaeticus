@@ -642,6 +642,22 @@
     "Nombre del equipo": "Team name", "— Elige un compañero —": "— Choose a teammate —",
     "Tus compañeros recibirán un aviso en la servocalavera y tendrán que confirmar su participación.": "Your teammates will get a notice in the servo-skull and will have to confirm their participation.",
     "Enviar inscripción": "Send sign-up", "Elige a todos tus compañeros.": "Choose all your teammates.", "Has elegido al mismo compañero dos veces.": "You chose the same teammate twice.",
+    "Marca al menos un rango que pueda inscribirse": "Tick at least one rank that can sign up", "Quién puede inscribirse": "Who can sign up",
+    "Clasificando novel": "Placement (novice)", "Clasificando veterano": "Placement (veteran)",
+    "Sin «Clasificando», solo pueden apuntarse los jugadores ya clasificados.": "Without “Placement”, only already ranked players can sign up.",
+    "No hay suficientes socios que cumplan los requisitos y estén libres.": "There aren't enough available members who meet the requirements.",
+    "Gestionar inscritos": "Manage sign-ups", "Terminar la gestión": "Finish managing", "Cambiar nombre": "Rename", "Borrar equipo": "Delete team",
+    "¿Borrar este equipo y su inscripción?": "Delete this team and its sign-up?", "Capitán": "Captain", "Quitar confirmación": "Unconfirm", "Confirmar": "Confirm",
+    "Recordar New Recruit": "New Recruit reminder", "Quitar": "Remove", "Añadir un jugador al equipo": "Add a player to the team", "Añadir al equipo": "Add to team",
+    "— Elige un jugador —": "— Choose a player —", "Nuevo equipo (su capitán será el jugador elegido)": "New team (the chosen player will be its captain)",
+    "Inscribir a un jugador": "Sign up a player", "Capitán del equipo nuevo": "Captain of the new team", "Jugador que se inscribe": "Player to sign up",
+    "Crear equipo": "Create team", "Inscribir": "Sign up",
+    "Los jugadores que añadas recibirán un aviso para confirmar su participación.": "The players you add will get a notice to confirm their participation.",
+    "Recordar a todos que se apunten en New Recruit": "Remind everyone to sign up on New Recruit", "Recordatorio enviado a todos los inscritos.": "Reminder sent to everyone signed up.",
+    "Te han apuntado a este torneo.": "You've been signed up for this tournament.", "Recordatorio de torneo": "Tournament reminder",
+    "Ese equipo no está en el torneo": "That team isn't in the tournament", "Elige un jugador": "Choose a player", "Ya está inscrito en este torneo": "Already signed up for this tournament",
+    "Ese equipo ya está completo": "That team is already full", "No está inscrito en este torneo": "Not signed up for this tournament",
+    "No hay nadie inscrito": "Nobody is signed up", "Acción no válida": "Invalid action",
     "Equipos inscritos": "Teams signed up", "Confirmado": "Confirmed", "Tu capitán": "Your captain",
     "Invitación a un torneo": "Tournament invitation", "Ir al torneo": "Go to the tournament",
     "La inscripción está cerrada": "Sign-ups are closed", "No quedan plazas": "No spots left", "Ya estás inscrito en este torneo": "You're already signed up for this tournament",
@@ -670,15 +686,18 @@
   const MESES_CORTOS = { ene: "Jan", feb: "Feb", mar: "Mar", abr: "Apr", may: "May", jun: "Jun", jul: "Jul", ago: "Aug", sept: "Sep", sep: "Sep", oct: "Oct", nov: "Nov", dic: "Dec" };
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   // Rangos y experiencia de los torneos («Iniciado, Aprendiz», «Novel, Veterano») y motivos para no poder inscribirse.
-  const NOMBRES_TORNEO = { Instructor: "Instructor", Iniciado: "Initiate", Aprendiz: "Apprentice", Novel: "Novice", Veterano: "Veteran" };
+  const NOMBRES_TORNEO = { Instructor: "Instructor", Iniciado: "Initiate", Aprendiz: "Apprentice", Novel: "Novice", Veterano: "Veteran",
+    "Clasificando novel": "Placement (novice)", "Clasificando veterano": "Placement (veteran)" };
   const nombresTorneo = (t) => t.split(", ").map((x) => NOMBRES_TORNEO[x] || x).join(", ");
   const motivoTorneo = (t) => {
     if (t === "la inscripción está cerrada") return "sign-ups are closed";
     if (t === "no quedan plazas") return "no spots left";
     if (t === "no eres socio de la web") return "you're not a member of the website";
-    const m = /^(tu )?(rango|experiencia) (\S+) \(pueden: (.+)\)$/.exec(t);
-    if (!m) return t;
-    return (m[1] ? "your " : "") + (m[2] === "rango" ? "rank " : "experience ") + nombresTorneo(m[3]) + " (allowed: " + nombresTorneo(m[4]) + ")";
+    let m = /^(tu )?rango (\S+) \(pueden: (.+)\)$/.exec(t);
+    if (m) return (m[1] ? "your " : "") + "rank " + nombresTorneo(m[2]) + " (allowed: " + nombresTorneo(m[3]) + ")";
+    m = /^(estás )?(Clasificando \S+) \(pueden: (.+)\)$/.exec(t);
+    if (m) return (m[1] ? "you're in " : "") + nombresTorneo(m[2]) + " (allowed: " + nombresTorneo(m[3]) + ")";
+    return t;
   };
   // Antigüedad: «1 año y 7 meses», «3 meses», «menos de un mes».
   const antig = (t) => t === "menos de un mes" ? "less than a month" : t.replace(/(\d+) años?/, (m, n) => n + (n === "1" ? " year" : " years"))
@@ -858,6 +877,12 @@
     [/^Estás inscrito en el equipo «(.+)»\.$/, "You're signed up in the team «$1»."],
     [/^(.+) te ha apuntado al equipo «(.+)»\.$/, "$1 has signed you up in the team «$2»."],
     [/^(.+) te ha apuntado a «(.+)» en el equipo «(.+)»\. Entra para confirmar tu participación\.$/, "$1 has signed you up for «$2» in the team «$3». Open it to confirm your participation."],
+    [/^(.+) te ha apuntado a «(.+)»\. Entra para confirmar tu participación\.$/, "$1 has signed you up for «$2». Open it to confirm your participation."],
+    [/^Recuerda apuntarte en New Recruit al torneo «(.+)»\. Tienes el enlace en el torneo, en el calendario\.$/, "Remember to sign up on New Recruit for the tournament «$1». The link is in the tournament, in the calendar."],
+    [/^Recordatorio enviado a la servocalavera de (.+)\.$/, "Reminder sent to $1's servo-skull."],
+    [/^¿Quitar a (.+) del torneo\?$/, "Remove $1 from the tournament?"],
+    [/^Te han apuntado al equipo «(.+)»\.$/, "You've been signed up in the team «$1»."],
+    [/^((?:Instructor|Iniciado|Aprendiz|Clasificando novel|Clasificando veterano)(?:, (?:Instructor|Iniciado|Aprendiz|Clasificando novel|Clasificando veterano))*)$/, (m, x) => nombresTorneo(x)],
     [/^No puedes inscribirte: (.+?)\.?$/, (m, x) => "You can't sign up: " + motivoTorneo(x) + (m.endsWith(".") ? "." : "")],
     [/^«(.+)» no cumple los requisitos del torneo: (.+)$/, (m, n, x) => "«" + n + "» doesn't meet the tournament requirements: " + motivoTorneo(x)],
     [/^«(.+)» ya está inscrito en este torneo$/, "«$1» is already signed up for this tournament"],

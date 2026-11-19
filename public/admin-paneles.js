@@ -104,13 +104,16 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
       w.setAttribute("role", "group"); w.setAttribute("aria-label", nombre);
       return { w, cs, valor: () => cs.filter((c) => c.checked).map((c) => c.value), pon: (vs) => cs.forEach((c) => { c.checked = vs.includes(c.value); }) };
     };
-    const rangos = casillas("Rangos de ELO que pueden inscribirse", [["instructor", "Instructor"], ["iniciado", "Iniciado"], ["aprendiz", "Aprendiz"]]);
-    const exps = casillas("Experiencia que puede inscribirse", [["novel", "Novel"], ["veterano", "Veterano"]]);
+    // Quién puede apuntarse: los clasificados por su rango y los que aún están «Clasificando» por su experiencia.
+    const rangos = casillas("Quién puede inscribirse", [["instructor", "Instructor"], ["iniciado", "Iniciado"], ["aprendiz", "Aprendiz"]]);
+    const exps = casillas("Quién puede inscribirse", [["novel", "Clasificando novel"], ["veterano", "Clasificando veterano"]]);
+    rangos.w.append(...exps.w.childNodes);
     const wFormato = campo("ae-formato", "Inscripción en la web", formato);
     const wTam = campo("ae-tam", "Jugadores por equipo", tam);
     const wPuntos = campo("ae-puntos", "Puntos por persona", puntos);
-    const wRangos = campo("ae-rangos", "Rangos de ELO que pueden inscribirse", rangos.w);
-    const wExps = campo("ae-exps", "Experiencia que puede inscribirse", exps.w);
+    const wRangos = campo("ae-rangos", "Quién puede inscribirse", rangos.w);
+    const nota = el("p", "m", "Sin «Clasificando», solo pueden apuntarse los jugadores ya clasificados."); nota.style.cssText = "margin:4px 0 0;font-size:13px";
+    wRangos.appendChild(nota);
     campo("ae-desc", "Descripción", desc, true);
     const msg = el("p", "m"); msg.style.cssText = "min-height:20px;margin:12px 0 0"; msg.setAttribute("role", "status");
     const guardar = el("button", "apn-btn", "Crear evento"); guardar.type = "submit";
@@ -125,7 +128,7 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
     const syncModo = () => {
       const t = tipo.value === "torneo", ins = t && !!formato.value;
       wModo.hidden = wFormato.hidden = !t; if (!t) modo.value = "fisico";
-      wPuntos.hidden = wRangos.hidden = wExps.hidden = !ins;
+      wPuntos.hidden = wRangos.hidden = !ins;
       wTam.hidden = !(ins && formato.value === "equipos");
     };
     tipo.onchange = formato.onchange = syncModo; syncModo();

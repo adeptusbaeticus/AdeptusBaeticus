@@ -214,6 +214,14 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .tor .acc{display:flex;gap:8px;flex-wrap:wrap}
 .tor .fld input[type=text]{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;min-height:44px}
 .tins{list-style:none;margin:0;padding:0}
+.tbtn{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:8px;padding:6px 10px;font:500 13px Inter,sans-serif;cursor:pointer;min-height:36px;margin:4px 6px 4px 0}
+.tbtn.peligro{border-color:#A3211B;color:#F0A39E}.tbtn.gest{margin:0 0 8px;border-color:#D9B25A;color:#F0CE82}
+.tbtn:disabled{opacity:.6;cursor:default}
+.tadm{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0}
+.tadm input,.tadm select{flex:1 1 180px;min-width:0;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;min-height:40px}
+.tnuevo{margin-top:12px;padding-top:10px;border-top:1px solid #2C3036}.tnuevo strong{flex:1 1 100%}.tnuevo .m{flex:1 1 100%;margin:0}
+.tms.tg{flex-direction:column;align-items:stretch;gap:2px}.tms.tg .tm{flex-wrap:wrap;padding:4px 0}.tacc{display:flex;flex-wrap:wrap;flex-basis:100%}
+.tm .st.cap{background:#3A2E14;color:#F0CE82;border:1px solid #D9B25A}
 .tins li{padding:8px 0;border-top:1px solid #2C3036}
 .tins li strong{display:block;margin-bottom:4px;color:#ECE7DC}
 .tms{display:flex;flex-wrap:wrap;gap:6px 14px}
@@ -760,8 +768,8 @@ function show(e) {
 // confirman desde aquí al recibir el aviso en la servocalavera), enlace de New Recruit al estar confirmado e inscritos.
 const T_FORMATO = { "1v1": "Individual (1 contra 1)", "2v2": "Por parejas (2 contra 2)" };
 const T_PUNTOS = { "2k": "2k (2000 pts)", "1k": "1k (1000 pts)", cp: "Combat Patrol" };
-const T_NOMBRE = { instructor: "Instructor", iniciado: "Iniciado", aprendiz: "Aprendiz", novel: "Novel", veterano: "Veterano" };
-let torneoPedido = 0;
+const T_NOMBRE = { instructor: "Instructor", iniciado: "Iniciado", aprendiz: "Aprendiz", novel: "Clasificando novel", veterano: "Clasificando veterano" };
+let torneoPedido = 0, torneoGestion = null; // torneoGestion: id del torneo que el admin está gestionando
 async function torneoDetalle(e, box) {
   const pedido = ++torneoPedido;
   const zona = document.createElement("div");
@@ -778,7 +786,7 @@ async function torneoDetalle(e, box) {
   dato("Formato:", d.formato === "equipos" ? "Por equipos de " + d.tam : T_FORMATO[d.formato]);
   dato("Puntos por persona:", T_PUNTOS[d.puntos] || d.puntos);
   const todos = d.rangos.length === 3 && d.experiencias.length === 2;
-  dato("Pueden inscribirse:", todos ? "todos los socios" : "rango " + d.rangos.map((x) => T_NOMBRE[x]).join(", ") + " · " + d.experiencias.map((x) => T_NOMBRE[x]).join(", "));
+  dato("Pueden inscribirse:", todos ? "todos los socios" : d.rangos.concat(d.experiencias).map((x) => T_NOMBRE[x]).join(", "));
   const eq = d.tam > 1;
   add("p", "m", d.plazas ? "Jugadores inscritos: " + d.ocupadas + " de " + d.plazas : "Jugadores inscritos: " + d.ocupadas);
   const err = add("p", "err");
@@ -812,7 +820,8 @@ async function torneoDetalle(e, box) {
       });
     } else {
       const cap = mio.miembros.find((m) => m.id === mio.capitan);
-      add("p", "ok", (cap ? cap.name : "Tu capitán") + " te ha apuntado al equipo «" + mio.nombre + "».");
+      if (eq && cap && cap.id !== yo.id) add("p", "ok", cap.name + " te ha apuntado al equipo «" + mio.nombre + "».");
+      else add("p", "ok", eq ? "Te han apuntado al equipo «" + mio.nombre + "»." : "Te han apuntado a este torneo.");
       if (d.abierta) {
         const acc = add("div", "acc");
         const b1 = add("button", "btn", "Confirmar mi participación", acc); b1.type = "button"; b1.onclick = () => pide("confirmar", null, b1);
@@ -826,12 +835,11 @@ async function torneoDetalle(e, box) {
   } else {
     const b0 = btn(d.tam === 2 ? "Inscribir una pareja" : "Inscribir un equipo", "", async () => {
       b0.remove();
-      if (!members) members = await fetch("/api/members").then((r) => (r.ok ? r.json() : [])).catch(() => []);
       const f = add("form", "fz");
       const nom = document.createElement("input"); nom.type = "text"; nom.id = "t-nom"; nom.maxLength = 60; nom.required = true; nom.setAttribute("translate", "no");
       f.appendChild(mkField(d.tam === 2 ? "Nombre de la pareja" : "Nombre del equipo", nom));
-      const ocupados = new Set(d.equipos.flatMap((x) => x.miembros.map((m) => m.id)));
-      const libres = members.filter((m) => !ocupados.has(m.id));
+      // Solo los socios que cumplen los requisitos y aún no están inscritos (lo da el servidor).
+      const libres = d.candidatos || [];
       const sels = [];
       for (let i = 1; i < d.tam; i++) {
         const sl = mkSelect("t-comp" + i, [["", "— Elige un compañero —"]].concat(libres.map((m) => [m.id, m.name])));
@@ -839,6 +847,7 @@ async function torneoDetalle(e, box) {
         f.appendChild(mkField(d.tam === 2 ? "Compañero" : "Compañero " + i, sl));
         sels.push(sl);
       }
+      if (libres.length < d.tam - 1) add("p", "m", "No hay suficientes socios que cumplan los requisitos y estén libres.", f);
       add("p", "m", "Tus compañeros recibirán un aviso en la servocalavera y tendrán que confirmar su participación.", f);
       const ok = add("button", "btn", "Enviar inscripción", f); ok.type = "submit";
       const no = add("button", "btn alt", "Cancelar", f); no.type = "button"; no.onclick = recarga;
@@ -854,21 +863,67 @@ async function torneoDetalle(e, box) {
     });
     b0.dataset.accion = "apuntarme";
   }
-  // Inscritos: jugadores (1v1) o equipos con sus jugadores (confirmados o pendientes). Cada nombre, con su ficha.
+  // Inscritos: jugadores (1v1) o equipos con sus jugadores (el capitán, el primero que se inscribió, va delante),
+  // confirmados o pendientes. Cada nombre, con su ficha. El admin, con «Gestionar inscritos», puede cambiarlo todo.
+  const gestion = d.admin && torneoGestion === d.id;
+  if (gestion && !members) members = await fetch("/api/members").then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  if (pedido !== torneoPedido || !zona.isConnected) return;
+  const adm = async (cuerpo, boton, aviso) => {
+    err.textContent = ""; if (boton) boton.disabled = true;
+    try {
+      const r = await fetch("/api/admin/torneos/" + d.id, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
+      const y = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(y.error || "No se pudo guardar.");
+      if (aviso) { err.className = "ok"; err.textContent = aviso; if (boton) boton.disabled = false; return; }
+      recarga();
+    } catch (x) { err.className = "err"; err.textContent = x.message; if (boton) boton.disabled = false; }
+  };
+  const mini = (txt, padre, fn, cls) => { const b = add("button", "tbtn" + (cls ? " " + cls : ""), txt, padre); b.type = "button"; b.onclick = () => fn(b); return b; };
+  const inscritos = new Set(d.equipos.flatMap((x) => x.miembros.map((m) => m.id)));
+  const elegir = (id) => mkSelect(id, [["", "— Elige un jugador —"]].concat((members || []).filter((m) => !inscritos.has(m.id)).map((m) => [m.id, m.name])));
+  if (d.equipos.length || gestion) add("h4", "", eq ? "Equipos inscritos" : "Inscritos");
+  if (d.admin) mini(gestion ? "Terminar la gestión" : "Gestionar inscritos", zona, () => { torneoGestion = gestion ? null : d.id; recarga(); }, "gest");
   if (d.equipos.length) {
-    add("h4", "", eq ? "Equipos inscritos" : "Inscritos");
     const ul = add("ul", "tins");
     d.equipos.forEach((x) => {
       const li = add("li", "", null, ul);
-      if (eq) { const n = add("strong", "", x.nombre, li); n.setAttribute("translate", "no"); }
-      const ms = add("div", "tms", null, li);
+      if (eq && gestion) {
+        const fila = add("div", "tadm", null, li);
+        const nom = add("input", "", null, fila); nom.type = "text"; nom.value = x.nombre || ""; nom.maxLength = 60; nom.setAttribute("translate", "no");
+        nom.setAttribute("aria-label", "Nombre del equipo");
+        mini("Cambiar nombre", fila, (b) => adm({ accion: "renombra", equipo: x.id, nombre: nom.value }, b));
+        mini("Borrar equipo", fila, (b) => { if (confirm("¿Borrar este equipo y su inscripción?")) adm({ accion: "borra", equipo: x.id }, b); }, "peligro");
+      } else if (eq) { const n = add("strong", "", x.nombre, li); n.setAttribute("translate", "no"); }
+      const ms = add("div", gestion ? "tms tg" : "tms", null, li);
       x.miembros.forEach((m) => {
         const w = add("span", "tm", null, ms);
         const n = add("span", "", m.name, w); n.setAttribute("translate", "no");
         if (window.abFicha) window.abFicha(n, m.id);
-        if (eq) add("span", "st " + (m.confirmado ? "si" : "no"), m.confirmado ? "Confirmado" : "Pendiente", w);
+        if (eq && m.id === x.capitan) add("span", "st cap", "Capitán", w);
+        if (eq || gestion || !m.confirmado) add("span", "st " + (m.confirmado ? "si" : "no"), m.confirmado ? "Confirmado" : "Pendiente", w);
+        if (gestion) {
+          const ac = add("span", "tacc", null, w);
+          mini(m.confirmado ? "Quitar confirmación" : "Confirmar", ac, (b) => adm({ accion: "confirma", discord_id: m.id, confirmado: !m.confirmado }, b));
+          mini("Recordar New Recruit", ac, (b) => adm({ accion: "recuerda", discord_id: m.id }, b, "Recordatorio enviado a la servocalavera de " + m.name + "."));
+          mini("Quitar", ac, (b) => { if (confirm("¿Quitar a " + m.name + " del torneo?")) adm({ accion: "quita", discord_id: m.id }, b); }, "peligro");
+        }
       });
+      if (gestion && eq && x.miembros.length < d.tam) {
+        const fila = add("div", "tadm", null, li);
+        const sl = elegir("t-add" + x.id); sl.setAttribute("aria-label", "Añadir un jugador al equipo"); fila.appendChild(sl);
+        mini("Añadir al equipo", fila, (b) => { if (sl.value) adm({ accion: "anade", equipo: x.id, discord_id: sl.value }, b); });
+      }
     });
+  }
+  if (gestion) {
+    const f = add("div", "tadm tnuevo");
+    add("strong", "", eq ? "Nuevo equipo (su capitán será el jugador elegido)" : "Inscribir a un jugador", f);
+    const sl = elegir("t-nuevo"); sl.setAttribute("aria-label", eq ? "Capitán del equipo nuevo" : "Jugador que se inscribe"); f.appendChild(sl);
+    let nom = null;
+    if (eq) { nom = add("input", "", null, f); nom.type = "text"; nom.maxLength = 60; nom.placeholder = "Nombre del equipo"; nom.setAttribute("aria-label", "Nombre del equipo"); }
+    mini(eq ? "Crear equipo" : "Inscribir", f, (b) => { if (sl.value) adm({ accion: "anade", discord_id: sl.value, nombre: nom ? nom.value : "" }, b); });
+    add("p", "m", "Los jugadores que añadas recibirán un aviso para confirmar su participación.", f);
+    if (d.equipos.length) mini("Recordar a todos que se apunten en New Recruit", zona, (b) => adm({ accion: "recuerda", todos: true }, b, "Recordatorio enviado a todos los inscritos."));
   }
 }
 

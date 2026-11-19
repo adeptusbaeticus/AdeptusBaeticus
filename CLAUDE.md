@@ -298,15 +298,25 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 
 - Un torneo del calendario puede tener inscripción en la web (panel de eventos): `events.formato` (`1v1`, `2v2`,
   `equipos` con `tam_equipo` de 3 a 20; vacío = solo información, como los antiguos), `puntos` (`cp`/`1k`/`2k`,
-  obligatorio) y quién puede apuntarse: `rangos` y `experiencias` (JSON; al menos uno de cada). `torneoConfig` lo
-  valida; `torneoAptos` dice si cada socio cumple (rango por su ELO actual, 1500 si no tiene partidas, aunque esté
-  «Clasificando») y el motivo si no.
+  obligatorio) y quién puede apuntarse, en una lista de casillas: Instructor, Iniciado, Aprendiz (`rangos`: jugadores
+  ya clasificados, por su rango) y Clasificando novel / Clasificando veterano (`experiencias`: los que aún no tienen
+  las partidas mínimas, por su etiqueta Novel/Veterano); JSON, al menos una casilla. Sin «Clasificando» marcado, solo
+  se apuntan los clasificados. `torneoConfig` lo valida; `torneoAptos` (con `ids` = null, todos los socios) dice si
+  cada socio cumple y el motivo si no. Solo se comprueba al inscribirse: si luego su ELO cambia, sigue inscrito; si se
+  da de baja y ya no cumple, no puede volver.
 - Detalle en el calendario (`torneoDetalle` en `calendario.html`, `GET /api/torneos/:id`): formato, puntos,
   requisitos, plazas (cuentan jugadores, también los pendientes), el motivo si no puede apuntarse (o «Entra con
-  Discord») y los inscritos con su ficha rápida. 1v1: un clic. Parejas/equipos: nombre y N-1 compañeros
-  (`POST /api/torneos/:id/inscripcion`; el servidor valida a todos); cada compañero recibe un anuncio en la
+  Discord») y los inscritos con su ficha rápida. 1v1: un clic. Parejas/equipos: nombre y N-1 compañeros, elegidos solo
+  entre los admisibles y libres (`candidatos` en el detalle) (`POST /api/torneos/:id/inscripcion`; el servidor valida a
+  todos); el capitán es el primero que se inscribe (va delante, con «Capitán»; los demás por orden de inscripción,
+  `rowid`); cada compañero recibe un anuncio en la
   servocalavera (`anuncios`, tipo `torneo:ID`, con `enlace` al evento, migración 0040; «Ir al torneo») y confirma desde
   el detalle (`/confirmar`, que acepta el anuncio). El enlace de New Recruit (`nr_tournament_id`) solo se da a los
   confirmados. `/baja`: el capitán borra el equipo entero; un compañero, solo a sí mismo (rechazar). Todo se cierra al
   empezar el torneo. Tablas `torneo_equipos` y `torneo_miembros` (1v1 = equipo de uno, sin nombre); los inscritos salen
   también en «Inscritos» del panel de eventos.
+- **Gestión del admin** (botón «Gestionar inscritos» en el detalle; `POST /api/admin/torneos/:id` con `accion`, sin
+  requisitos ni cierre): `renombra` equipo, `anade` jugador a un equipo (con aviso para confirmar) o equipo nuevo con
+  él de capitán, `quita` (si sale el capitán, lo es el siguiente que se inscribió; equipo vacío se borra), `confirma`
+  (marcar o quitar), `borra` equipo y `recuerda`: anuncio en la servocalavera (tipo `torneo-nr:ID`, sin duplicar) para
+  que se apunte en New Recruit, a un jugador o a todos los inscritos.
