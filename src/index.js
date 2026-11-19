@@ -3803,6 +3803,21 @@ export default {
       // Darse de baja: el capitán borra la inscripción de todo el equipo; un compañero sale del equipo (o rechaza).
       if (accion === "baja") {
         if (!yoMiembro) return err("No estás en ningún equipo de este torneo", 404);
+        // El capitán puede irse pasando la capitanía a un compañero del equipo, que se mantiene inscrito.
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        if (miEquipo.capitan === s.id && b.pasar_a != null) {
+          const nuevo = miEquipo.miembros.find((m) => m.id === String(b.pasar_a) && m.id !== s.id);
+          if (!nuevo) return err("Elige a un compañero de tu equipo");
+          await env.DB.batch([
+            env.DB.prepare("UPDATE torneo_equipos SET capitan=?1 WHERE id=?2").bind(nuevo.id, miEquipo.id),
+            env.DB.prepare("DELETE FROM torneo_miembros WHERE equipo_id=?1 AND discord_id=?2").bind(miEquipo.id, s.id),
+            env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1 AND tipo IN (?2, ?3) AND aceptado IS NULL").bind(s.id, "torneo:" + id, "torneo-nr:" + id),
+            env.DB.prepare("INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace) VALUES (?1, ?2, ?3, ?4, ?5)").bind(nuevo.id, "torneo-cap:" + id,
+              "Eres el nuevo capitán", ((miEquipo.miembros.find((m) => m.id === s.id) || {}).name || s.name) + " ha dejado el equipo «" + miEquipo.nombre +
+              "» en «" + ev.title + "» y te ha pasado la capitanía.", "/calendario.html?evento=" + id),
+          ]);
+          return Response.json({ ok: true }, { headers: noStore });
+        }
         const quienes = miEquipo.capitan === s.id ? miEquipo.miembros.map((m) => m.id) : [s.id];
         await env.DB.batch([
           miEquipo.capitan === s.id

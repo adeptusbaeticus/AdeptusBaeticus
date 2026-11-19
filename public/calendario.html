@@ -219,6 +219,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .tbtn:disabled{opacity:.6;cursor:default}
 .tadm{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0}
 .tadm input,.tadm select{flex:1 1 180px;min-width:0;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;min-height:40px}
+.tpasa{margin-top:8px}.tpasa .btn{margin-top:0}
 .tnuevo{margin-top:12px;padding-top:10px;border-top:1px solid #2C3036}.tnuevo strong{flex:1 1 100%}.tnuevo .m{flex:1 1 100%;margin:0}
 .tms.tg{flex-direction:column;align-items:stretch;gap:2px}.tms.tg .tm{flex-wrap:wrap;padding:4px 0}.tacc{display:flex;flex-wrap:wrap;flex-basis:100%}
 .tm .st.cap{background:#3A2E14;color:#F0CE82;border:1px solid #D9B25A}
@@ -818,6 +819,19 @@ async function torneoDetalle(e, box) {
       if (d.abierta) btn(yo.capitan ? (eq ? "Cancelar la inscripción del equipo" : "Cancelar inscripción") : "Salir del equipo", "alt", (b) => {
         if (confirm(yo.capitan && eq ? "¿Cancelar la inscripción de todo el equipo?" : "¿Seguro?")) pide("baja", null, b);
       });
+      // El capitán también puede irse dejando el equipo inscrito con otro capitán.
+      const otros = mio.miembros.filter((m) => m.id !== yo.id);
+      if (d.abierta && yo.capitan && eq && otros.length) {
+        const fila = add("div", "tadm tpasa");
+        const sl = mkSelect("t-pasa", [["", "— Nuevo capitán —"]].concat(otros.map((m) => [m.id, m.name])));
+        sl.querySelectorAll("option").forEach((o, k) => { if (k) o.setAttribute("translate", "no"); });
+        sl.setAttribute("aria-label", "Nuevo capitán"); fila.appendChild(sl);
+        const b = add("button", "btn alt", "Salir y pasar la capitanía", fila); b.type = "button";
+        b.onclick = () => {
+          if (!sl.value) { err.textContent = "Elige quién será el nuevo capitán."; return; }
+          if (confirm("¿Salir del equipo y pasar la capitanía a " + sl.selectedOptions[0].textContent + "?")) pide("baja", { pasar_a: sl.value }, b);
+        };
+      }
     } else {
       const cap = mio.miembros.find((m) => m.id === mio.capitan);
       if (eq && cap && cap.id !== yo.id) add("p", "ok", cap.name + " te ha apuntado al equipo «" + mio.nombre + "».");

@@ -312,7 +312,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   `rowid`); cada compañero recibe un anuncio en la
   servocalavera (`anuncios`, tipo `torneo:ID`, con `enlace` al evento, migración 0040; «Ir al torneo») y confirma desde
   el detalle (`/confirmar`, que acepta el anuncio). El enlace de New Recruit (`nr_tournament_id`) solo se da a los
-  confirmados. `/baja`: el capitán borra el equipo entero; un compañero, solo a sí mismo (rechazar). Todo se cierra al
+  confirmados. `/baja`: el capitán borra el equipo entero o, con `pasar_a`, se va y pasa la capitanía a un compañero (el equipo sigue inscrito y el nuevo capitán recibe un anuncio `torneo-cap:ID`); un compañero sale solo él (rechazar). Todo se cierra al
   empezar el torneo. Tablas `torneo_equipos` y `torneo_miembros` (1v1 = equipo de uno, sin nombre); los inscritos salen
   también en «Inscritos» del panel de eventos.
 - **Gestión del admin** (botón «Gestionar inscritos» en el detalle; `POST /api/admin/torneos/:id` con `accion`, sin

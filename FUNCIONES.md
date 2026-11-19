@@ -120,7 +120,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
     es quien inscribe al equipo; a ellos les llega un aviso en la servocalavera con enlace al
     torneo, donde confirman (o rechazan); al confirmar ven el enlace de New Recruit.
   - Lista de inscritos (jugadores, o equipos con cada jugador confirmado o pendiente), con la ficha de cada uno.
-  - Cancelar la inscripción (el capitán, la del equipo entero) o salir del equipo hasta que empieza el torneo.
+  - Cancelar la inscripción o salir del equipo hasta que empieza el torneo. El capitán puede cancelar la del equipo
+    entero o salir pasando la capitanía a un compañero (el equipo sigue inscrito y el nuevo capitán recibe un aviso).
   - El admin, con «Gestionar inscritos»: cambiar nombres de equipo, añadir o quitar jugadores, crear equipos, marcar
     confirmaciones, borrar equipos y mandar a un jugador (o a todos) un recordatorio en la servocalavera para que se
     apunte en New Recruit.
