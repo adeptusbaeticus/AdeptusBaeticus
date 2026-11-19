@@ -18,7 +18,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Móvil y tablet:** cabecera compacta (sin botón de menú: lo abre «Más»), **barra inferior fija** (Inicio, Calendario, 40K, Galería y Más) y un menú
   lateral con acordeones para las dos categorías, el idioma y, para invitados, Inscripción y Entrar con Discord.
   Botones grandes (48 px o más), se cierra al elegir una sección, con Escape o tocando fuera.
-- Iconos en forma de **medallón** de bronce y oro (rueda dentada con un emblema en relieve) en los desplegables, la
+- Iconos en forma de **medallón** de bronce y hueso (rueda dentada de bronce con un emblema color hueso en relieve) en los desplegables, la
   barra de la categoría, la barra inferior, el menú lateral y las páginas «Próximamente».
 - Las direcciones antiguas (`/gran-liga`, `/elo`) llevan a las nuevas (`/warhammer-40k/gran-liga`,
   `/warhammer-40k/ranking-elo`) sin perder la liga ni la ronda.

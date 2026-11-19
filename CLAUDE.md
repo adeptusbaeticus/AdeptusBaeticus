@@ -23,8 +23,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   producción **antes** de subir el código que lo usa.
 - **Seguridad:** validación y permisos siempre en el servidor; en el cliente `textContent`/DOM,
   nunca `innerHTML`. No tocar `wrangler.jsonc` ni secretos sin permiso expreso.
-- **Iconos:** todos en dorado (oro `#D9B25A`/degradados de los medallones), salvo los que llevan significado por su
-  color: bendiciones (Emperador/Caos), laurel por rol y copas por puesto.
+- **Iconos (paleta «bronce y hueso»):** marco o rueda de bronce y emblema en hueso (`#DCD8C2`, degradado
+  `#FBF6E8`→`#8F8A76` en medallones e iconos pequeños); los iconos de línea, en hueso. El dorado queda para acentos
+  (sección activa, enlaces). Salvo los que llevan significado por su color: bendiciones (Emperador/Caos), laurel por rol
+  y copas por puesto.
 - **Colores:** nunca azul. Paleta del club: dorado `#D9B25A`, rojo `#A3211B` y el verde Adeptus del logo
   `#343B20` (con icono o texto claro `#DCD8C2` y borde `#7C8A4C` cuando va sobre fondo oscuro).
   Los colores de los tipos de evento están en `public/colores.css` (variables, con la paleta anterior para volver
@@ -43,7 +45,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   deben subir por encima, como `.saltos` en Inicio) y menú lateral (`.nb-cajon`) con idioma e Inscripción/Entrar para
   invitados (`window.abNav.invitado`, desde `auth.js`). Zonas táctiles de 44-48 px en móvil y tablet.
   Iconos de menú: **medallones** propios (`EMBLEMAS` y `medalla(nombre, tamaño)` en `nav.js`, también
-  `window.abNav.medalla`): rueda dentada de bronce, disco oscuro y emblema dorado en relieve, en un «sprite» SVG con
+  `window.abNav.medalla`): rueda dentada de bronce, disco oscuro y emblema en hueso con relieve, en un «sprite» SVG con
   `<symbol>` y degradados comunes. Dibujo propio: sin águila imperial, marines ni otros motivos de Games Workshop.
 - **Rutas por juego:** `/warhammer-40k/{gran-liga,ranking-elo,recursos,tutoriales}` y
   `/juegos-de-especialista/{necromunda,blood-bowl}` las sirve el Worker (`SECCIONES`: página que entrega cada una; las
@@ -221,7 +223,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Cada modalidad de partida tiene su icono (`public/iconos-juego.js`, `iconoJuego()`): placas de esquinas cortadas
   con letra Cinzel para Combat Patrol, 40k 1K y 40k 2K, máscara de gas (Necromunda) y balón con pinchos (Blood
   Bowl). Dibujo propio: no usar logos, ilustraciones ni tipografías de Games Workshop (son marcas registradas).
-  Mismo estilo que los medallones: emblema en oro (degradados `ij-oro`/`ij-oro-alto`, en coordenadas del icono) con
+  Mismo estilo que los medallones: emblema en hueso (degradados `ij-oro`/`ij-oro-alto`, en coordenadas del icono) con
   relieve sobre placa o disco oscuro con borde de bronce; los cuadros de físico/online (`.mq`) llevan aro de bronce y
   relieve, con sus colores de `colores.css`.
 

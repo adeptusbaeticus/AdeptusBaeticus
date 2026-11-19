@@ -130,7 +130,7 @@
       paradas.forEach(([o, c]) => { const st = document.createElementNS(NS, "stop"); st.setAttribute("offset", o); st.setAttribute("stop-color", c); g.appendChild(st); });
       defs.appendChild(g);
     };
-    grad("abi-oro", "linearGradient", { x1: "0", y1: "0", x2: "0", y2: "1" }, [["0", "#FBE7A8"], ["0.45", "#E2BC63"], ["1", "#8C6A28"]]);
+    grad("abi-oro", "linearGradient", { x1: "0", y1: "0", x2: "0", y2: "1" }, [["0", "#FBF6E8"], ["0.45", "#DCD8C2"], ["1", "#8F8A76"]]); // emblema en hueso
     grad("abi-bronce", "linearGradient", { x1: "0", y1: "0", x2: "1", y2: "1" }, [["0", "#C9A256"], ["0.5", "#7A5A26"], ["1", "#4A3515"]]);
     grad("abi-disco", "radialGradient", { cx: "0.5", cy: "0.4", r: "0.65" }, [["0", "#3A3A33"], ["1", "#141518"]]);
     s.appendChild(defs);
@@ -146,13 +146,13 @@
     Object.entries(EMBLEMAS).forEach(([n, [trazos, rellenos, huecos, encima, huecos2]]) => {
       const sym = nuevo("symbol", { id: "abi-" + n, viewBox: "0 0 64 64" });
       sym.appendChild(nuevo("path", { d: rueda, fill: "url(#abi-bronce)", stroke: "#2A1E0C", "stroke-width": "1.2", "stroke-linejoin": "round" }));
-      sym.appendChild(nuevo("circle", { cx: 32, cy: 32, r: 25.5, fill: "none", stroke: "#E2BC63", "stroke-width": "1.2", opacity: ".8" }));
+      sym.appendChild(nuevo("circle", { cx: 32, cy: 32, r: 25.5, fill: "none", stroke: "#B08A45", "stroke-width": "1.2", opacity: ".8" }));
       sym.appendChild(nuevo("circle", { cx: 32, cy: 32, r: 24, fill: "url(#abi-disco)", stroke: "#2A1E0C", "stroke-width": "1" }));
       // Relieve: sombra oscura desplazada y, encima, el oro.
       const capa = (dy, color, op) => {
         const g = nuevo("g", { transform: "translate(0 " + dy + ")", opacity: op });
         trazos.forEach((d) => g.appendChild(nuevo("path", { d, fill: "none", stroke: color, "stroke-width": "3", "stroke-linecap": "round", "stroke-linejoin": "round" })));
-        rellenos.forEach((d) => g.appendChild(nuevo("path", { d, fill: color, stroke: color === "#000" ? "#000" : "#5C4517", "stroke-width": "0.8", "stroke-linejoin": "round" })));
+        rellenos.forEach((d) => g.appendChild(nuevo("path", { d, fill: color, stroke: color === "#000" ? "#000" : "#4A473C", "stroke-width": "0.8", "stroke-linejoin": "round" })));
         return g;
       };
       sym.appendChild(capa(1.4, "#000", ".6"));
@@ -161,7 +161,7 @@
       if (encima) {
         encima.forEach((d) => sym.appendChild(nuevo("path", { d, fill: "#17171A", stroke: "#17171A", "stroke-width": "3.2", "stroke-linejoin": "round" })));
         const g = nuevo("g", {});
-        encima.forEach((d) => { g.appendChild(nuevo("path", { d, fill: "#000", opacity: ".6", transform: "translate(0 1.2)" })); g.appendChild(nuevo("path", { d, fill: "url(#abi-oro)", stroke: "#5C4517", "stroke-width": "0.8", "stroke-linejoin": "round" })); });
+        encima.forEach((d) => { g.appendChild(nuevo("path", { d, fill: "#000", opacity: ".6", transform: "translate(0 1.2)" })); g.appendChild(nuevo("path", { d, fill: "url(#abi-oro)", stroke: "#4A473C", "stroke-width": "0.8", "stroke-linejoin": "round" })); });
         sym.appendChild(g);
         (huecos2 || []).forEach((d) => sym.appendChild(nuevo("path", { d, fill: "#17171A" })));
       }
@@ -196,7 +196,7 @@
     ".nav nav.menu>a,.nav .nb-grp>button{display:inline-flex;align-items:center;gap:6px;min-height:48px;box-sizing:border-box;padding:0;color:#ECE7DC;text-decoration:none;font:500 16px Inter,system-ui,sans-serif;background:none;border:0;border-bottom:2px solid transparent;cursor:pointer}",
     ".nav nav.menu>a:hover,.nav .nb-grp>button:hover,.nav nav.menu>a.on,.nav .nb-grp>button.on{border-bottom-color:#D9B25A;color:#ECE7DC}",
     ".nav .nb-grp>button.on{color:#F0CE82}",
-    ".nav .nb-grp>button svg{transition:transform .2s;color:#D9B25A}.nav .nb-grp>button[aria-expanded=true] svg{transform:rotate(180deg)}",
+    ".nav .nb-grp>button svg{transition:transform .2s;color:#DCD8C2}.nav .nb-grp>button[aria-expanded=true] svg{transform:rotate(180deg)}",
     ".nav nav.menu a:focus-visible,.nav .nb-grp>button:focus-visible,.nb-sub a:focus-visible{outline:2px solid #D9B25A;outline-offset:3px;border-radius:4px}",
     ".nb-grp{position:relative;display:inline-flex}",
     ".nb-pop{position:absolute;left:-14px;top:100%;min-width:250px;background:#1F2328;border:1px solid #6B6558;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.55);padding:8px;z-index:65;opacity:0;transform:translateY(-6px);visibility:hidden;transition:opacity .15s,transform .15s,visibility 0s .15s}",
@@ -256,7 +256,7 @@
     ".nb-cajon .nb-lista>a+a,.nb-cajon .nb-lista>*+.nb-acc,.nb-cajon .nb-acc+a{margin-top:2px}",
     ".nb-cajon .nb-lista>a:active,.nb-cajon .nb-acc>button:active{background:#1F2328}",
     ".nb-cajon .nb-lista>a.on,.nb-cajon .nb-acc>button.on{background:#2A2618;color:#F0CE82}",
-    ".nb-cajon .nb-acc>button .nb-fl{margin-left:auto;transition:transform .25s;color:#D9B25A}",
+    ".nb-cajon .nb-acc>button .nb-fl{margin-left:auto;transition:transform .25s;color:#DCD8C2}",
     ".nb-cajon .nb-acc>button[aria-expanded=true] .nb-fl{transform:rotate(180deg)}",
     ".nb-cajon .nb-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s ease}",
     ".nb-cajon .nb-panel.abierto{grid-template-rows:1fr}",

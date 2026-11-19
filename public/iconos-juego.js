@@ -61,7 +61,7 @@
       const g = document.createElementNS(NS, "linearGradient");
       g.id = id; g.setAttribute("gradientUnits", "userSpaceOnUse");
       g.setAttribute("x1", "0"); g.setAttribute("y1", "0"); g.setAttribute("x2", "0"); g.setAttribute("y2", String(alto));
-      [["0", "#FBE7A8"], ["0.5", "#E2BC63"], ["1", "#9A7530"]].forEach(([o, c]) => { const st = document.createElementNS(NS, "stop"); st.setAttribute("offset", o); st.setAttribute("stop-color", c); g.appendChild(st); });
+      [["0", "#FBF6E8"], ["0.5", "#DCD8C2"], ["1", "#8F8A76"]].forEach(([o, c]) => { const st = document.createElementNS(NS, "stop"); st.setAttribute("offset", o); st.setAttribute("stop-color", c); g.appendChild(st); });
       d.appendChild(g);
     });
     s.appendChild(d);
