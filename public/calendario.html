@@ -197,6 +197,8 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 }
 @media (max-width:600px){.mods{top:3px;right:3px;gap:2px}.mq{width:15px;height:15px;border-radius:4px}.mq .mo svg{width:11px;height:11px}.d.mods2>.e:first-of-type{margin-top:16px}}
 .lb{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;font-weight:600}
+.lb:has(.md){display:flex;align-items:center;gap:10px}.lb .md{flex:none}
+.ag-i>.md{flex:none;margin:-4px -2px -4px -4px}
 .lb.lb-q{color:var(--quedada-claro)}.lb.lb-t{color:var(--torneo-claro)}.lb.lb-p{color:var(--partida-claro)}
 .card h3{font:700 22px/1.2 Cinzel,Georgia,serif;margin:8px 0 12px}
 .card p{margin:0 0 8px}
@@ -543,6 +545,9 @@ function renderAgenda() {
     if (sub) { const sp = document.createElement("span"); sp.textContent = sub; t.appendChild(sp); }
     if (modo) h.appendChild(cuadroModo(modo));
     b.append(h, t);
+    // Medallón del tipo de evento (quedada, torneo, partida o Gran Liga).
+    const tipo = { "ag-q": "quedada", "ag-t": "torneo", "ag-p": "partida", "ag-l": "liga" }[cls.split(" ")[0]];
+    const md = tipo && medallon(tipo, cls.startsWith("ag-l") ? 30 : 36); if (md) b.prepend(md);
     return b;
   };
   const marca = (b) => { box.querySelectorAll(".ag-i").forEach((x) => x.classList.toggle("sel", x === b)); };
@@ -706,6 +711,8 @@ function irAFicha() {
   window.scrollTo({ top: Math.max(0, y), left: 0, behavior: suave ? "smooth" : "auto" });
 }
 
+// Medallón de un tipo de evento (dibujo común de nav.js); null si no está cargado.
+const medallon = (tipo, tam) => (window.abNav && window.abNav.medalla ? window.abNav.medalla(tipo, tam) : null);
 function show(e) {
   const box = $("det");
   box.textContent = "";
@@ -716,7 +723,8 @@ function show(e) {
     box.appendChild(el);
     return el;
   };
-  add("span", "lb " + (e.type === "torneo" ? "lb-t" : "lb-q"), e.type === "torneo" ? "Torneo" : "Quedada");
+  const lbe = add("span", "lb " + (e.type === "torneo" ? "lb-t" : "lb-q"), e.type === "torneo" ? "Torneo" : "Quedada");
+  const mde = medallon(e.type === "torneo" ? "torneo" : "quedada", 44); if (mde) lbe.prepend(mde);
   add("h3", "", e.title).setAttribute("translate", "no");
   box.appendChild(lineaModo(e.modo));
   const f = new Date(e.starts_at).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
@@ -1261,7 +1269,8 @@ function showPartida(p) {
     box.appendChild(x);
     return x;
   };
-  add("span", "lb lb-p", "Partida");
+  const lbp = add("span", "lb lb-p", "Partida");
+  const mdp = medallon("partida", 44); if (mdp) lbp.prepend(mdp);
   const tp = add("h3", "", partidaTitulo(p));
   const ijf = iconoJuego(p.activity, true); if (ijf) tp.prepend(ijf);
   box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || (p.modo === "ambos" ? "" : "A decidir")));

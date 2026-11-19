@@ -117,6 +117,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Iconos propios de cada modalidad:** Combat Patrol, 40k a 1K, 40k a 2K, Necromunda (máscara de gas) y Blood Bowl
   (balón con pinchos).
 
+- Cada evento lleva el **medallón de su tipo** (quedada, torneo, partida o Gran Liga) en la agenda y en su ficha.
+
 ### Quedadas y torneos
 - Ficha de cada evento: fecha, lugar, plazas, descripción, físico u online y enlace a New Recruit en los torneos.
 - **Inscribirse** en una quedada eligiendo qué vas a hacer: ir a pintar, ir a ver, o ir a jugar una modalidad.

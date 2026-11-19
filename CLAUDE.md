@@ -210,6 +210,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Al buscar partida se puede marcar físico y online a la vez (`modo` `ambos`, migración 0027): icono partido por la
   mitad (mesa en dorado y ordenador en verde) y quien se une elige cómo se juega, que queda fijado para todos.
 
+- Medallón del **tipo de evento** (`medallon()` en `calendario.html`, con los de `nav.js`): quedada (estandarte),
+  torneo (corona de laurel con espada), partida (espadas cruzadas) y Gran Liga (copa), en cada fila de la agenda y en
+  la etiqueta del detalle. Las placas de modalidad siguen como están.
 - Cada modalidad de partida tiene su icono (`public/iconos-juego.js`, `iconoJuego()`): placas de esquinas cortadas
   con letra Cinzel para Combat Patrol, 40k 1K y 40k 2K, máscara de gas (Necromunda) y balón con pinchos (Blood
   Bowl). Dibujo propio: no usar logos, ilustraciones ni tipografías de Games Workshop (son marcas registradas).
