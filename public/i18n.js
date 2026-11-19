@@ -670,6 +670,7 @@
     "Tu equipo ya está completo": "Your team is already full",
     "Tu equipo tiene huecos libres: otros socios pueden pedir unirse y tú decides si los aceptas.": "Your team has free spots: other members can ask to join and you decide whether to accept them.",
     "Tu equipo tiene huecos libres: otros socios pueden pedir unirse.": "Your team has free spots: other members can ask to join.",
+    "Este torneo no tiene inscripción en la web: edítalo en «Administrar eventos» y elige el formato en «Inscripción en la web».": "This tournament has no sign-up on the website: edit it in “Manage events” and choose the format in “Sign-up on the website”.",
     "Equipos inscritos": "Teams signed up", "Confirmado": "Confirmed", "Tu capitán": "Your captain",
     "Invitación a un torneo": "Tournament invitation", "Ir al torneo": "Go to the tournament",
     "La inscripción está cerrada": "Sign-ups are closed", "No quedan plazas": "No spots left", "Ya estás inscrito en este torneo": "You're already signed up for this tournament",

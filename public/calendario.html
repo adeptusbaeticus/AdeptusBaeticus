@@ -726,6 +726,11 @@ function show(e) {
   if (e.type !== "quedada") {
     // Torneo con inscripción en la web: su detalle e inscripción; si no, solo la información.
     if (e.formato) { torneoDetalle(e, box); return; }
+    // Al admin le avisa de que este torneo no tiene inscripción en la web (se activa al editarlo).
+    if (window.abMe) window.abMe.then((me) => {
+      if (!me || me.role !== "admin" || !box.isConnected) return;
+      add("p", "err", "Este torneo no tiene inscripción en la web: edítalo en «Administrar eventos» y elige el formato en «Inscripción en la web».");
+    }).catch(() => {});
     if (e.capacity) add("p", "m", "Plazas: " + e.capacity);
     return;
   }

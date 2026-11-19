@@ -131,7 +131,10 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
       wPuntos.hidden = wRangos.hidden = !ins;
       wTam.hidden = !(ins && formato.value === "equipos");
     };
-    tipo.onchange = formato.onchange = syncModo; syncModo();
+    formato.onchange = syncModo;
+    // Un torneo nuevo trae la inscripción en la web activada (individual); se puede cambiar o quitar.
+    tipo.onchange = () => { if (!editando && tipo.value === "torneo" && !formato.value) formato.value = "1v1"; syncModo(); };
+    syncModo();
     const limpia = () => { editando = null; f.reset(); rangos.pon(["instructor", "iniciado", "aprendiz"]); exps.pon(["novel", "veterano"]); syncModo(); guardar.textContent = "Crear evento"; };
 
     const envia = async (id, datos) => {
