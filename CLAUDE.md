@@ -37,6 +37,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   (< 1024 px): cabecera compacta, barra inferior fija (`.nb-barra`, el `body` deja hueco abajo: los elementos fijos abajo
   deben subir por encima, como `.saltos` en Inicio) y menú lateral (`.nb-cajon`) con idioma e Inscripción/Entrar para
   invitados (`window.abNav.invitado`, desde `auth.js`). Zonas táctiles de 44-48 px en móvil y tablet.
+  Iconos de menú: **medallones** propios (`EMBLEMAS` y `medalla(nombre, tamaño)` en `nav.js`, también
+  `window.abNav.medalla`): rueda dentada de bronce, disco oscuro y emblema dorado en relieve, en un «sprite» SVG con
+  `<symbol>` y degradados comunes. Dibujo propio: sin águila imperial, marines ni otros motivos de Games Workshop.
 - **Rutas por juego:** `/warhammer-40k/{gran-liga,ranking-elo,recursos,tutoriales}` y
   `/juegos-de-especialista/{necromunda,blood-bowl}` las sirve el Worker (`SECCIONES`: página que entrega cada una; las
   secciones en preparación comparten `seccion.html`, estado vacío «Próximamente» elegido por la dirección). `REDIRIGE`:

@@ -74,6 +74,90 @@
     const p = document.createElementNS(NS, "path"); p.setAttribute("d", P[n] || ""); s.appendChild(p);
     return s;
   };
+  // ----- Medallones (dibujo propio, estilo de bronce y oro: rueda dentada, disco oscuro y emblema en relieve) -----
+  // Sin águilas, marines ni otros motivos de Games Workshop. Un solo «sprite» oculto con los degradados y cada emblema
+  // como <symbol>; cada icono es un <svg><use></svg> (ligero y nítido a cualquier tamaño).
+  const EMBLEMAS = {
+    // [trazos dorados], [rellenos dorados], [rellenos oscuros (huecos)]
+    inicio: [["M18.5 46.5h27", "M20 46.5V18.5h24v28", "M24.5 46.5V34c-2.4-2.2-3-5.4-1.6-8.4 1.5-3.2 5-5.1 9.1-5.1s7.6 1.9 9.1 5.1c1.4 3 .8 6.2-1.6 8.4v12.5", "M32 46.5V35"], ["M30.6 20.6h2.8v2.6h-2.8z"], ["M29.4 41.2h1.2v1.2h-1.2zM33.4 41.2h1.2v1.2h-1.2z"]],
+    calendario: [["M21 18.5h19a4 4 0 0 1 4 4V45H25a4 4 0 0 1-4-4z", "M21 41a4 4 0 0 1 4-4h19"], ["M27 23h12v10H27z"], ["M28.6 24.6h3v2.8h-3zM34.4 24.6h3v2.8h-3zM28.6 29h3v2.8h-3zM34.4 29h3v2.8h-3z"]],
+    w40k: [["M32 16.5l12.5 4.2v9.6c0 8.2-5.3 13.2-12.5 16.2-7.2-3-12.5-8-12.5-16.2v-9.6z"],
+      ["M32 24.5c-3.9 0-6.4 2.6-6.4 5.8 0 2.1 1 3.4 2.3 4.2V38h8.2v-3.5c1.3-.8 2.3-2.1 2.3-4.2 0-3.2-2.5-5.8-6.4-5.8z"],
+      ["M29.3 29.6a1.8 1.8 0 1 0 0 .1zM34.7 29.6a1.8 1.8 0 1 0 0 .1zM31.2 33.2h1.6l-.8 1.6z"]],
+    liga: [["M32 32v6.5", "M25 21.5c-4.2-1.4-7.5-.4-8.7 3 3 .1 5.2 1.2 7.2 3.4", "M39 21.5c4.2-1.4 7.5-.4 8.7 3-3 .1-5.2 1.2-7.2 3.4"],
+      ["M24.5 18.5h15v5.2a7.5 7.5 0 0 1-15 0zM26.5 45.5h11l-1.8-6.2h-7.4z"], []],
+    elo: [["M19 29.5l8-6.5 6 4.5 10-9", "M38 18.5h5.5V24"], ["M19 46V37h6v9zM29 46V32h6v14zM39 46V27h6v19z"], []],
+    recursos: [["M19 31c0-5 3-8.5 6.5-8.5h13c3.5 0 6.5 3.5 6.5 8.5", "M19 31h26v14H19z", "M19 37h26"], ["M29.5 34h5v6.5h-5z"], ["M31.3 36.2h1.4v2.6h-1.4z"]],
+    tutoriales: [["M18 19.5h28v19H18z", "M32 38.5V44M27 45h10"], ["M29 24.2v10l8.6-5z"], []],
+    esp: [[], ["M18.5 31.5h12v12h-12zM33.5 31.5h12v12h-12zM26 18h12v12H26z"],
+      ["M22.4 35.4a1.4 1.4 0 1 0 0 .1zM26.6 39.6a1.4 1.4 0 1 0 0 .1zM39.5 37.5a1.5 1.5 0 1 0 0 .1zM36.6 34.6a1.3 1.3 0 1 0 0 .1zM42.4 40.4a1.3 1.3 0 1 0 0 .1zM29.4 21.4a1.3 1.3 0 1 0 0 .1zM34.6 21.4a1.3 1.3 0 1 0 0 .1zM29.4 26.6a1.3 1.3 0 1 0 0 .1zM34.6 26.6a1.3 1.3 0 1 0 0 .1z"]],
+    necromunda: [["M22.5 34c0-8.5 4.3-14 9.5-14s9.5 5.5 9.5 14", "M21 39.5h22"], ["M27.5 26.5a4.6 4.6 0 1 0 0 9.2 4.6 4.6 0 1 0 0-9.2zM36.5 26.5a4.6 4.6 0 1 0 0 9.2 4.6 4.6 0 1 0 0-9.2zM28.5 36.5h7l-.8 8h-5.4zM18 38a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 1 0 0-7.2zM46 38a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 1 0 0-7.2z"], ["M27.5 28.6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5zM36.5 28.6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5zM30.2 39h3.6v1.1h-3.6zM30.2 41.2h3.6v1.1h-3.6zM18 40.3a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 1 0 0-2.6zM46 40.3a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 1 0 0-2.6z"]],
+    bloodbowl: [["M45 19l3.5-3.5M19 45l-3.5 3.5"],
+      ["M19.5 44.5c-2.4-12 7-24.5 25-25 1 12-8.5 23.5-25 25z"],
+      ["M26.2 38.8l11.6-11.6-1-1-11.6 11.6zM29 33l2 2 .9-.9-2-2zM32 30l2 2 .9-.9-2-2zM26 36l2 2 .9-.9-2-2z"]],
+    galeria: [["M18 25h28v18H18z", "M26 25l2.2-4.5h7.6L38 25"], ["M32 27.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 1 0 0-13z"], ["M32 30.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 1 0 0-7z"]],
+    miembros: [["M17.5 44c.4-5 3-8 6.5-8 1.6 0 3 .6 4.1 1.7", "M46.5 44c-.4-5-3-8-6.5-8-1.6 0-3 .6-4.1 1.7"],
+      ["M24 26.5a3.3 3.3 0 1 0 0 6.6 3.3 3.3 0 1 0 0-6.6zM40 26.5a3.3 3.3 0 1 0 0 6.6 3.3 3.3 0 1 0 0-6.6zM32 20.5a4 4 0 1 0 0 8 4 4 0 1 0 0-8zM24.5 45c.4-6.5 3.4-10.5 7.5-10.5s7.1 4 7.5 10.5z"], []],
+    faq: [["M21 18.5h19.5a3.5 3.5 0 0 1 3.5 3.5v23.5H24.5A3.5 3.5 0 0 1 21 42z", "M21 42a3.5 3.5 0 0 1 3.5-3.5H44", "M28.6 26.4a3.6 3.6 0 1 1 5.2 3.2c-1.2.7-1.8 1.4-1.8 2.8"],
+      ["M32 34.2a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 1 0 0-2.8z"], []],
+    mas: [["M22 25h20", "M22 32h20", "M22 39h20"], [], []],
+    insc: [["M17.5 45c.5-6 3.8-9.5 8.5-9.5 2.4 0 4.4.9 5.9 2.6", "M41 31v12M35 37h12"], ["M26 22.5a5 5 0 1 0 0 10 5 5 0 1 0 0-10z"], []],
+  };
+  let spriteListo = false;
+  function sprite() {
+    if (spriteListo) return;
+    spriteListo = true;
+    const s = document.createElementNS(NS, "svg");
+    s.setAttribute("aria-hidden", "true"); s.setAttribute("focusable", "false");
+    s.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
+    const defs = document.createElementNS(NS, "defs");
+    const grad = (id, tipo, attrs, paradas) => {
+      const g = document.createElementNS(NS, tipo); g.id = id;
+      Object.entries(attrs).forEach(([k, v]) => g.setAttribute(k, v));
+      paradas.forEach(([o, c]) => { const st = document.createElementNS(NS, "stop"); st.setAttribute("offset", o); st.setAttribute("stop-color", c); g.appendChild(st); });
+      defs.appendChild(g);
+    };
+    grad("abi-oro", "linearGradient", { x1: "0", y1: "0", x2: "0", y2: "1" }, [["0", "#FBE7A8"], ["0.45", "#E2BC63"], ["1", "#8C6A28"]]);
+    grad("abi-bronce", "linearGradient", { x1: "0", y1: "0", x2: "1", y2: "1" }, [["0", "#C9A256"], ["0.5", "#7A5A26"], ["1", "#4A3515"]]);
+    grad("abi-disco", "radialGradient", { cx: "0.5", cy: "0.4", r: "0.65" }, [["0", "#3A3A33"], ["1", "#141518"]]);
+    s.appendChild(defs);
+    // Rueda dentada (12 dientes) como marco común.
+    let rueda = "";
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2, d = Math.PI / 12;
+      const p = (r, t) => (32 + r * Math.cos(t)).toFixed(2) + " " + (32 + r * Math.sin(t)).toFixed(2);
+      rueda += (i ? "L" : "M") + p(27.5, a - d * 0.75) + "L" + p(31, a - d * 0.45) + "L" + p(31, a + d * 0.45) + "L" + p(27.5, a + d * 0.75);
+    }
+    rueda += "Z";
+    const nuevo = (tag, attrs) => { const x = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => x.setAttribute(k, v)); return x; };
+    Object.entries(EMBLEMAS).forEach(([n, [trazos, rellenos, huecos]]) => {
+      const sym = nuevo("symbol", { id: "abi-" + n, viewBox: "0 0 64 64" });
+      sym.appendChild(nuevo("path", { d: rueda, fill: "url(#abi-bronce)", stroke: "#2A1E0C", "stroke-width": "1.2", "stroke-linejoin": "round" }));
+      sym.appendChild(nuevo("circle", { cx: 32, cy: 32, r: 25.5, fill: "none", stroke: "#E2BC63", "stroke-width": "1.2", opacity: ".8" }));
+      sym.appendChild(nuevo("circle", { cx: 32, cy: 32, r: 24, fill: "url(#abi-disco)", stroke: "#2A1E0C", "stroke-width": "1" }));
+      // Relieve: sombra oscura desplazada y, encima, el oro.
+      const capa = (dy, color, op) => {
+        const g = nuevo("g", { transform: "translate(0 " + dy + ")", opacity: op });
+        trazos.forEach((d) => g.appendChild(nuevo("path", { d, fill: "none", stroke: color, "stroke-width": "3", "stroke-linecap": "round", "stroke-linejoin": "round" })));
+        rellenos.forEach((d) => g.appendChild(nuevo("path", { d, fill: color, stroke: color === "#000" ? "#000" : "#5C4517", "stroke-width": "0.8", "stroke-linejoin": "round" })));
+        return g;
+      };
+      sym.appendChild(capa(1.4, "#000", ".6"));
+      sym.appendChild(capa(0, "url(#abi-oro)", "1"));
+      huecos.forEach((d) => sym.appendChild(nuevo("path", { d, fill: "#17171A" })));
+      s.appendChild(sym);
+    });
+    (document.body || document.documentElement).appendChild(s);
+  }
+  const medalla = (n, tam) => {
+    sprite();
+    const s = document.createElementNS(NS, "svg");
+    s.setAttribute("viewBox", "0 0 64 64"); s.setAttribute("width", tam || 32); s.setAttribute("height", tam || 32);
+    s.setAttribute("aria-hidden", "true"); s.setAttribute("focusable", "false"); s.setAttribute("class", "md");
+    const u = document.createElementNS(NS, "use"); u.setAttribute("href", "#abi-" + (EMBLEMAS[n] ? n : "mas"));
+    s.appendChild(u);
+    return s;
+  };
   const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
   const enlace = (it, cls) => {
     const a = el("a", cls || "");
@@ -97,7 +181,7 @@
     ".nb-grp{position:relative;display:inline-flex}",
     ".nb-pop{position:absolute;left:-14px;top:100%;min-width:250px;background:#1F2328;border:1px solid #6B6558;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.55);padding:8px;z-index:65;opacity:0;transform:translateY(-6px);visibility:hidden;transition:opacity .15s,transform .15s,visibility 0s .15s}",
     ".nb-pop.abierto{opacity:1;transform:none;visibility:visible;transition:opacity .15s,transform .15s}",
-    ".nb-pop a{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border-radius:8px;color:#ECE7DC;text-decoration:none;font-weight:500}",
+    ".nb-pop a{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 12px;border-radius:8px;color:#ECE7DC;text-decoration:none;font-weight:500}",
     ".nb-pop a svg{color:#D9B25A;flex:none}",
     ".nb-pop a:hover,.nb-pop a:focus{background:#2A2F36;color:#F0CE82;outline:none}",
     ".nb-pop a.on{background:#2A2618;color:#F0CE82;box-shadow:inset 3px 0 0 #D9B25A}",
@@ -107,7 +191,7 @@
     ".nb-sub::-webkit-scrollbar{display:none}",
     ".nb-sub .nb-cat{display:inline-flex;align-items:center;gap:8px;font:700 14px Cinzel,Georgia,serif;letter-spacing:.06em;color:#D9B25A;margin-right:10px;white-space:nowrap}",
     ".nb-sub a{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;color:#CFC9BA;text-decoration:none;font-weight:500;font-size:15px;white-space:nowrap;border:1px solid transparent}",
-    ".nb-sub a svg{width:20px;height:20px}",
+    ".nb-sub a svg.md{width:26px;height:26px;margin-left:-8px}",
     ".nb-sub a:hover{color:#F0CE82;border-color:#6B6558}",
     ".nb-sub a.on{background:#2A2618;color:#F0CE82;border-color:#D9B25A}",
     // Botón del menú lateral, barra inferior y menú lateral (solo móvil y tablet)
@@ -133,7 +217,8 @@
     "  body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}",
     "  .nb-barra{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:45;background:rgba(21,23,26,.97);border-top:1px solid #2C3036;padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 18px rgba(0,0,0,.35)}",
     "  .nb-barra a,.nb-barra button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:60px;padding:4px 2px;border-radius:12px;color:#A8A293;text-decoration:none;font:500 12px/1.1 Inter,system-ui,sans-serif;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}",
-    "  .nb-barra svg{width:26px;height:26px}",
+    "  .nb-barra svg{width:34px;height:34px;transition:filter .2s,opacity .2s}",
+    "  .nb-barra a:not(.on) svg,.nb-barra button:not(.on) svg{filter:saturate(.55) brightness(.85)}",
     "  .nb-barra .on{color:#F0CE82}",
     "  .nb-barra .on svg{color:#D9B25A}",
     "  .nb-barra .on::after{content:'';width:18px;height:3px;border-radius:2px;background:#D9B25A;margin-top:1px}",
@@ -160,7 +245,8 @@
     ".nb-cajon .nb-panel.abierto{grid-template-rows:1fr}",
     ".nb-cajon .nb-panel>div{overflow:hidden;padding-left:22px}",
     ".nb-cajon .nb-panel a{display:flex;align-items:center;gap:12px;min-height:52px;margin:2px 0;padding:0 14px;border-radius:10px;border-left:2px solid #2C3036;color:#CFC9BA;text-decoration:none;font-size:16px}",
-    ".nb-cajon .nb-panel a svg{width:22px;height:22px}",
+    ".nb-cajon .nb-panel a svg{width:34px;height:34px}",
+    ".nb-cajon .nb-lista>a,.nb-cajon .nb-acc>button{min-height:60px}",
     ".nb-cajon .nb-panel a.on{color:#F0CE82;background:#2A2618;border-left-color:#D9B25A}",
     ".nb-cajon .nb-pie{border-top:1px solid #2C3036;margin-top:12px;padding:14px 14px 0;display:flex;flex-direction:column;gap:12px}",
     ".nb-cajon .nb-pie .nb-et{font:600 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#A8A293}",
@@ -206,7 +292,7 @@
     pop.setAttribute("role", "group");
     pop.setAttribute("aria-labelledby", btn.id);
     pop.appendChild(el("span", "nb-cab", it.t));
-    it.hijos.forEach((h) => { const a = enlace(h); a.append(icono(h.ic), h.t); pop.appendChild(a); });
+    it.hijos.forEach((h) => { const a = enlace(h); a.append(medalla(h.ic, 34), h.t); pop.appendChild(a); });
     const links = () => [...pop.querySelectorAll("a")];
     btn.addEventListener("click", () => { if (abierto && abierto.pop === pop) cierraPop(false); else abrePop(btn, pop); });
     btn.addEventListener("keydown", (e) => {
@@ -237,8 +323,8 @@
   if (catActual) {
     const sub = el("nav", "nb-sub");
     sub.setAttribute("aria-label", catActual.t);
-    const c = el("span", "nb-cat"); c.append(icono(catActual.ic, 20), catActual.t); sub.appendChild(c);
-    catActual.hijos.forEach((h) => { const a = enlace(h); a.append(icono(h.ic), h.t); sub.appendChild(a); });
+    const c = el("span", "nb-cat"); c.append(medalla(catActual.ic, 28), catActual.t); sub.appendChild(c);
+    catActual.hijos.forEach((h) => { const a = enlace(h); a.append(medalla(h.ic, 26), h.t); sub.appendChild(a); });
     cab.appendChild(sub);
     requestAnimationFrame(() => { const on = sub.querySelector("a.on"); if (on && sub.scrollWidth > sub.clientWidth) sub.scrollLeft = on.offsetLeft - 16; });
   }
@@ -258,14 +344,14 @@
     const a = enlace(b);
     if (b.cat && catActual && catActual.id === b.cat) { a.classList.add("on"); if (!a.hasAttribute("aria-current")) a.setAttribute("aria-current", "true"); }
     if (b.et) a.setAttribute("aria-label", b.et);
-    a.append(icono(b.ic, 26), el("span", "", b.t));
+    a.append(medalla(b.ic, 34), el("span", "", b.t));
     barra.appendChild(a);
   });
   const mas = el("button");
   mas.type = "button";
   mas.setAttribute("aria-expanded", "false");
   mas.setAttribute("aria-controls", "nb-cajon");
-  mas.append(icono("mas", 26), el("span", "", "Más"));
+  mas.append(medalla("mas", 34), el("span", "", "Más"));
   // «Más» se marca cuando la página actual no está en la barra (Miembros, FAQ, especialista…).
   const enBarra = BARRA.some((b) => esActual(b.u) || (b.cat && catActual && catActual.id === b.cat));
   if (!enBarra && aqui !== "/") mas.classList.add("on");
@@ -284,7 +370,7 @@
   const lista = el("nav", "nb-lista");
   lista.setAttribute("aria-label", "Navegación principal");
   ITEMS.forEach((it) => {
-    if (!it.hijos) { const a = enlace(it); a.append(icono(it.ic, 26), it.t); lista.appendChild(a); return; }
+    if (!it.hijos) { const a = enlace(it); a.append(medalla(it.ic, 40), it.t); lista.appendChild(a); return; }
     const acc = el("div", "nb-acc");
     const b = el("button");
     b.type = "button";
@@ -294,13 +380,13 @@
     b.setAttribute("aria-expanded", String(abre));
     if (abre) b.classList.add("on");
     const fl = icono("flecha", 22); fl.classList.add("nb-fl");
-    b.append(icono(it.ic, 26), it.t, fl);
+    b.append(medalla(it.ic, 40), it.t, fl);
     const panel = el("div", "nb-panel" + (abre ? " abierto" : ""));
     panel.id = "nb-ap-" + it.id;
     panel.setAttribute("role", "region");
     panel.setAttribute("aria-labelledby", b.id);
     const dentro = el("div");
-    it.hijos.forEach((h) => { const a = enlace(h); a.append(icono(h.ic), h.t); if (!abre) a.tabIndex = -1; dentro.appendChild(a); });
+    it.hijos.forEach((h) => { const a = enlace(h); a.append(medalla(h.ic, 34), h.t); if (!abre) a.tabIndex = -1; dentro.appendChild(a); });
     panel.appendChild(dentro);
     b.onclick = () => {
       const si = b.getAttribute("aria-expanded") !== "true";
@@ -312,7 +398,7 @@
     lista.appendChild(acc);
   });
   // Invitados: Inscripción y Entrar con Discord (en la cabecera del móvil no caben).
-  const insc = el("a"); insc.href = "/inscripcion.html"; insc.append(icono("insc", 26), "Inscripción"); insc.hidden = true;
+  const insc = el("a"); insc.href = "/inscripcion.html"; insc.append(medalla("insc", 40), "Inscripción"); insc.hidden = true;
   if (/^\/inscripcion$/.test(aqui)) { insc.classList.add("on"); insc.setAttribute("aria-current", "page"); }
   lista.appendChild(insc);
   const pie = el("div", "nb-pie");
@@ -360,6 +446,6 @@
   // Para auth.js: invitados (Inscripción y Entrar en el menú lateral).
   window.abNav = {
     invitado(si) { insc.hidden = !si; entrar.hidden = !si; },
-    abre: abreCajon, cierra: cierraCajon, icono,
+    abre: abreCajon, cierra: cierraCajon, icono, medalla,
   };
 })();
