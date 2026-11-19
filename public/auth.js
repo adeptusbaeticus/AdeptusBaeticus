@@ -289,6 +289,7 @@
     ".ss-an{background:#2A2F36;border:1px solid #6B6558;border-left:3px solid #D9B25A;border-radius:8px;padding:10px 12px;margin:0 0 8px}" +
     ".ss-an strong{display:block;font:700 15px Cinzel,Georgia,serif;color:#F0CE82;margin:0 0 4px}" +
     ".ss-an p{margin:0 0 10px;color:#CFC9BA}" +
+    ".ss-menu .ss-an a.ir{display:inline-flex;align-items:center;min-height:40px;padding:6px 14px;margin-right:8px;border-radius:8px;border:1px solid #D9B25A;color:#F0CE82;font:600 14px Inter,sans-serif;text-decoration:none}" +
     ".ss-an button{min-height:40px;padding:6px 16px;border-radius:8px;border:1px solid #D9B25A;background:#D9B25A;color:#15171A;font:700 14px Inter,sans-serif;cursor:pointer}" +
     ".ss-menu a.todas{border-top:1px solid #2C3036;margin-top:6px;border-radius:0 0 6px 6px;color:#D9B25A;font-weight:600}" +
     "#ver-como{position:relative;z-index:70;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;background:#A3211B;color:#fff;padding:8px 16px;font:600 14px Inter,system-ui,sans-serif}" +
@@ -419,7 +420,14 @@
           if (nb && me.anuncios.length) nb.click();
         } catch (er) { ok.disabled = false; alert("No se pudo guardar. Inténtalo de nuevo."); }
       };
-      d.append(t, p, ok);
+      d.append(t, p);
+      // Con enlace (p. ej. una invitación a un torneo): lleva allí; «Aceptar» solo lo quita de la lista.
+      if (an.enlace && an.enlace.startsWith("/")) {
+        const ir = document.createElement("a");
+        ir.href = an.enlace; ir.className = "ir"; ir.textContent = "Ir al torneo";
+        d.appendChild(ir);
+      }
+      d.appendChild(ok);
       m.appendChild(d);
     });
     if (datos) {

@@ -173,7 +173,7 @@
     "Tu ficha de Miembros, si la rellenas: las facciones que juegas y tus cuentas de Instagram, Steam, New Recruit y BCP.": "Your Members profile, if you fill it in: the factions you play and your Instagram, Steam, New Recruit and BCP accounts.",
     "Lo que haces en la web: inscripciones a quedadas y torneos, partidas, votos en las encuestas, bendiciones, trofeos, las fotos que publicas y qué anuncios del club has aceptado.": "What you do on the website: sign-ups to meetups and tournaments, games, poll votes, blessings, trophies the photos you post and which club announcements you have accepted.",
     "Si activas las notificaciones en un dispositivo: la dirección que da tu navegador para enviarte los avisos.": "If you turn on notifications on a device: the address your browser provides to send you alerts.",
-    "De la Gran Liga: tus resultados y facciones, que vienen de New Recruit; y tus resultados en los torneos de New Recruit que el club añade a su ELO.": "From the Grand League: your results and factions, which come from New Recruit; and your results in the New Recruit tournaments the club adds to its ELO.",
+    "De la Gran Liga: tus resultados y facciones, que vienen de New Recruit; y tus resultados en los torneos de New Recruit que el club añade a su ELO, y si eres Novel o Veterano (lo indica el club para sus torneos).": "From the Grand League: your results and factions, which come from New Recruit; your results in the New Recruit tournaments the club adds to its ELO; and whether you are a Novice or a Veteran (set by the club for its tournaments).",
     "Para qué los usamos": "What we use it for",
     "Gestionar tu inscripción y tu pertenencia al club, y darte acceso a su servidor de Discord y a la web.": "To manage your sign-up and club membership, and give you access to its Discord server and the website.",
     "Organizar quedadas, partidas, torneos y la Gran Liga.": "To organise meetups, games, tournaments and the Grand League.",
@@ -628,6 +628,40 @@
     "Solo quien organiza puede retirarla": "Only the organiser can withdraw it",
     "Tipo no válido": "Invalid type", "Usuario no válido": "Invalid username",
     "Ya estás en esta partida": "You're already in this game", "Ya estás inscrito en esta quedada": "You're already signed up for this meetup",
+    // Torneos con inscripción en la web (calendario) y rangos de ELO
+    "No se pudo cargar el torneo.": "Could not load the tournament.", "Formato:": "Format:", "Puntos por persona:": "Points per player:",
+    "Pueden inscribirse:": "Who can sign up:", "Individual (1 contra 1)": "Singles (1 vs 1)", "Por parejas (2 contra 2)": "Pairs (2 vs 2)",
+    "2k (2000 pts)": "2k (2000 pts)", "1k (1000 pts)": "1k (1000 pts)", "Combat Patrol": "Combat Patrol", "todos los socios": "all members",
+    "Entra con Discord para inscribirte": "Log in with Discord to sign up", "La inscripción está cerrada.": "Sign-ups are closed.",
+    "Estás inscrito.": "You're signed up.", "Unirme en New Recruit": "Join on New Recruit",
+    "El enlace de New Recruit estará aquí en cuanto el club lo publique.": "The New Recruit link will appear here as soon as the club publishes it.",
+    "Faltan compañeros por confirmar.": "Some teammates haven't confirmed yet.", "Cancelar la inscripción del equipo": "Cancel the team's sign-up",
+    "Cancelar inscripción": "Cancel sign-up", "Salir del equipo": "Leave the team", "¿Cancelar la inscripción de todo el equipo?": "Cancel the sign-up of the whole team?",
+    "¿Seguro?": "Are you sure?", "Confirmar mi participación": "Confirm my participation", "Rechazar": "Decline", "¿Rechazar la invitación?": "Decline the invitation?",
+    "Inscribirme": "Sign me up", "Inscribir una pareja": "Sign up a pair", "Inscribir un equipo": "Sign up a team", "Nombre de la pareja": "Pair name",
+    "Nombre del equipo": "Team name", "— Elige un compañero —": "— Choose a teammate —",
+    "Tus compañeros recibirán un aviso en la servocalavera y tendrán que confirmar su participación.": "Your teammates will get a notice in the servo-skull and will have to confirm their participation.",
+    "Enviar inscripción": "Send sign-up", "Elige a todos tus compañeros.": "Choose all your teammates.", "Has elegido al mismo compañero dos veces.": "You chose the same teammate twice.",
+    "Equipos inscritos": "Teams signed up", "Confirmado": "Confirmed", "Tu capitán": "Your captain",
+    "Invitación a un torneo": "Tournament invitation", "Ir al torneo": "Go to the tournament",
+    "La inscripción está cerrada": "Sign-ups are closed", "No quedan plazas": "No spots left", "Ya estás inscrito en este torneo": "You're already signed up for this tournament",
+    "Escribe el nombre del equipo": "Enter the team name", "Algún compañero no es socio de la web": "One of your teammates isn't a member of the website",
+    "No estás en ningún equipo de este torneo": "You're not on any team in this tournament", "Ese torneo no tiene inscripción en la web": "This tournament has no sign-up on the website",
+    "Alguno de los jugadores ya está inscrito en este torneo": "One of the players is already signed up for this tournament",
+    "Formato no válido": "Invalid format", "Indica cuántos jugadores tiene cada equipo (de 3 a 20)": "Enter how many players each team has (3 to 20)",
+    "Indica los puntos por persona del torneo": "Choose the tournament's points per player", "Marca al menos un rango de ELO que pueda inscribirse": "Tick at least one ELO rank that can sign up",
+    "Marca al menos una experiencia (Novel o Veterano) que pueda inscribirse": "Tick at least one experience level (Novice or Veteran) that can sign up",
+    "Ese socio no existe": "That member doesn't exist", "Ese torneo no está en el ELO": "That tournament isn't in the ELO",
+    "El máximo de Aprendiz tiene que quedar al menos 2 puntos por debajo del mínimo de Instructor": "The Apprentice maximum must be at least 2 points below the Instructor minimum",
+    // Administración de eventos (torneos) y ELO
+    "Inscripción en la web": "Sign-up on the website", "Sin inscripción en la web (solo información)": "No sign-up on the website (information only)",
+    "Por equipos (3 o más)": "Teams (3 or more)", "Por equipos": "Teams", "Jugadores por equipo": "Players per team", "Puntos por persona": "Points per player",
+    "Rangos de ELO que pueden inscribirse": "ELO ranks that can sign up", "Experiencia que puede inscribirse": "Experience that can sign up",
+    "No se pudo guardar. Revisa los datos.": "Could not save. Check the details.", "— Elige —": "— Choose —",
+    "Puntos cambiados. El ELO ya está recalculado.": "Points changed. The ELO has been recalculated.",
+    "Experiencia": "Experience", "Novel": "Novice", "Veterano": "Veteran", "Cambiar a Novel": "Change to Novice", "Cambiar a Veterano": "Change to Veteran",
+    "Instructor: desde": "Instructor: from", "Aprendiz: hasta": "Apprentice: up to", "No se pudo comprobar.": "Could not check.",
+    "Partidas que hay que jugar para dejar de estar «Clasificando» y salir en la clasificación (0 = salen todos), y barreras de ELO de los rangos: Instructor desde el mínimo, Aprendiz hasta el máximo e Iniciado entre medias.": "Games needed to leave “Placement” and appear in the ranking (0 = everyone appears), and the ELO thresholds of the ranks: Instructor from the minimum, Apprentice up to the maximum and Initiate in between.",
   };
 
   const DIAS = { lunes: "Monday", martes: "Tuesday", "miércoles": "Wednesday", jueves: "Thursday", viernes: "Friday", "sábado": "Saturday", domingo: "Sunday" };
@@ -635,6 +669,17 @@
     agosto: "August", septiembre: "September", octubre: "October", noviembre: "November", diciembre: "December" };
   const MESES_CORTOS = { ene: "Jan", feb: "Feb", mar: "Mar", abr: "Apr", may: "May", jun: "Jun", jul: "Jul", ago: "Aug", sept: "Sep", sep: "Sep", oct: "Oct", nov: "Nov", dic: "Dec" };
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  // Rangos y experiencia de los torneos («Iniciado, Aprendiz», «Novel, Veterano») y motivos para no poder inscribirse.
+  const NOMBRES_TORNEO = { Instructor: "Instructor", Iniciado: "Initiate", Aprendiz: "Apprentice", Novel: "Novice", Veterano: "Veteran" };
+  const nombresTorneo = (t) => t.split(", ").map((x) => NOMBRES_TORNEO[x] || x).join(", ");
+  const motivoTorneo = (t) => {
+    if (t === "la inscripción está cerrada") return "sign-ups are closed";
+    if (t === "no quedan plazas") return "no spots left";
+    if (t === "no eres socio de la web") return "you're not a member of the website";
+    const m = /^(tu )?(rango|experiencia) (\S+) \(pueden: (.+)\)$/.exec(t);
+    if (!m) return t;
+    return (m[1] ? "your " : "") + (m[2] === "rango" ? "rank " : "experience ") + nombresTorneo(m[3]) + " (allowed: " + nombresTorneo(m[4]) + ")";
+  };
   // Antigüedad: «1 año y 7 meses», «3 meses», «menos de un mes».
   const antig = (t) => t === "menos de un mes" ? "less than a month" : t.replace(/(\d+) años?/, (m, n) => n + (n === "1" ? " year" : " years"))
     .replace(/(\d+) mes(es)?/, (m, n) => n + (n === "1" ? " month" : " months")).replace(" y ", " and ");
@@ -806,7 +851,22 @@
     [/^Sin plaza, en lista de espera: (.+)\.$/, "No spot, on the waiting list: $1."],
     [/^Sin fecha aún\. Puede: (.+)$/, (m, r) => "No date yet. Available: " + frases(r)],
     [/^Partidas: (.+)$/, "Games: $1"],
-    [/^(Compañero|Rival|Participante) (\d+)$/, (m, w, n) => EXACT[w] + " " + n],
+    [/^(Compañero|Rival|Participante) (\d+)$/, (m, w, n) => EXACT[w] + " " + n],    [/^Por equipos de (\d+)$/, "Teams of $1"],
+    [/^(\d+) de (\d+)$/, "$1 of $2"],
+    [/^rango (.+) · (.+)$/, (m, r, e) => "rank " + nombresTorneo(r) + " · " + nombresTorneo(e)],
+    [/^Jugadores inscritos: (\d+)(?: de (\d+))?$/, (m, a, b) => "Players signed up: " + a + (b ? " of " + b : "")],
+    [/^Estás inscrito en el equipo «(.+)»\.$/, "You're signed up in the team «$1»."],
+    [/^(.+) te ha apuntado al equipo «(.+)»\.$/, "$1 has signed you up in the team «$2»."],
+    [/^(.+) te ha apuntado a «(.+)» en el equipo «(.+)»\. Entra para confirmar tu participación\.$/, "$1 has signed you up for «$2» in the team «$3». Open it to confirm your participation."],
+    [/^No puedes inscribirte: (.+?)\.?$/, (m, x) => "You can't sign up: " + motivoTorneo(x) + (m.endsWith(".") ? "." : "")],
+    [/^«(.+)» no cumple los requisitos del torneo: (.+)$/, (m, n, x) => "«" + n + "» doesn't meet the tournament requirements: " + motivoTorneo(x)],
+    [/^«(.+)» ya está inscrito en este torneo$/, "«$1» is already signed up for this tournament"],
+    [/^Elige (\d+) compañeros?$/, (m, n) => "Choose " + n + (n === "1" ? " teammate" : " teammates")],
+    [/^Iniciado: de (\d+) a (\d+)\.$/, "Initiate: from $1 to $2."],
+    [/^Cambio de ELO: ×(.+)$/, "ELO change: ×$1"],
+    [/^Puntos por persona de (.+)$/, "Points per player for $1"],
+    [/^Equipo «(.+)»( \(pendiente de confirmar\))?$/, (m, n, p) => "Team «" + n + "»" + (p ? " (pending confirmation)" : "")],
+    [/^Individual \(pendiente de confirmar\)$/, "Individual (pending confirmation)"],
   ];
 
   // Frases de la interfaz dentro de textos compuestos (fechas, planes, listas de jugadores…).

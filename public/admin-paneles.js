@@ -39,6 +39,8 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
 .apn .sug{color:#F0CE82}
 .apn td .acts{flex-wrap:nowrap}
 .apn td select{min-width:160px}
+.apn label.ck{display:inline-flex;align-items:center;gap:6px;font-weight:500;min-height:36px;margin:0 10px 0 0}
+.apn label.ck input{width:20px;height:20px;min-height:0;accent-color:#D9B25A}
 .apn .socios{max-height:340px;overflow:auto;border:1px solid #2C3036;border-radius:10px;margin-top:8px}
 .apn .socio{display:grid;grid-template-columns:auto 1fr minmax(140px,220px);gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #2C3036}
 .apn .socio input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:#D9B25A}
@@ -92,6 +94,23 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
     campo("ae-plazas", "Plazas (opcional)", plazas);
     campo("ae-nr", "Enlace o ID de New Recruit (torneos)", nr);
     campo("ae-estado", "Estado", estado);
+    // Torneo con inscripción en la web: formato, puntos y quién puede apuntarse (rango de ELO y experiencia).
+    const formato = sel([["", "Sin inscripción en la web (solo información)"], ["1v1", "Individual (1 contra 1)"], ["2v2", "Por parejas (2 contra 2)"], ["equipos", "Por equipos"]]);
+    const tam = inp("number"); tam.min = "3"; tam.max = "20"; tam.value = "3";
+    const puntos = sel([["2k", "2k (2000 pts)"], ["1k", "1k (1000 pts)"], ["cp", "Combat Patrol"]]);
+    const casillas = (nombre, ops) => {
+      const w = el("div", "acts");
+      const cs = ops.map(([v, t]) => { const l = el("label", "ck"); const c = el("input"); c.type = "checkbox"; c.value = v; c.checked = true; l.append(c, " " + t); w.appendChild(l); return c; });
+      w.setAttribute("role", "group"); w.setAttribute("aria-label", nombre);
+      return { w, cs, valor: () => cs.filter((c) => c.checked).map((c) => c.value), pon: (vs) => cs.forEach((c) => { c.checked = vs.includes(c.value); }) };
+    };
+    const rangos = casillas("Rangos de ELO que pueden inscribirse", [["instructor", "Instructor"], ["iniciado", "Iniciado"], ["aprendiz", "Aprendiz"]]);
+    const exps = casillas("Experiencia que puede inscribirse", [["novel", "Novel"], ["veterano", "Veterano"]]);
+    const wFormato = campo("ae-formato", "Inscripción en la web", formato);
+    const wTam = campo("ae-tam", "Jugadores por equipo", tam);
+    const wPuntos = campo("ae-puntos", "Puntos por persona", puntos);
+    const wRangos = campo("ae-rangos", "Rangos de ELO que pueden inscribirse", rangos.w);
+    const wExps = campo("ae-exps", "Experiencia que puede inscribirse", exps.w);
     campo("ae-desc", "Descripción", desc, true);
     const msg = el("p", "m"); msg.style.cssText = "min-height:20px;margin:12px 0 0"; msg.setAttribute("role", "status");
     const guardar = el("button", "apn-btn", "Crear evento"); guardar.type = "submit";
@@ -102,22 +121,28 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
     const lista = el("div");
     cuerpo.append(f, h, lista);
 
-    // Las quedadas son siempre físicas: la modalidad solo sale en los torneos.
-    const syncModo = () => { wModo.hidden = tipo.value !== "torneo"; if (tipo.value !== "torneo") modo.value = "fisico"; };
-    tipo.onchange = syncModo; syncModo();
-    const limpia = () => { editando = null; f.reset(); syncModo(); guardar.textContent = "Crear evento"; };
+    // Las quedadas son siempre físicas: la modalidad y la inscripción en la web solo salen en los torneos.
+    const syncModo = () => {
+      const t = tipo.value === "torneo", ins = t && !!formato.value;
+      wModo.hidden = wFormato.hidden = !t; if (!t) modo.value = "fisico";
+      wPuntos.hidden = wRangos.hidden = wExps.hidden = !ins;
+      wTam.hidden = !(ins && formato.value === "equipos");
+    };
+    tipo.onchange = formato.onchange = syncModo; syncModo();
+    const limpia = () => { editando = null; f.reset(); rangos.pon(["instructor", "iniciado", "aprendiz"]); exps.pon(["novel", "veterano"]); syncModo(); guardar.textContent = "Crear evento"; };
 
     const envia = async (id, datos) => {
       msg.textContent = "";
       const r = await fetch(id ? "/api/admin/events/" + id : "/api/admin/events", { method: id ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(datos) });
-      if (!r.ok) { msg.textContent = "No se pudo guardar. Revisa los datos."; return false; }
+      if (!r.ok) { const y = await r.json().catch(() => ({})); msg.textContent = y.error && y.error !== "Datos no válidos" ? y.error : "No se pudo guardar. Revisa los datos."; return false; }
       cambios = true;
       return true;
     };
     f.onsubmit = async (ev) => {
       ev.preventDefault();
       const ok = await envia(editando, { type: tipo.value, modo: modo.value, title: titulo.value, starts_at: fecha.value, location: lugar.value,
-        description: desc.value, capacity: plazas.value, nr_tournament_id: nr.value, status: estado.value });
+        description: desc.value, capacity: plazas.value, nr_tournament_id: nr.value, status: estado.value,
+        formato: tipo.value === "torneo" ? formato.value : "", tam_equipo: tam.value, puntos: puntos.value, rangos: rangos.valor(), experiencias: exps.valor() });
       if (ok) { limpia(); await carga(); msg.textContent = "Guardado."; }
     };
     const edita = (e) => {
@@ -125,6 +150,9 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
       tipo.value = e.type; modo.value = e.modo || "fisico"; syncModo();
       titulo.value = e.title; fecha.value = e.starts_at; lugar.value = e.location || ""; plazas.value = e.capacity || "";
       nr.value = e.nr_tournament_id || ""; estado.value = e.status; desc.value = e.description || "";
+      formato.value = e.formato || ""; tam.value = e.tam_equipo && e.tam_equipo >= 3 ? e.tam_equipo : 3; puntos.value = e.puntos || "2k";
+      const lee = (v, def) => { try { const x = JSON.parse(v || "null"); return Array.isArray(x) ? x : def; } catch (er) { return def; } };
+      rangos.pon(lee(e.rangos, ["instructor", "iniciado", "aprendiz"])); exps.pon(lee(e.experiencias, ["novel", "veterano"])); syncModo();
       guardar.textContent = "Guardar cambios";
       msg.textContent = "Editando: " + e.title;
       cuerpo.parentNode.scrollTo({ top: 0, behavior: "smooth" });

@@ -207,6 +207,20 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .ok{color:#9FD39B;font-weight:600}
 .err{color:#F0A39E;font-size:14px;min-height:20px;margin-top:6px}
 .fz{margin-top:8px}
+.tor{margin-top:6px}
+.tor .btn{margin-right:8px}
+.tor .td{margin:0 0 6px;font-size:15px}.tor .td b{color:#D9B25A;font-weight:600}
+.tor h4{font:700 16px Cinzel,Georgia,serif;margin:16px 0 8px;color:#ECE7DC}
+.tor .acc{display:flex;gap:8px;flex-wrap:wrap}
+.tor .fld input[type=text]{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;min-height:44px}
+.tins{list-style:none;margin:0;padding:0}
+.tins li{padding:8px 0;border-top:1px solid #2C3036}
+.tins li strong{display:block;margin-bottom:4px;color:#ECE7DC}
+.tms{display:flex;flex-wrap:wrap;gap:6px 14px}
+.tm{display:inline-flex;align-items:center;gap:6px}
+.tm .st{font-size:12px;padding:1px 7px;border-radius:10px}
+.tm .st.si{background:var(--abv-verde,#343B20);color:#DCD8C2;border:1px solid #7C8A4C}
+.tm .st.no{background:#2A2418;color:#D9B25A;border:1px solid #6B5A30}
 .fld{margin:0 0 12px;border:0;padding:0}
 .fld label,.fld legend{display:block;font-weight:600;font-size:14px;margin-bottom:4px;padding:0}
 .fld label.rad{display:flex;align-items:center;gap:8px;font-weight:400;font-size:15px;min-height:36px;margin:0}
@@ -699,6 +713,8 @@ function show(e) {
   if (e.location) add("p", "m", e.location).setAttribute("translate", "no");
   if (e.description) add("p", "", e.description).setAttribute("translate", "no");
   if (e.type !== "quedada") {
+    // Torneo con inscripción en la web: su detalle e inscripción; si no, solo la información.
+    if (e.formato) { torneoDetalle(e, box); return; }
     if (e.capacity) add("p", "m", "Plazas: " + e.capacity);
     return;
   }
@@ -737,6 +753,123 @@ function show(e) {
   b.type = "button"; b.className = "btn alt"; b.textContent = "Cancelar inscripción";
   b.onclick = () => cancel(e, b, err);
   box.append(b, err);
+}
+
+// ===== Torneos con inscripción en la web =====
+// Información (formato, puntos, requisitos), inscripción (1v1 directa; parejas o equipos con nombre y compañeros, que
+// confirman desde aquí al recibir el aviso en la servocalavera), enlace de New Recruit al estar confirmado e inscritos.
+const T_FORMATO = { "1v1": "Individual (1 contra 1)", "2v2": "Por parejas (2 contra 2)" };
+const T_PUNTOS = { "2k": "2k (2000 pts)", "1k": "1k (1000 pts)", cp: "Combat Patrol" };
+const T_NOMBRE = { instructor: "Instructor", iniciado: "Iniciado", aprendiz: "Aprendiz", novel: "Novel", veterano: "Veterano" };
+let torneoPedido = 0;
+async function torneoDetalle(e, box) {
+  const pedido = ++torneoPedido;
+  const zona = document.createElement("div");
+  zona.className = "tor";
+  zona.textContent = "Cargando...";
+  box.appendChild(zona);
+  let d;
+  try { const r = await fetch("/api/torneos/" + e.id); if (!r.ok) throw new Error(); d = await r.json(); }
+  catch (er) { zona.textContent = "No se pudo cargar el torneo."; return; }
+  if (pedido !== torneoPedido || !zona.isConnected) return;
+  zona.textContent = "";
+  const add = (tag, cls, txt, padre) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; (padre || zona).appendChild(x); return x; };
+  const dato = (et, v) => { const p = add("p", "td"); p.appendChild(add("b", "", et, p)); p.append(" " + v); return p; };
+  dato("Formato:", d.formato === "equipos" ? "Por equipos de " + d.tam : T_FORMATO[d.formato]);
+  dato("Puntos por persona:", T_PUNTOS[d.puntos] || d.puntos);
+  const todos = d.rangos.length === 3 && d.experiencias.length === 2;
+  dato("Pueden inscribirse:", todos ? "todos los socios" : "rango " + d.rangos.map((x) => T_NOMBRE[x]).join(", ") + " · " + d.experiencias.map((x) => T_NOMBRE[x]).join(", "));
+  const eq = d.tam > 1;
+  add("p", "m", d.plazas ? "Jugadores inscritos: " + d.ocupadas + " de " + d.plazas : "Jugadores inscritos: " + d.ocupadas);
+  const err = add("p", "err");
+  const recarga = () => torneoDetalle(e, (zona.remove(), box));
+  const pide = async (accion, cuerpo, boton) => {
+    err.textContent = ""; if (boton) boton.disabled = true;
+    try {
+      const r = await fetch("/api/torneos/" + e.id + "/" + accion, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo || {}) });
+      const y = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(y.error || "No se pudo guardar.");
+      // La servocalavera también cambia (avisos): se olvida la copia de la sesión.
+      try { sessionStorage.removeItem("ab_me"); } catch (x) {}
+      recarga();
+    } catch (x) { err.textContent = x.message; if (boton) boton.disabled = false; }
+  };
+  const btn = (txt, cls, fn) => { const b = add("button", "btn" + (cls ? " " + cls : ""), txt); b.type = "button"; b.onclick = () => fn(b); return b; };
+  // Tu situación en el torneo.
+  const yo = d.yo;
+  if (!yo) {
+    if (d.abierta) { const a = add("a", "btn", "Entra con Discord para inscribirte"); a.href = "/auth/login"; }
+    else add("p", "m", "La inscripción está cerrada.");
+  } else if (yo.equipo) {
+    const mio = d.equipos.find((x) => x.id === yo.equipo);
+    if (yo.confirmado) {
+      add("p", "ok", eq ? "Estás inscrito en el equipo «" + mio.nombre + "»." : "Estás inscrito.");
+      if (yo.nr) { const a = add("a", "btn", "Unirme en New Recruit"); a.href = yo.nr; a.target = "_blank"; a.rel = "noopener"; }
+      else add("p", "m", "El enlace de New Recruit estará aquí en cuanto el club lo publique.");
+      if (eq && mio.miembros.some((m) => !m.confirmado)) add("p", "m", "Faltan compañeros por confirmar.");
+      if (d.abierta) btn(yo.capitan ? (eq ? "Cancelar la inscripción del equipo" : "Cancelar inscripción") : "Salir del equipo", "alt", (b) => {
+        if (confirm(yo.capitan && eq ? "¿Cancelar la inscripción de todo el equipo?" : "¿Seguro?")) pide("baja", null, b);
+      });
+    } else {
+      const cap = mio.miembros.find((m) => m.id === mio.capitan);
+      add("p", "ok", (cap ? cap.name : "Tu capitán") + " te ha apuntado al equipo «" + mio.nombre + "».");
+      if (d.abierta) {
+        const acc = add("div", "acc");
+        const b1 = add("button", "btn", "Confirmar mi participación", acc); b1.type = "button"; b1.onclick = () => pide("confirmar", null, b1);
+        const b2 = add("button", "btn alt", "Rechazar", acc); b2.type = "button"; b2.onclick = () => { if (confirm("¿Rechazar la invitación?")) pide("baja", null, b2); };
+      }
+    }
+  } else if (!yo.puede) {
+    add("p", "m", "No puedes inscribirte: " + yo.motivo + ".");
+  } else if (!eq) {
+    btn("Inscribirme", "", (b) => pide("inscripcion", {}, b)).dataset.accion = "apuntarme";
+  } else {
+    const b0 = btn(d.tam === 2 ? "Inscribir una pareja" : "Inscribir un equipo", "", async () => {
+      b0.remove();
+      if (!members) members = await fetch("/api/members").then((r) => (r.ok ? r.json() : [])).catch(() => []);
+      const f = add("form", "fz");
+      const nom = document.createElement("input"); nom.type = "text"; nom.id = "t-nom"; nom.maxLength = 60; nom.required = true; nom.setAttribute("translate", "no");
+      f.appendChild(mkField(d.tam === 2 ? "Nombre de la pareja" : "Nombre del equipo", nom));
+      const ocupados = new Set(d.equipos.flatMap((x) => x.miembros.map((m) => m.id)));
+      const libres = members.filter((m) => !ocupados.has(m.id));
+      const sels = [];
+      for (let i = 1; i < d.tam; i++) {
+        const sl = mkSelect("t-comp" + i, [["", "— Elige un compañero —"]].concat(libres.map((m) => [m.id, m.name])));
+        sl.querySelectorAll("option").forEach((o, k) => { if (k) o.setAttribute("translate", "no"); });
+        f.appendChild(mkField(d.tam === 2 ? "Compañero" : "Compañero " + i, sl));
+        sels.push(sl);
+      }
+      add("p", "m", "Tus compañeros recibirán un aviso en la servocalavera y tendrán que confirmar su participación.", f);
+      const ok = add("button", "btn", "Enviar inscripción", f); ok.type = "submit";
+      const no = add("button", "btn alt", "Cancelar", f); no.type = "button"; no.onclick = recarga;
+      f.onsubmit = (ev) => {
+        ev.preventDefault();
+        const comp = sels.map((x) => x.value);
+        if (comp.some((x) => !x)) { err.textContent = "Elige a todos tus compañeros."; return; }
+        if (new Set(comp).size !== comp.length) { err.textContent = "Has elegido al mismo compañero dos veces."; return; }
+        pide("inscripcion", { nombre: nom.value, companeros: comp }, ok);
+      };
+      zona.insertBefore(f, err);
+      nom.focus();
+    });
+    b0.dataset.accion = "apuntarme";
+  }
+  // Inscritos: jugadores (1v1) o equipos con sus jugadores (confirmados o pendientes). Cada nombre, con su ficha.
+  if (d.equipos.length) {
+    add("h4", "", eq ? "Equipos inscritos" : "Inscritos");
+    const ul = add("ul", "tins");
+    d.equipos.forEach((x) => {
+      const li = add("li", "", null, ul);
+      if (eq) { const n = add("strong", "", x.nombre, li); n.setAttribute("translate", "no"); }
+      const ms = add("div", "tms", null, li);
+      x.miembros.forEach((m) => {
+        const w = add("span", "tm", null, ms);
+        const n = add("span", "", m.name, w); n.setAttribute("translate", "no");
+        if (window.abFicha) window.abFicha(n, m.id);
+        if (eq) add("span", "st " + (m.confirmado ? "si" : "no"), m.confirmado ? "Confirmado" : "Pendiente", w);
+      });
+    });
+  }
 }
 
 // Resumen de lo que va a hacer el usuario en la quedada.
@@ -1502,6 +1635,8 @@ function abrirDesdeEnlace() {
 }
 render();
 </script>
+<script src="/trofeos.js"></script>
+<script src="/ficha-hover.js"></script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>
 <script src="/admin-paneles.js"></script>

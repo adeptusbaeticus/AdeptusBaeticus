@@ -92,6 +92,10 @@ tr.apagada td{opacity:.45}
 #adm .ok{color:#9FD39B}
 #adm .tlist{list-style:none;margin:8px 0 0;padding:0}
 #adm .tlist li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid #2C3036}
+.exp{display:inline-block;padding:2px 10px;border-radius:999px;font:600 11px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;border:1px solid #6B6558;color:#CFC9BA;background:transparent}
+.exp.veterano{border-color:#D9B25A;color:#F0CE82}
+button.exp{cursor:pointer;min-height:30px}
+button.exp:hover{background:#2A2618}
 .rv.clic{cursor:pointer;color:#F0CE82;text-decoration:underline dotted rgba(217,178,90,.7);text-underline-offset:3px}
 .rv.clic:hover,.rv.clic:focus-visible{color:#FFE3A3;outline:none}
 /* Mini gráfica (al pasar el ratón) */
@@ -115,7 +119,7 @@ tr.apagada td{opacity:.45}
   <section id="graf" class="card" hidden aria-live="polite"></section>
   <div id="app" hidden>
     <div class="card tabla"><table id="tCla">
-      <thead><tr><th>Pos.</th><th class="izq">Jugador</th><th>Título</th><th>ELO</th><th>PJ</th><th class="oc">V-D-E</th></tr></thead>
+      <thead><tr><th>Pos.</th><th class="izq">Jugador</th><th>Título</th><th>Experiencia</th><th>ELO</th><th>PJ</th><th class="oc">V-D-E</th></tr></thead>
       <tbody></tbody>
     </table></div>
     <p class="m" id="sinCla" hidden>Todavía no hay nadie clasificado.</p>
@@ -123,7 +127,7 @@ tr.apagada td{opacity:.45}
       <h2>Clasificando</h2>
       <p class="m" id="notaCla"></p>
       <div class="card tabla"><table id="tCdo">
-        <thead><tr><th class="izq">Jugador</th><th>ELO</th><th>PJ</th><th class="oc">V-D-E</th></tr></thead>
+        <thead><tr><th class="izq">Jugador</th><th>Experiencia</th><th>ELO</th><th>PJ</th><th class="oc">V-D-E</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </section>
@@ -160,6 +164,29 @@ function jugador(x) {
   s.append(av, n);
   return s;
 }
+// Novel (empieza de cero) o Veterano (viene con experiencia). El admin la cambia pulsando la etiqueta.
+const EXP = { novel: "Novel", veterano: "Veterano" };
+let esAdmin = false;
+function experiencia(x) {
+  const pinta = (b) => { b.className = "exp " + x.exp; b.textContent = EXP[x.exp] || "Novel"; };
+  if (!esAdmin) { const s = el("span"); pinta(s); return s; }
+  const b = el("button"); b.type = "button"; pinta(b);
+  b.title = "Cambiar a " + (x.exp === "veterano" ? "Novel" : "Veterano");
+  b.onclick = async (ev) => {
+    ev.stopPropagation();
+    const nueva = x.exp === "veterano" ? "novel" : "veterano";
+    b.disabled = true;
+    try {
+      const r = await fetch("/api/admin/socio/experiencia", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discord_id: x.id, experiencia: nueva }) });
+      const y = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(y.error || "No se pudo guardar.");
+      x.exp = nueva; pinta(b); b.title = "Cambiar a " + (x.exp === "veterano" ? "Novel" : "Veterano");
+    } catch (e) { alert(e.message); }
+    b.disabled = false;
+  };
+  b.addEventListener("keydown", (ev) => ev.stopPropagation());
+  return b;
+}
 function fila(x, clasif) {
   const tr = document.createElement("tr");
   tr.tabIndex = 0;
@@ -168,6 +195,7 @@ function fila(x, clasif) {
   if (clasif) td(String(x.pos), "pos");
   td(jugador(x), "izq");
   if (clasif) td(el("span", "tit t-" + x.titulo, x.titulo));
+  td(experiencia(x));
   td(String(x.elo));
   td(clasif ? String(x.n) : x.n + " de " + D.minimo);
   td(x.v + "-" + x.d + "-" + x.e, "oc");
@@ -365,6 +393,17 @@ function grande(x, tr) {
 // ----- Admin: torneos puntuales de New Recruit para el ELO -----
 // Se lee el torneo, se asigna cada jugador a un socio (con sugerencias) o a «REDACTED» (jugador antiguo) y se añade:
 // sus partidas cuentan desde ese momento, después de las de la Gran Liga ya jugadas.
+// Formatos y puntos de los torneos, y el multiplicador del cambio de ELO (igual que ELO_MULT en el servidor).
+const FORMATOS = { "1v1": "Individual (1 contra 1)", "2v2": "Por parejas (2 contra 2)", equipos: "Por equipos (3 o más)" };
+const PUNTOS = [["2k", "2k (2000 pts)"], ["1k", "1k (1000 pts)"], ["cp", "Combat Patrol"]];
+const MULT = { "2k": { "1v1": 1, "2v2": 1, equipos: 1 }, "1k": { "1v1": 0.75, "2v2": 1, equipos: 0.75 }, cp: { "1v1": 0.5, "2v2": 0.75, equipos: 0.5 } };
+function selPuntos(v) {
+  const s = el("select");
+  if (!v) { const o = el("option", "", "— Elige —"); o.value = ""; s.appendChild(o); }
+  PUNTOS.forEach(([k, t]) => { const o = el("option", "", t); o.value = k; s.appendChild(o); });
+  s.value = v;
+  return s;
+}
 function panelAdmin() {
   const box = $("adm");
   box.hidden = false;
@@ -404,8 +443,16 @@ function panelAdmin() {
     zona.textContent = "";
     const cab = el("p", ""); const n = el("strong", "", d.nombre); n.setAttribute("translate", "no");
     cab.append(n, el("span", "m", " · " + (d.fecha ? fecha(d.fecha) + " · " : "") + d.partidas + " partidas · " + d.rondas + " rondas"));
-    if (d.parejas) cab.appendChild(el("span", "m", " · Por parejas (2 contra 2)"));
-    zona.append(cab, el("p", "m", "Elige quién es cada jugador: un socio de la web (las sugerencias salen primero) o «REDACTED» si es un jugador antiguo."));
+    // Formato detectado en New Recruit y puntos por persona (obligatorio): deciden cuánto mueve el ELO cada partida.
+    cab.appendChild(el("span", "m", " · " + FORMATOS[d.formato || "1v1"]));
+    const wPts = el("p", "");
+    const lp = el("label", "", "Puntos por persona ");
+    const pts = selPuntos(""); pts.id = "adm-pts"; lp.htmlFor = "adm-pts";
+    wPts.append(lp, pts);
+    const notaPts = el("span", "m"); notaPts.style.marginLeft = "10px";
+    pts.onchange = () => { notaPts.textContent = pts.value ? "Cambio de ELO: ×" + String(MULT[pts.value][d.formato || "1v1"]).replace(".", ",") : ""; };
+    wPts.appendChild(notaPts);
+    zona.append(cab, wPts, el("p", "m", "Elige quién es cada jugador: un socio de la web (las sugerencias salen primero) o «REDACTED» si es un jugador antiguo."));
     const t = el("table");
     const th = t.createTHead().insertRow();
     [["Jugador en New Recruit", "izq"], ["Socio de la web", "izq"]].forEach(([x, c]) => th.appendChild(el("th", c, x)));
@@ -449,11 +496,12 @@ function panelAdmin() {
     const ok = el("button", "btn", "Añadir al ELO"); ok.type = "button"; ok.style.marginTop = "12px";
     ok.onclick = async () => {
       const asignaciones = {};
+      if (!pts.value) { msg.className = "m err"; msg.textContent = "Indica los puntos por persona del torneo"; pts.focus(); return; }
       for (const [j, sel] of sels) { if (!sel.value) { msg.className = "m err"; msg.textContent = "Falta decidir quién es " + j.n; sel.focus(); return; } asignaciones[j.p] = sel.value; }
       if (!confirm("¿Añadir «" + d.nombre + "» al ELO? Sus partidas contarán desde ahora.")) return;
       ok.disabled = true;
       try {
-        const y = await pide("POST", "/api/admin/elo/torneo", { nr: d.nr, asignaciones });
+        const y = await pide("POST", "/api/admin/elo/torneo", { nr: d.nr, asignaciones, puntos: pts.value });
         zona.textContent = ""; inp.value = "";
         msg.className = "m ok"; msg.textContent = "Torneo añadido: " + y.partidas + " partidas. El ELO ya está recalculado.";
         await cargaLista(); recarga();
@@ -472,7 +520,16 @@ function panelAdmin() {
     ts.forEach((t) => {
       const li = el("li");
       const iz = el("span"); const n = el("strong", "", t.nombre); n.setAttribute("translate", "no");
-      iz.append(n, el("span", "m", " · añadido el " + fecha(t.anadido.slice(0, 10)) + " · " + t.partidas + " partidas"));
+      iz.append(n, el("span", "m", " · añadido el " + fecha(t.anadido.slice(0, 10)) + " · " + t.partidas + " partidas · " + FORMATOS[t.formato || "1v1"]));
+      // Puntos por persona: se pueden corregir (se recalcula el ELO).
+      const sp = selPuntos(t.puntos || "2k"); sp.setAttribute("aria-label", "Puntos por persona de " + t.nombre); sp.style.cssText = "max-width:170px;margin-left:10px";
+      sp.onchange = async () => {
+        sp.disabled = true;
+        try { await pide("PUT", "/api/admin/elo/torneo/" + t.id, { puntos: sp.value }); msg.className = "m ok"; msg.textContent = "Puntos cambiados. El ELO ya está recalculado."; recarga(); }
+        catch (e) { msg.className = "m err"; msg.textContent = e.message; }
+        sp.disabled = false;
+      };
+      iz.appendChild(sp);
       const q = el("button", "chip", "Quitar"); q.type = "button";
       q.onclick = async () => {
         if (!confirm("¿Quitar «" + t.nombre + "» del ELO? Se recalculará sin sus partidas.")) return;
@@ -487,7 +544,7 @@ function panelAdmin() {
   }
   cargaLista();
 }
-(window.abMe = window.abMe || fetch("/api/me").then((r) => r.json()).catch(() => null)).then((me) => { if (me && me.role === "admin" && !me.ver_como) panelAdmin(); });
+(window.abMe = window.abMe || fetch("/api/me").then((r) => r.json()).catch(() => null)).then((me) => { if (me && me.role === "admin" && !me.ver_como) { esAdmin = true; panelAdmin(); if (D) recarga(); } });
 
 // Carga (y recarga tras añadir o quitar un torneo) del ranking.
 function recarga() {

@@ -618,7 +618,7 @@ async function anunciaATodos(env, tipo, titulo, texto) {
 }
 async function anunciosDe(env, id) {
   try {
-    return (await env.DB.prepare("SELECT id, tipo, titulo, texto FROM anuncios WHERE discord_id=?1 AND aceptado IS NULL ORDER BY id").bind(id).all()).results;
+    return (await env.DB.prepare("SELECT id, tipo, titulo, texto, enlace FROM anuncios WHERE discord_id=?1 AND aceptado IS NULL ORDER BY id").bind(id).all()).results;
   } catch (e) { return []; }
 }
 
@@ -639,6 +639,9 @@ async function borraPerfil(env, id) {
     env.DB.prepare("DELETE FROM dm_canales WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1").bind(id),
     env.DB.prepare("UPDATE elo_torneo_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
+    // Inscripciones a torneos: sus equipos como capitán (con sus compañeros) y su plaza en los de otros.
+    env.DB.prepare("DELETE FROM torneo_miembros WHERE discord_id=?1 OR equipo_id IN (SELECT id FROM torneo_equipos WHERE capitan=?1)").bind(id),
+    env.DB.prepare("DELETE FROM torneo_equipos WHERE capitan=?1").bind(id),
     env.DB.prepare("UPDATE liga_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM socios_datos WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM solicitudes WHERE discord_id=?1").bind(id),
@@ -1851,18 +1854,104 @@ async function ligaAuto(env, fase) {
   await nrSync(env, "reports", fase.nr_torneo);
 }
 
+// ===== Torneos del calendario con inscripción en la web =====
+const TORNEO_RANGOS = ["instructor", "iniciado", "aprendiz"], TORNEO_EXPERIENCIAS = ["novel", "veterano"];
+// Datos de inscripción de un torneo (del formulario del admin), validados. Sin formato: torneo solo informativo.
+function torneoConfig(b) {
+  const nada = { formato: null, tam_equipo: null, puntos: null, rangos: null, experiencias: null };
+  if (!b.formato) return nada;
+  if (!["1v1", "2v2", "equipos"].includes(b.formato)) return { error: "Formato no válido" };
+  const tam = b.formato === "1v1" ? 1 : b.formato === "2v2" ? 2 : parseInt(b.tam_equipo, 10);
+  if (b.formato === "equipos" && (!Number.isInteger(tam) || tam < 3 || tam > 20)) return { error: "Indica cuántos jugadores tiene cada equipo (de 3 a 20)" };
+  if (!["cp", "1k", "2k"].includes(b.puntos)) return { error: "Indica los puntos por persona del torneo" };
+  // (llegan como lista o, al reenviar un evento tal cual lo da la API del admin, como texto JSON)
+  const lista = (v, ok) => {
+    if (typeof v === "string") { try { v = JSON.parse(v); } catch (e) { v = []; } }
+    return [...new Set((Array.isArray(v) ? v : []).filter((x) => ok.includes(x)))];
+  };
+  const rangos = lista(b.rangos, TORNEO_RANGOS), experiencias = lista(b.experiencias, TORNEO_EXPERIENCIAS);
+  if (!rangos.length) return { error: "Marca al menos un rango de ELO que pueda inscribirse" };
+  if (!experiencias.length) return { error: "Marca al menos una experiencia (Novel o Veterano) que pueda inscribirse" };
+  return { formato: b.formato, tam_equipo: tam, puntos: b.puntos, rangos: JSON.stringify(rangos), experiencias: JSON.stringify(experiencias) };
+}
+
+// Quién puede inscribirse: su rango por su ELO actual (1500 si aún no ha jugado; los «Clasificando» también tienen
+// rango por su ELO) y su experiencia (Novel o Veterano). Devuelve Map id → { name, rango, exp, ok, motivo }.
+async function torneoAptos(env, ev, ids) {
+  const out = new Map();
+  if (!ids.length) return out;
+  const us = (await env.DB.prepare("SELECT discord_id, name, experiencia FROM users WHERE discord_id IN (SELECT value FROM json_each(?1))")
+    .bind(JSON.stringify(ids)).all()).results;
+  const d = await eloDatos(env);
+  const u = d.umbrales || (await eloUmbrales(env));
+  const eloDe = new Map(d.jugadores.map((x) => [x.id, x.elo]));
+  const rangos = jsonLista(ev.rangos), exps = jsonLista(ev.experiencias);
+  const NOMBRE = { instructor: "Instructor", iniciado: "Iniciado", aprendiz: "Aprendiz", novel: "Novel", veterano: "Veterano" };
+  const lista = (xs) => xs.map((x) => NOMBRE[x] || x).join(", ");
+  for (const x of us) {
+    const rango = eloRango(eloDe.get(x.discord_id) ?? ELO.inicial, u).toLowerCase(), exp = x.experiencia || "novel";
+    let motivo = null;
+    if (!rangos.includes(rango)) motivo = "rango " + NOMBRE[rango] + " (pueden: " + lista(rangos) + ")";
+    else if (!exps.includes(exp)) motivo = "experiencia " + NOMBRE[exp] + " (pueden: " + lista(exps) + ")";
+    out.set(x.discord_id, { name: x.name, rango, exp, ok: !motivo, motivo });
+  }
+  return out;
+}
+const jsonLista = (v) => { try { const x = JSON.parse(v || "[]"); return Array.isArray(x) ? x : []; } catch (e) { return []; } };
+// Enlace al torneo en New Recruit (el admin puede guardar el enlace o solo su id); solo enlaces de New Recruit.
+function enlaceNr(v) {
+  const t = String(v || "").trim();
+  if (/^[0-9a-f]{24}$/i.test(t)) return "https://www.newrecruit.eu/app/tournydetails/details?id=" + t;
+  return /^https:\/\/(www\.)?newrecruit\.eu\//i.test(t) ? t : null;
+}
+// Un torneo con inscripción en la web (publicado y con formato), con sus equipos e inscritos.
+async function torneoCon(env, id) {
+  const ev = await env.DB.prepare(
+    `SELECT id, title, starts_at, capacity, nr_tournament_id, formato, tam_equipo, puntos, rangos, experiencias
+     FROM events WHERE id=?1 AND type='torneo' AND status='publicado' AND formato IS NOT NULL`
+  ).bind(id).first();
+  if (!ev) return null;
+  const filas = (await env.DB.prepare(
+    `SELECT e.id, e.nombre, e.capitan, m.discord_id, m.confirmado, u.name
+     FROM torneo_equipos e JOIN torneo_miembros m ON m.equipo_id=e.id LEFT JOIN users u ON u.discord_id=m.discord_id
+     WHERE e.event_id=?1 ORDER BY e.id, (m.discord_id=e.capitan) DESC, u.name COLLATE NOCASE`
+  ).bind(id).all()).results;
+  const equipos = [];
+  for (const f of filas) {
+    let eq = equipos[equipos.length - 1];
+    if (!eq || eq.id !== f.id) { eq = { id: f.id, nombre: f.nombre, capitan: f.capitan, miembros: [] }; equipos.push(eq); }
+    eq.miembros.push({ id: f.discord_id, name: f.name || "?", confirmado: !!f.confirmado });
+  }
+  return { ev, equipos, ocupadas: filas.length };
+}
+
 // ===== ELO del club =====
 // Propio (no el de New Recruit): todos empiezan en 1500 y cada partida jugada lo mueve con la fórmula de Elo (K = 32;
 // victoria 1, empate 0,5, derrota 0). Se recalcula de cero, partida a partida en orden, cada vez que llegan resultados
 // de New Recruit y una vez al día, y se guarda en nr_cache (clave 'elo:club', con el historial de cada jugador). Hasta
 // N partidas, «Clasificando» (N lo fija el admin: ajuste 'elo_minimo', 10 por defecto; con 0 salen todos).
-// Títulos por puesto entre los ya clasificados: Instructor (top 40 %), Iniciado (top 60 %) y Aprendiz (el resto).
-const ELO = { inicial: 1500, k: 32, minimo: 10, clave: "elo:club" };
+// Rangos por barreras fijas de ELO (ajustables en Admin): Instructor (>= 1560), Aprendiz (<= 1459) e Iniciado entre medias.
+// Multiplicador del cambio de ELO: las partidas de liga, siempre 1; las de torneos previos de New Recruit, según sus
+// puntos por persona y su formato (`ELO_MULT`), para que ganar a Combat Patrol o a 1k no valga lo mismo que a 2k.
+const ELO = { inicial: 1500, k: 32, minimo: 10, clave: "elo:club", instructor: 1560, aprendiz: 1459 };
+const ELO_MULT = {
+  "2k": { "1v1": 1, "2v2": 1, equipos: 1 },
+  "1k": { "1v1": 0.75, "2v2": 1, equipos: 0.75 },
+  cp: { "1v1": 0.5, "2v2": 0.75, equipos: 0.5 },
+};
+const eloMult = (puntos, formato) => ((ELO_MULT[puntos] || {})[formato] ?? 1);
+// Barreras de los rangos: { instructor: mínimo de Instructor, aprendiz: máximo de Aprendiz }.
+async function eloUmbrales(env) {
+  const i = parseInt(await ajuste(env, "elo_instructor"), 10), a = parseInt(await ajuste(env, "elo_aprendiz"), 10);
+  const ok = Number.isInteger(i) && Number.isInteger(a) && a < i - 1;
+  return ok ? { instructor: i, aprendiz: a } : { instructor: ELO.instructor, aprendiz: ELO.aprendiz };
+}
+// Rango de un ELO: «Instructor», «Iniciado» o «Aprendiz».
+const eloRango = (elo, u) => (elo >= u.instructor ? "Instructor" : elo <= u.aprendiz ? "Aprendiz" : "Iniciado");
 async function eloMinimo(env) {
   const n = parseInt(await ajuste(env, "elo_minimo"), 10);
   return Number.isInteger(n) && n >= 0 && n <= 100 ? n : ELO.minimo;
 }
-const ELO_TITULOS = [[0.4, "Instructor"], [0.6, "Iniciado"], [1, "Aprendiz"]];
 // Partidas que cuentan, en orden. Cada una: { orden, a, b, pa, pb } (a y b: cuenta de la web, o el jugador de la liga
 // si no la tiene). Gran Liga: todas las fases (pasadas y en curso), desde la primera partida de la Gran Liga 2026,
 // por la fecha de su ronda y después ronda y mesa; no cuentan las perdidas por abandono (no se jugaron).
@@ -1883,7 +1972,7 @@ async function eloPartidas(env) {
   // y mesa. Jugador sin socio («REDACTED»): «t» + su fila del torneo.
   let tor = [];
   try { tor = (await env.DB.prepare(
-    `SELECT t.nombre, t.anadido, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb,
+    `SELECT t.nombre, t.anadido, t.formato, t.puntos, p.ronda, p.mesa, p.pv_a, p.pv_b, a.discord_id AS da, b.discord_id AS db, a.id AS ja, b.id AS jb,
        a2.discord_id AS da2, b2.discord_id AS db2, a2.id AS ja2, b2.id AS jb2
      FROM elo_torneo_partidas p JOIN elo_torneos t ON t.id=p.torneo_id
      JOIN elo_torneo_jugadores a ON a.id=p.jugador_a JOIN elo_torneo_jugadores b ON b.id=p.jugador_b
@@ -1895,6 +1984,7 @@ async function eloPartidas(env) {
     // Por parejas: el compañero de cada lado.
     a2: p.ja2 ? p.da2 || "t" + p.ja2 : null, b2: p.jb2 ? p.db2 || "t" + p.jb2 : null,
     fecha: p.anadido.slice(0, 10), etq: p.nombre + " · R" + p.ronda, hs: false,
+    km: eloMult(p.puntos, p.formato), // multiplicador por puntos y formato del torneo
   });
   return partidas.sort((x, y) => (x.orden < y.orden ? -1 : x.orden > y.orden ? 1 : 0));
 }
@@ -1912,7 +2002,7 @@ async function eloCalcula(env) {
       const media = (l) => (l[0].elo + l[1].elo) / 2;
       const esperado = 1 / (1 + Math.pow(10, (media(lados[1]) - media(lados[0])) / 400));
       const res = p.pa > p.pb ? 1 : p.pa < p.pb ? 0 : 0.5;
-      const cambio = ELO.k * (res - esperado);
+      const cambio = ELO.k * (p.km || 1) * (res - esperado);
       const ids = [[p.a, p.a2], [p.b, p.b2]];
       lados.forEach((lado, s) => lado.forEach((J, k) => {
         const antes = Math.round(J.elo), sr = s ? 1 - res : res;
@@ -1933,7 +2023,7 @@ async function eloCalcula(env) {
     }
     const esperado = 1 / (1 + Math.pow(10, (B.elo - A.elo) / 400));
     const res = p.pa > p.pb ? 1 : p.pa < p.pb ? 0 : 0.5;
-    const cambio = ELO.k * (res - esperado);
+    const cambio = ELO.k * (p.km || 1) * (res - esperado);
     const ra = Math.round(A.elo), rb = Math.round(B.elo);
     A.elo += cambio; B.elo -= cambio; A.n++; B.n++;
     if (res === 1) { A.v++; B.d++; } else if (res === 0) { A.d++; B.v++; } else { A.e++; B.e++; }
@@ -1943,8 +2033,9 @@ async function eloCalcula(env) {
   const todos = [...t.values()].map((x) => ({ ...x, elo: Math.round(x.elo) }));
   // Clasificados: solo socios con cuenta en la web (los jugadores sin ella cuentan como rivales, pero no salen).
   const clasif = todos.filter((x) => !/^[jt]\d/.test(x.id) && x.n >= minimo).sort((a, b) => b.elo - a.elo || b.n - a.n);
-  clasif.forEach((x, i) => { x.pos = i + 1; x.total = clasif.length; x.titulo = ELO_TITULOS.find(([q]) => (i + 1) / clasif.length <= q + 1e-9)[1]; });
-  const datos = { minimo, jugadores: todos };
+  const umbrales = await eloUmbrales(env);
+  clasif.forEach((x, i) => { x.pos = i + 1; x.total = clasif.length; x.titulo = eloRango(x.elo, umbrales); });
+  const datos = { minimo, umbrales, jugadores: todos };
   await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now'), error=NULL")
     .bind(ELO.clave, JSON.stringify(datos)).run();
   return datos;
@@ -2006,7 +2097,9 @@ async function eloTorneoLee(env, nr) {
   }
   const juegan = new Set(partidas.flatMap((x) => [x.a, x.b, x.a2, x.b2].filter(Boolean)));
   const jugadores = t.participant_list.filter((x) => juegan.has(x._id)).map((x) => ({ p: x._id, n: String(x.name || "?").slice(0, 60), real: x.member_name ? String(x.member_name).slice(0, 80) : null }));
-  const datos = { nr, nombre: String(t.name || "Torneo").slice(0, 80), fecha: t.start ? String(t.start).slice(0, 10) : null, parejas, jugadores, partidas };
+  // Formato: por parejas (2 contra 2), por equipos de 3 o más (cada mesa aparte) o individual.
+  const formato = parejas ? "2v2" : Number(t.participants_per_team) > 2 && Array.isArray(t.teams) && t.teams.length ? "equipos" : "1v1";
+  const datos = { nr, nombre: String(t.name || "Torneo").slice(0, 80), fecha: t.start ? String(t.start).slice(0, 10) : null, parejas, formato, jugadores, partidas };
   await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now')")
     .bind("elo-torneo:" + nr, JSON.stringify(datos)).run();
   return datos;
@@ -3508,7 +3601,7 @@ export default {
     // historial de cada uno, con el nombre y la foto de cada jugador y rival.
     if (path === "/api/elo" && request.method === "GET") {
       const d = await eloDatos(env);
-      const us = new Map((await env.DB.prepare("SELECT discord_id, name, avatar, role FROM users").all()).results.map((u) => [u.discord_id, u]));
+      const us = new Map((await env.DB.prepare("SELECT discord_id, name, avatar, role, experiencia FROM users").all()).results.map((u) => [u.discord_id, u]));
       const ljs = new Map((await env.DB.prepare("SELECT id, discord, nombre FROM liga_jugadores").all()).results.map((j) => ["j" + j.id, j]));
       for (const j of (await env.DB.prepare("SELECT id, nr_nombre FROM elo_torneo_jugadores WHERE discord_id IS NULL").all()).results) ljs.set("t" + j.id, { discord: j.nr_nombre, nombre: null });
       const nombres = {};
@@ -3519,9 +3612,10 @@ export default {
       };
       const socios = d.jugadores.filter((x) => us.has(x.id) && x.n > 0);
       socios.forEach((x) => { nombre(x.id); x.h.forEach((h) => { nombre(h.r); if (h.r2) nombre(h.r2); if (h.c) nombre(h.c); }); });
-      const fila = (x) => ({ id: x.id, elo: x.elo, n: x.n, v: x.v, e: x.e, d: x.d, pos: x.pos || null, total: x.total || null, titulo: x.titulo || null, rol: us.get(x.id).role, h: x.h });
+      const fila = (x) => ({ id: x.id, elo: x.elo, n: x.n, v: x.v, e: x.e, d: x.d, pos: x.pos || null, total: x.total || null, titulo: x.titulo || null,
+        rol: us.get(x.id).role, exp: us.get(x.id).experiencia || "novel", h: x.h });
       return Response.json({
-        minimo: d.minimo,
+        minimo: d.minimo, umbrales: d.umbrales || { instructor: ELO.instructor, aprendiz: ELO.aprendiz },
         clasificados: socios.filter((x) => x.pos).sort((a, b) => a.pos - b.pos).map(fila),
         clasificando: socios.filter((x) => !x.pos).sort((a, b) => b.n - a.n || b.elo - a.elo).map(fila),
         nombres,
@@ -3609,6 +3703,105 @@ export default {
       const e = await guardaFicha(env, mbm[1], b);
       if (e) return Response.json({ error: e }, { status: e === "Ese miembro no existe" ? 404 : 400, headers: noStore });
       return Response.json({ ok: true }, { headers: noStore });
+    }
+
+    // ----- Torneos con inscripción en la web -----
+    // Detalle (público): formato, puntos, requisitos, equipos e inscritos; y, con sesión, si puedes inscribirte (o por
+    // qué no), tu inscripción y, si ya estás confirmado, el enlace para unirte en New Recruit.
+    const tdm = path.match(/^\/api\/torneos\/(\d+)(?:\/(inscripcion|confirmar|baja))?$/);
+    if (tdm) {
+      const id = Number(tdm[1]), accion = tdm[2];
+      const t = await torneoCon(env, id);
+      if (!t) return Response.json({ error: "Ese torneo no tiene inscripción en la web" }, { status: 404, headers: noStore });
+      const { ev } = t;
+      const s = await readSession(env, request);
+      const abierta = ev.starts_at > nowLocal();
+      const miEquipo = s ? t.equipos.find((e) => e.miembros.some((m) => m.id === s.id)) : null;
+      const yoMiembro = miEquipo ? miEquipo.miembros.find((m) => m.id === s.id) : null;
+      if (!accion && request.method === "GET") {
+        let yo = null;
+        if (s) {
+          const a = (await torneoAptos(env, ev, [s.id])).get(s.id) || { ok: false, motivo: "no eres socio de la web" };
+          let motivo = null;
+          if (!yoMiembro) {
+            if (!abierta) motivo = "la inscripción está cerrada";
+            else if (!a.ok) motivo = a.rango ? "tu " + a.motivo : a.motivo;
+            else if (ev.capacity && t.ocupadas + ev.tam_equipo > ev.capacity) motivo = "no quedan plazas";
+          }
+          yo = { rango: a.rango || null, exp: a.exp || null, puede: !yoMiembro && !motivo, motivo,
+            equipo: miEquipo ? miEquipo.id : null, capitan: miEquipo ? miEquipo.capitan === s.id : false, confirmado: yoMiembro ? yoMiembro.confirmado : false,
+            nr: yoMiembro && yoMiembro.confirmado ? enlaceNr(ev.nr_tournament_id) : null };
+        }
+        return Response.json({ id: ev.id, titulo: ev.title, formato: ev.formato, tam: ev.tam_equipo, puntos: ev.puntos,
+          rangos: jsonLista(ev.rangos), experiencias: jsonLista(ev.experiencias), plazas: ev.capacity, ocupadas: t.ocupadas, abierta,
+          equipos: t.equipos, yo }, { headers: { ...noStore, vary: "cookie" } });
+      }
+      if (request.method !== "POST" || !accion) return new Response("Método no permitido", { status: 405 });
+      if (!s) return Response.json({ error: "Inicia sesión con Discord" }, { status: 401, headers: noStore });
+      if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      const err = (m, st = 400) => Response.json({ error: m }, { status: st, headers: noStore });
+      if (!abierta) return err("La inscripción está cerrada");
+      // Inscribirse (en 1v1, uno solo; en parejas o equipos, el capitán con nombre de equipo y sus compañeros, que
+      // reciben un aviso en la servocalavera y confirman después).
+      if (accion === "inscripcion") {
+        if (miEquipo) return err("Ya estás inscrito en este torneo", 409);
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const comp = [...new Set((Array.isArray(b.companeros) ? b.companeros : []).map(String))].filter((x) => x !== s.id);
+        if (comp.length !== ev.tam_equipo - 1) return err(ev.tam_equipo === 1 ? "En este torneo te inscribes tú solo" : "Elige " + (ev.tam_equipo - 1) + (ev.tam_equipo === 2 ? " compañero" : " compañeros"));
+        const nombre = ev.tam_equipo > 1 ? String(b.nombre || "").trim().replace(/\s+/g, " ").slice(0, 60) : null;
+        if (ev.tam_equipo > 1 && nombre.length < 2) return err("Escribe el nombre del equipo");
+        const yaEstan = new Set(t.equipos.flatMap((e) => e.miembros.map((m) => m.id)));
+        const ocupado = comp.find((x) => yaEstan.has(x));
+        const aptos = await torneoAptos(env, ev, [s.id, ...comp]);
+        if (ocupado) return err("«" + ((aptos.get(ocupado) || {}).name || "?") + "» ya está inscrito en este torneo", 409);
+        for (const x of [s.id, ...comp]) {
+          const a = aptos.get(x);
+          if (!a) return err("Algún compañero no es socio de la web");
+          if (!a.ok) return err(x === s.id ? "No puedes inscribirte: tu " + a.motivo : "«" + a.name + "» no cumple los requisitos del torneo: " + a.motivo);
+        }
+        if (ev.capacity && t.ocupadas + ev.tam_equipo > ev.capacity) return err("No quedan plazas", 409);
+        const ins = await env.DB.prepare("INSERT INTO torneo_equipos (event_id, nombre, capitan) VALUES (?1, ?2, ?3)").bind(id, nombre, s.id).run();
+        const eq = ins.meta.last_row_id;
+        const capitan = (aptos.get(s.id) || {}).name || s.name;
+        try {
+          await env.DB.batch([
+            env.DB.prepare(`INSERT INTO torneo_miembros (equipo_id, event_id, discord_id, confirmado)
+              SELECT ?1, ?2, value, value=?3 FROM json_each(?4)`).bind(eq, id, s.id, JSON.stringify([s.id, ...comp])),
+            // Aviso en la servocalavera a cada compañero, con enlace al torneo.
+            ...(comp.length ? [env.DB.prepare(`INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace)
+              SELECT value, ?1, ?2, ?3, ?4 FROM json_each(?5)`).bind("torneo:" + id, "Invitación a un torneo",
+              capitan + " te ha apuntado a «" + ev.title + "» en el equipo «" + nombre + "». Entra para confirmar tu participación.",
+              "/calendario.html?evento=" + id, JSON.stringify(comp))] : []),
+          ]);
+        } catch (e) {
+          // Si otro se inscribió a la vez (alguien ya estaba en un equipo), se deshace.
+          await env.DB.prepare("DELETE FROM torneo_equipos WHERE id=?1").bind(eq).run();
+          return err("Alguno de los jugadores ya está inscrito en este torneo", 409);
+        }
+        return Response.json({ ok: true, equipo: eq }, { headers: noStore });
+      }
+      // Confirmar la participación (compañero invitado): ya ve el enlace de New Recruit y su aviso desaparece.
+      if (accion === "confirmar") {
+        if (!yoMiembro) return err("No estás en ningún equipo de este torneo", 404);
+        await env.DB.batch([
+          env.DB.prepare("UPDATE torneo_miembros SET confirmado=1 WHERE event_id=?1 AND discord_id=?2").bind(id, s.id),
+          env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE discord_id=?1 AND tipo=?2 AND aceptado IS NULL").bind(s.id, "torneo:" + id),
+        ]);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      // Darse de baja: el capitán borra la inscripción de todo el equipo; un compañero sale del equipo (o rechaza).
+      if (accion === "baja") {
+        if (!yoMiembro) return err("No estás en ningún equipo de este torneo", 404);
+        const quienes = miEquipo.capitan === s.id ? miEquipo.miembros.map((m) => m.id) : [s.id];
+        await env.DB.batch([
+          miEquipo.capitan === s.id
+            ? env.DB.prepare("DELETE FROM torneo_miembros WHERE equipo_id=?1").bind(miEquipo.id)
+            : env.DB.prepare("DELETE FROM torneo_miembros WHERE equipo_id=?1 AND discord_id=?2").bind(miEquipo.id, s.id),
+          ...(miEquipo.capitan === s.id ? [env.DB.prepare("DELETE FROM torneo_equipos WHERE id=?1").bind(miEquipo.id)] : []),
+          env.DB.prepare("DELETE FROM anuncios WHERE tipo=?1 AND aceptado IS NULL AND discord_id IN (SELECT value FROM json_each(?2))").bind("torneo:" + id, JSON.stringify(quienes)),
+        ]);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
     }
 
     if (path === "/api/members" && request.method === "GET") {
@@ -3825,7 +4018,7 @@ export default {
         try { d = await eloTorneoLee(env, nr); } catch (e) { return Response.json({ error: String(e.message || e).slice(0, 200) }, { status: 400, headers: noStore }); }
         if (!d.partidas.length) return Response.json({ error: "Ese torneo no tiene partidas con resultado" }, { status: 400, headers: noStore });
         const usuarios = (await env.DB.prepare("SELECT discord_id, name FROM users ORDER BY name COLLATE NOCASE").all()).results;
-        return Response.json({ nr, nombre: d.nombre, fecha: d.fecha, parejas: !!d.parejas, partidas: d.partidas.length, rondas: new Set(d.partidas.map((x) => x.r)).size,
+        return Response.json({ nr, nombre: d.nombre, fecha: d.fecha, parejas: !!d.parejas, formato: d.formato || (d.parejas ? "2v2" : "1v1"), partidas: d.partidas.length, rondas: new Set(d.partidas.map((x) => x.r)).size,
           jugadores: await eloTorneoSugerencias(env, d.jugadores), usuarios }, { headers: noStore });
       }
       if (path === "/api/admin/elo/torneo" && request.method === "POST") {
@@ -3837,6 +4030,9 @@ export default {
         if (await env.DB.prepare("SELECT 1 FROM elo_torneos WHERE nr_torneo=?1").bind(nr).first())
           return Response.json({ error: "Ese torneo ya está en el ELO" }, { status: 409, headers: noStore });
         const d = JSON.parse(c.datos), asig = b.asignaciones && typeof b.asignaciones === "object" ? b.asignaciones : {};
+        // Puntos por persona (obligatorio): deciden, con el formato, cuánto mueve el ELO cada partida.
+        if (!["cp", "1k", "2k"].includes(b.puntos)) return Response.json({ error: "Indica los puntos por persona del torneo" }, { status: 400, headers: noStore });
+        const formato = d.formato || (d.parejas ? "2v2" : "1v1");
         // Cada jugador: un socio (su id) o «redacted» (jugador antiguo). Ningún socio dos veces.
         const ids = [];
         for (const j of d.jugadores) {
@@ -3850,7 +4046,8 @@ export default {
           if (n !== ids.length) return Response.json({ error: "Algún socio no existe" }, { status: 400, headers: noStore });
         }
         const ahora = nowLocal().replace("T", " ").slice(0, 16);
-        const ins = await env.DB.prepare("INSERT INTO elo_torneos (nr_torneo, nombre, fecha, anadido, parejas) VALUES (?1, ?2, ?3, ?4, ?5)").bind(nr, d.nombre, d.fecha, ahora, d.parejas ? 1 : 0).run();
+        const ins = await env.DB.prepare("INSERT INTO elo_torneos (nr_torneo, nombre, fecha, anadido, parejas, formato, puntos) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)")
+          .bind(nr, d.nombre, d.fecha, ahora, d.parejas ? 1 : 0, formato, b.puntos).run();
         const tid = ins.meta.last_row_id;
         await env.DB.batch([
           env.DB.prepare(`INSERT INTO elo_torneo_jugadores (torneo_id, nr_participante, nr_nombre, discord_id)
@@ -3870,12 +4067,22 @@ export default {
       }
       if (path === "/api/admin/elo/torneos" && request.method === "GET") {
         const ts = (await env.DB.prepare(
-          `SELECT t.id, t.nombre, t.fecha, t.anadido, t.nr_torneo, (SELECT count(*) FROM elo_torneo_partidas p WHERE p.torneo_id=t.id) AS partidas,
+          `SELECT t.id, t.nombre, t.fecha, t.anadido, t.nr_torneo, t.formato, t.puntos, (SELECT count(*) FROM elo_torneo_partidas p WHERE p.torneo_id=t.id) AS partidas,
              (SELECT count(*) FROM elo_torneo_jugadores j WHERE j.torneo_id=t.id) AS jugadores
            FROM elo_torneos t ORDER BY t.anadido DESC`).all()).results;
         return Response.json(ts, { headers: noStore });
       }
       const etm = path.match(/^\/api\/admin\/elo\/torneo\/(\d+)$/);
+      // Cambiar los puntos por persona de un torneo ya añadido (recalcula el ELO).
+      if (etm && request.method === "PUT") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        if (!["cp", "1k", "2k"].includes(b.puntos)) return Response.json({ error: "Indica los puntos por persona del torneo" }, { status: 400, headers: noStore });
+        const r = await env.DB.prepare("UPDATE elo_torneos SET puntos=?2 WHERE id=?1").bind(Number(etm[1]), b.puntos).run();
+        if (!r.meta.changes) return Response.json({ error: "Ese torneo no está en el ELO" }, { status: 404, headers: noStore });
+        await eloCalcula(env);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
       if (etm && request.method === "DELETE") {
         if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
         const id = Number(etm[1]);
@@ -3887,17 +4094,34 @@ export default {
         await eloCalcula(env);
         return Response.json({ ok: true }, { headers: noStore });
       }
+      // Experiencia de un socio («novel» o «veterano»): la cambia el admin desde el ranking ELO.
+      if (path === "/api/admin/socio/experiencia" && request.method === "POST") {
+        if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        if (!["novel", "veterano"].includes(b.experiencia) || typeof b.discord_id !== "string") return Response.json({ error: "Datos no válidos" }, { status: 400, headers: noStore });
+        const r = await env.DB.prepare("UPDATE users SET experiencia=?2 WHERE discord_id=?1").bind(b.discord_id, b.experiencia).run();
+        if (!r.meta.changes) return Response.json({ error: "Ese socio no existe" }, { status: 404, headers: noStore });
+        return Response.json({ ok: true, experiencia: b.experiencia }, { headers: noStore });
+      }
       // ELO del club: partidas necesarias para dejar de estar «Clasificando» (0 = salen todos). Se recalcula al cambiarlo.
       if (path === "/api/admin/elo") {
-        if (request.method === "GET") return Response.json({ minimo: await eloMinimo(env) }, { headers: noStore });
+        if (request.method === "GET") return Response.json({ minimo: await eloMinimo(env), ...(await eloUmbrales(env)) }, { headers: noStore });
         if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
         if (!sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
         let b = {}; try { b = await request.json(); } catch (e) {}
         const n = Number(b.minimo);
         if (!Number.isInteger(n) || n < 0 || n > 100) return Response.json({ error: "Tiene que ser un número entre 0 y 100" }, { status: 400, headers: noStore });
-        await env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('elo_minimo', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(String(n)).run();
+        // Barreras de los rangos: mínimo de Instructor y máximo de Aprendiz (Iniciado queda entre medias).
+        const ins = Number(b.instructor), apr = Number(b.aprendiz);
+        if (!Number.isInteger(ins) || !Number.isInteger(apr) || ins < 100 || ins > 5000 || apr < 100 || apr > 5000 || apr >= ins - 1)
+          return Response.json({ error: "El máximo de Aprendiz tiene que quedar al menos 2 puntos por debajo del mínimo de Instructor" }, { status: 400, headers: noStore });
+        await env.DB.batch([
+          env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('elo_minimo', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(String(n)),
+          env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('elo_instructor', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(String(ins)),
+          env.DB.prepare("INSERT INTO ajustes (clave, valor) VALUES ('elo_aprendiz', ?1) ON CONFLICT(clave) DO UPDATE SET valor=?1").bind(String(apr)),
+        ]);
         const d = await eloCalcula(env);
-        return Response.json({ ok: true, minimo: n, clasificados: d.jugadores.filter((x) => x.pos).length }, { headers: noStore });
+        return Response.json({ ok: true, minimo: n, instructor: ins, aprendiz: apr, clasificados: d.jugadores.filter((x) => x.pos).length }, { headers: noStore });
       }
       // Temporada: estado de la liga en curso (o ninguna) y los socios para lanzar la siguiente.
       if (path === "/api/admin/liga/temporada" && request.method === "GET") {
@@ -4182,6 +4406,11 @@ export default {
           // Las quedadas son siempre físicas; los torneos, físicos u online (TTS).
           modo: b.type === "torneo" && b.modo === "online" ? "online" : "fisico",
         };
+        // Torneo con inscripción en la web: formato (1v1, 2v2 o equipos de N), puntos por persona y quién puede apuntarse
+        // (rangos de ELO y experiencia). Sin formato, el torneo se muestra como antes (solo información).
+        const ins = torneoConfig(b);
+        if (ev.type === "torneo" && ins.error) return Response.json({ error: ins.error }, { status: 400 });
+        Object.assign(ev, ev.type === "torneo" ? ins : { formato: null, tam_equipo: null, puntos: null, rangos: null, experiencias: null });
         const okCap = ev.capacity === null || (ev.capacity > 0 && ev.capacity <= 1000);
         if (
           !["quedada", "torneo"].includes(ev.type) || !ev.title ||
@@ -4192,8 +4421,10 @@ export default {
         }
         if (isCreate) {
           const r = await env.DB.prepare(
-            "INSERT INTO events (type,title,starts_at,location,description,capacity,nr_tournament_id,status,modo) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)"
-          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, ev.modo).run();
+            `INSERT INTO events (type,title,starts_at,location,description,capacity,nr_tournament_id,status,modo,formato,tam_equipo,puntos,rangos,experiencias)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)`
+          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, ev.modo,
+            ev.formato, ev.tam_equipo, ev.puntos, ev.rangos, ev.experiencias).run();
           if (ev.status === "publicado") ctx.waitUntil(avisoEvento(env, r.meta.last_row_id, ev, s.id).catch(() => {}));
           return Response.json({ ok: true, id: r.meta.last_row_id });
         }
@@ -4201,8 +4432,10 @@ export default {
         if (antes && antes.status !== "publicado" && ev.status === "publicado") ctx.waitUntil(avisoEvento(env, Number(idm[1]), ev, s.id).catch(() => {}));
         await env.DB.batch([
           env.DB.prepare(
-            "UPDATE events SET type=?1,title=?2,starts_at=?3,location=?4,description=?5,capacity=?6,nr_tournament_id=?7,status=?8,modo=?10 WHERE id=?9"
-          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, Number(idm[1]), ev.modo),
+            `UPDATE events SET type=?1,title=?2,starts_at=?3,location=?4,description=?5,capacity=?6,nr_tournament_id=?7,status=?8,modo=?10,
+               formato=?11,tam_equipo=?12,puntos=?13,rangos=?14,experiencias=?15 WHERE id=?9`
+          ).bind(ev.type, ev.title, ev.starts_at, ev.location, ev.description, ev.capacity, ev.nr, ev.status, Number(idm[1]), ev.modo,
+            ev.formato, ev.tam_equipo, ev.puntos, ev.rangos, ev.experiencias),
           // Si se han ampliado las plazas, entra gente de la lista de espera.
           env.DB.prepare(PROMOTE_SQL).bind(Number(idm[1])),
         ]);
@@ -4212,9 +4445,15 @@ export default {
       const rgm = path.match(/^\/api\/admin\/events\/(\d+)\/registrations(\.csv)?$/);
       if (rgm && request.method === "GET") {
         const eventId = Number(rgm[1]);
-        const e = await env.DB.prepare("SELECT id,title FROM events WHERE id=?1").bind(eventId).first();
+        const e = await env.DB.prepare("SELECT id,title,formato FROM events WHERE id=?1").bind(eventId).first();
         if (!e) return new Response("No encontrado", { status: 404 });
-        const { results } = await env.DB.prepare(
+        // Torneo con inscripción en la web: sus equipos (capitán y compañeros, confirmados o pendientes).
+        const torneo = e.formato ? (await env.DB.prepare(
+          `SELECT u.name, u.nr_username, te.nombre AS equipo, m.confirmado, te.created_at, (SELECT name FROM users c WHERE c.discord_id=te.capitan) AS capitan, te.capitan=m.discord_id AS es_capitan
+           FROM torneo_miembros m JOIN torneo_equipos te ON te.id=m.equipo_id LEFT JOIN users u ON u.discord_id=m.discord_id
+           WHERE m.event_id=?1 ORDER BY te.id, es_capitan DESC`
+        ).bind(eventId).all()).results : null;
+        const { results } = torneo ? { results: [] } : await env.DB.prepare(
           `SELECT u.name, u.nr_username, r.status, r.created_at, r.discord_id,
              r.activity, r.format, r.players, r.looking, r.match_id, r.side,
              (SELECT name FROM users a WHERE a.discord_id=r.added_by) AS inscrito_por
@@ -4223,10 +4462,14 @@ export default {
            ORDER BY CASE r.status WHEN 'inscrito' THEN 0 ELSE 1 END, r.id`
         ).bind(eventId).all();
         const players = await matchPlayers(env, "event_id=?1", eventId);
-        const list = withPartners(results, players).map((r) => ({
-          name: r.name, nr_username: r.nr_username, status: r.status, created_at: r.created_at,
-          plan: r.plan, partida: partidaText(r), inscrito_por: r.inscrito_por,
-        }));
+        const list = torneo
+          ? torneo.map((r) => ({ name: r.name, nr_username: r.nr_username, status: "inscrito", created_at: r.created_at || "",
+              plan: (r.equipo ? "Equipo «" + r.equipo + "»" : "Individual") + (r.confirmado ? "" : " (pendiente de confirmar)"), partida: "",
+              inscrito_por: r.es_capitan ? null : r.capitan }))
+          : withPartners(results, players).map((r) => ({
+              name: r.name, nr_username: r.nr_username, status: r.status, created_at: r.created_at,
+              plan: r.plan, partida: partidaText(r), inscrito_por: r.inscrito_por,
+            }));
         if (!rgm[2]) return Response.json(list, { headers: noStore });
         const lines = [["Nombre", "Usuario New Recruit", "Estado", "Actividad", "Partida", "Inscrito por", "Fecha de inscripción (UTC)"]]
           .concat(list.map((x) => [x.name, x.nr_username, ESTADOS[x.status] || x.status, x.plan, x.partida, x.inscrito_por, x.created_at]))
@@ -4244,7 +4487,8 @@ export default {
     
     if (path === "/api/events") {
       const { results } = await env.DB.prepare(
-        `SELECT e.id,e.type,e.title,e.starts_at,e.location,e.description,e.capacity,e.modo,
+        `SELECT e.id,e.type,e.title,e.starts_at,e.location,e.description,e.capacity,e.modo,e.formato,e.tam_equipo,e.puntos,
+           (SELECT COUNT(*) FROM torneo_miembros m WHERE m.event_id=e.id) AS jugadores,
            (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='inscrito') AS inscritos,
            (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='espera') AS en_espera
          FROM events e WHERE e.status='publicado' ORDER BY e.starts_at`

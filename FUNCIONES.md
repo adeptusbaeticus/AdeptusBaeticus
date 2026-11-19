@@ -111,6 +111,13 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Lista de espera** cuando se llenan las plazas; se avanza sola si alguien se da de baja.
 - Cancelar la inscripción.
 - Los torneos pueden ser físicos u online; las quedadas son siempre físicas.
+- **Inscripción a torneos de New Recruit** (si el admin la activa): formato (individual, parejas o equipos de N),
+  puntos por persona y qué rangos de ELO y experiencia (Novel/Veterano) pueden apuntarse; si no puedes, se dice por qué.
+  - Individual: «Inscribirme» y se muestra el enlace para unirte en New Recruit.
+  - Parejas y equipos: nombre del equipo y compañeros; a ellos les llega un aviso en la servocalavera con enlace al
+    torneo, donde confirman (o rechazan); al confirmar ven el enlace de New Recruit.
+  - Lista de inscritos (jugadores, o equipos con cada jugador confirmado o pendiente), con la ficha de cada uno.
+  - Cancelar la inscripción (el capitán, la del equipo entero) o salir del equipo hasta que empieza el torneo.
 
 ### Partidas entre socios (aspirante, miembro, admin)
 - **Buscar partida:**
@@ -132,7 +139,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 ### Administración de eventos (admin)
 - Botón **«Administrar eventos»**, que abre un panel:
   - crear y editar quedadas y torneos: tipo, físico u online, título, fecha, lugar, plazas, enlace de New Recruit,
-    estado (publicado, borrador o cancelado) y descripción;
+    estado (publicado, borrador o cancelado) y descripción; en los torneos, la inscripción en la web (formato,
+    jugadores por equipo, puntos por persona, rangos y experiencia que pueden apuntarse);
   - cancelar un evento o publicarlo de nuevo;
   - ver los **inscritos** de cada quedada (plazas libres, lista de espera, actividad, partida, quién inscribió a
     quién) y **descargarlos en CSV**.
@@ -183,10 +191,13 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **ELO del club** (propio, no el de New Recruit): todos empiezan en 1500 y cada partida de la Gran Liga lo mueve
   (fórmula de Elo, K = 32), en orden desde la primera partida de la Gran Liga 2026 y siguiendo con la actual y las
   siguientes; no cuentan las partidas perdidas por abandono. Se recalcula al llegar resultados y una vez al día.
-  Hasta 10 partidas sale «Clasificando»; después, el título y el número: **Instructor** (top 40 %), **Iniciado**
-  (top 60 %) y **Aprendiz** (el resto). Se ve en Miembros (listado y ficha) y en la ficha rápida.
+  Hasta 10 partidas sale «Clasificando»; después, el rango y el número: **Instructor** (1560 o más), **Iniciado**
+  (1460 a 1559) y **Aprendiz** (1459 o menos); el admin cambia esas barreras en Admin. Se ve en Miembros (listado y ficha) y en la ficha rápida.
   También cuentan los **torneos puntuales** que el admin añade (ver Ranking ELO). En Admin se elige cuántas partidas hacen falta para dejar de
-  estar «Clasificando» (0 = salen todos).
+  estar «Clasificando» (0 = salen todos) y las barreras de los rangos.
+  En los torneos puntuales, la partida mueve el ELO según los puntos y el formato: 2k cuenta entero; 1k, tres cuartos
+  (entero por parejas); Combat Patrol, la mitad (tres cuartos por parejas).
+- **Novel o Veterano:** cada socio es Novel salvo que el admin lo marque como Veterano (en el Ranking ELO).
 - **Ranking ELO** (botón en Miembros, página `elo.html`): los socios clasificados por su ELO (puesto, título, ELO,
   partidas y V-D-E) y, debajo, los que aún están clasificando (con al menos una partida). Al pasar el ratón por uno,
   una gráfica de sus últimas 5 partidas (victoria, derrota o empate y cuánto subió o bajó); al pulsarlo, arriba de la
@@ -198,6 +209,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   sus jugadores y resultados; cada jugador se asigna a un socio (con sugerencias: ✓ si su usuario de New Recruit ya se
   conoce, o nombres parecidos con «Usar») o a «REDACTED» si es un jugador antiguo. «Añadir al ELO» suma sus partidas,
   que cuentan desde ese momento (después de las de la Gran Liga ya jugadas). Lista de torneos añadidos con «Quitar».
+  Al añadirlo se eligen los puntos por persona (Combat Patrol, 1k o 2k), que se pueden cambiar después en la lista.
   En los torneos por parejas (2 contra 2) cada cruce cuenta como una sola partida de la pareja (con la media de su ELO)
   y en la lista sale con quién jugó y contra qué dos rivales; en los de equipos más grandes, cada mesa cuenta aparte. En esa lista, al pasar el ratón por un rival sale su ficha y al pulsarlo se abre su desglose. Desde la ficha de
   Miembros, «Ver su evolución en el ranking ELO».

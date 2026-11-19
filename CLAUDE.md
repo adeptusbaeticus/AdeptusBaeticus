@@ -33,6 +33,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - **Roles en la web:** admin, miembro y aspirante. En las fichas (Miembros y ficha rápida) la foto lleva una corona de
   laurel verde (miembro) o roja (admin) (`window.abLaurel` en `public/trofeos.js`); los aspirantes no llevan. No hay «veterano»: el rol de Discord de veterano cuenta como miembro
   (`roleOf`, y las sesiones antiguas en `leeSesion`); no mostrar «veterano» en ningún sitio.
+- **Nombres de jugadores:** siempre que se muestre el nombre de un jugador o socio en cualquier listado, tabla o evento,
+  debe llevar la ficha rápida al pasar el ratón (`window.abFicha(el, id)`, cargando `/trofeos.js` y `/ficha-hover.js`).
 - **Lista de funciones:** `FUNCIONES.md` describe todo lo que hace la web; al añadir, cambiar o quitar una función,
   actualizarla.
 - **Datos personales:** no guardar más datos personales de los necesarios; preguntar antes de
@@ -261,8 +263,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   y lo guarda en `nr_cache` `elo:club` (`{ minimo, jugadores }`, con el historial `h` de cada uno: fecha, liga y
   ronda, rival, PV, cambio y ELO tras la partida). Partidas para dejar de estar «Clasificando»: ajuste `elo_minimo` en
   Admin («ELO del club», `/api/admin/elo`, 10 por defecto; 0 = salen todos; al cambiarlo se recalcula). Después,
-  título por puesto entre los socios clasificados (`ELO_TITULOS`: Instructor top 40 %, Iniciado top 60 %,
-  Aprendiz el resto) y número. `/api/miembros` lo da en `m.elo`; `/api/elo` (público) da clasificados, «clasificando» (con al
+  rango fijo por ELO (`eloRango`, barreras en `ajustes` `elo_instructor`/`elo_aprendiz`, `eloUmbrales`; por defecto
+  **Instructor ≥ 1560**, **Iniciado 1460-1559**, **Aprendiz ≤ 1459**; se cambian en Admin junto a las partidas para
+  clasificar y al guardar se recalcula) y número. `/api/miembros` lo da en `m.elo`; `/api/elo` (público) da clasificados, «clasificando» (con al
   menos una partida), historiales y nombres para `elo.html` («Ranking ELO», botón en Miembros): tabla, mini gráfica de
   las últimas 5 partidas al pasar el ratón y, al pulsar, gráfica de toda la evolución arriba (con scroll hasta ella) y
   la lista de partidas; `elo.html#ID` la abre directamente. La gráfica grande: escala con líneas cada 5-200 puntos
@@ -283,3 +286,27 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   juega con la media de su ELO y los dos ganan o pierden lo mismo (historial con `r2` = otro rival y `c` = compañero).
   Cargado a mano desde aquí: «Adeptus Baeticus Duo I» (7-2-2026, por parejas), situado entre la Gran Liga 2026 y la
   2026/27 (`anadido` = 2026-02-28 23:59).
+  **Formato y puntos de cada torneo** (migración 0040): `elo_torneos.formato` (`1v1`, `2v2`, `equipos`, detectado al leer)
+  y `puntos` (`cp`, `1k`, `2k`, obligatorio al añadirlo y editable en la lista, `PUT /api/admin/elo/torneo/:id`, que
+  recalcula). La K de sus partidas se multiplica por `ELO_MULT[puntos][formato]` (`eloMult`; constantes en
+  `src/index.js`): 2k ×1 en todo; 1k ×0,75 (1v1 y equipos) y ×1 (parejas); Combat Patrol ×0,5 (1v1 y equipos) y ×0,75
+  (parejas). La liga siempre ×1. Duo I quedó en 2k.
+- **Novel / Veterano** (`users.experiencia`, migración 0040, `novel` por defecto): columna «Experiencia» en las dos
+  tablas de `elo.html`; el admin la cambia pulsando la etiqueta (`/api/admin/socio/experiencia`).
+
+## Torneos con inscripción en la web
+
+- Un torneo del calendario puede tener inscripción en la web (panel de eventos): `events.formato` (`1v1`, `2v2`,
+  `equipos` con `tam_equipo` de 3 a 20; vacío = solo información, como los antiguos), `puntos` (`cp`/`1k`/`2k`,
+  obligatorio) y quién puede apuntarse: `rangos` y `experiencias` (JSON; al menos uno de cada). `torneoConfig` lo
+  valida; `torneoAptos` dice si cada socio cumple (rango por su ELO actual, 1500 si no tiene partidas, aunque esté
+  «Clasificando») y el motivo si no.
+- Detalle en el calendario (`torneoDetalle` en `calendario.html`, `GET /api/torneos/:id`): formato, puntos,
+  requisitos, plazas (cuentan jugadores, también los pendientes), el motivo si no puede apuntarse (o «Entra con
+  Discord») y los inscritos con su ficha rápida. 1v1: un clic. Parejas/equipos: nombre y N-1 compañeros
+  (`POST /api/torneos/:id/inscripcion`; el servidor valida a todos); cada compañero recibe un anuncio en la
+  servocalavera (`anuncios`, tipo `torneo:ID`, con `enlace` al evento, migración 0040; «Ir al torneo») y confirma desde
+  el detalle (`/confirmar`, que acepta el anuncio). El enlace de New Recruit (`nr_tournament_id`) solo se da a los
+  confirmados. `/baja`: el capitán borra el equipo entero; un compañero, solo a sí mismo (rechazar). Todo se cierra al
+  empezar el torneo. Tablas `torneo_equipos` y `torneo_miembros` (1v1 = equipo de uno, sin nombre); los inscritos salen
+  también en «Inscritos» del panel de eventos.

@@ -41,6 +41,9 @@ textarea{min-height:80px}
 .modos button:first-child{border-left:0}
 .modos button[aria-checked=true]{background:#343B20;color:#F0CE82;font-weight:700}
 .modos button:disabled{cursor:default}
+.eloform{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:12px}
+.eloform label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#CFC9BA}
+.eloform input{width:120px;min-height:44px;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit}
 .row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
 a.chip{display:inline-flex;align-items:center;box-sizing:border-box;text-decoration:none}
@@ -84,16 +87,15 @@ table.lj select{min-width:220px}
   <p id="gate" class="m">Cargando...</p>
   <div id="app" hidden>
     <div class="card" style="margin-top:24px">
-      <div class="row" style="margin:0">
-        <div>
-          <strong>ELO del club</strong>
-          <div class="m">Partidas que hay que jugar para dejar de estar «Clasificando» y salir en la clasificación (0 = salen todos).</div>
-        </div>
-        <form class="acts" id="eloform" style="display:flex;gap:8px;align-items:center">
-          <input type="number" id="elomin" min="0" max="100" step="1" required aria-label="Partidas para clasificar" style="width:90px;min-height:44px;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit">
-          <button class="chip" type="submit">Guardar</button>
-        </form>
-      </div>
+      <strong>ELO del club</strong>
+      <div class="m">Partidas que hay que jugar para dejar de estar «Clasificando» y salir en la clasificación (0 = salen todos), y barreras de ELO de los rangos: Instructor desde el mínimo, Aprendiz hasta el máximo e Iniciado entre medias.</div>
+      <form id="eloform" class="eloform">
+        <label>Partidas para clasificar<input type="number" id="elomin" min="0" max="100" step="1" required></label>
+        <label>Instructor: desde<input type="number" id="eloins" min="100" max="5000" step="1" required></label>
+        <label>Aprendiz: hasta<input type="number" id="eloapr" min="100" max="5000" step="1" required></label>
+        <button class="chip" type="submit">Guardar</button>
+      </form>
+      <p class="m" id="elorango" style="margin:6px 0 0"></p>
       <p class="m" id="elomsg" style="margin:8px 0 0;min-height:20px"></p>
     </div>
     <div class="card" style="margin-top:24px">
@@ -204,13 +206,22 @@ navBotones().forEach((bt) => { bt.onclick = async () => {
 }; });
 // ELO del club: partidas para salir de «Clasificando».
 async function eloMin() {
-  try { const d = await (await fetch("/api/admin/elo")).json(); $("elomin").value = d.minimo; } catch (e) { $("elomsg").textContent = "No se pudo comprobar."; }
+  try {
+    const d = await (await fetch("/api/admin/elo")).json();
+    $("elomin").value = d.minimo; $("eloins").value = d.instructor; $("eloapr").value = d.aprendiz; rangoTxt();
+  } catch (e) { $("elomsg").textContent = "No se pudo comprobar."; }
 }
+// Iniciado: lo que queda entre las dos barreras.
+function rangoTxt() {
+  const i = Number($("eloins").value), a = Number($("eloapr").value);
+  $("elorango").textContent = i && a && a < i - 1 ? "Iniciado: de " + (a + 1) + " a " + (i - 1) + "." : "";
+}
+$("eloins").oninput = $("eloapr").oninput = rangoTxt;
 $("eloform").onsubmit = async (ev) => {
   ev.preventDefault();
   $("elomsg").textContent = "";
   try {
-    const r = await fetch("/api/admin/elo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ minimo: Number($("elomin").value) }) });
+    const r = await fetch("/api/admin/elo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ minimo: Number($("elomin").value), instructor: Number($("eloins").value), aprendiz: Number($("eloapr").value) }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || "No se pudo guardar.");
     $("elomsg").textContent = "Guardado. Clasificados ahora: " + d.clasificados + ".";
