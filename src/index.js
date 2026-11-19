@@ -1893,9 +1893,11 @@ async function torneoAptos(env, ev, ids) {
   const rangos = jsonLista(ev.rangos), exps = jsonLista(ev.experiencias);
   const pueden = " (pueden: " + rangos.concat(exps).map((x) => TORNEO_NOMBRE[x] || x).join(", ") + ")";
   for (const x of us) {
-    const j = de.get(x.discord_id), exp = x.experiencia || "novel";
-    const clasificado = !!j && j.n >= minimo;
-    const rango = clasificado ? eloRango(j.elo, u).toLowerCase() : "clasificando";
+    const j = de.get(x.discord_id), n = j ? j.n : 0;
+    // Novel/Veterano solo cuenta para los «Clasificando»; sin ninguna partida, siempre Clasificando novel.
+    const exp = n > 0 ? x.experiencia || "novel" : "novel";
+    const clasificado = n >= minimo;
+    const rango = clasificado ? eloRango(j ? j.elo : ELO.inicial, u).toLowerCase() : "clasificando";
     const ok = clasificado ? rangos.includes(rango) : exps.includes(exp);
     const etiqueta = clasificado ? "rango " + TORNEO_NOMBRE[rango] : TORNEO_NOMBRE[exp];
     out.set(x.discord_id, { name: x.name, rango, exp, ok, motivo: ok ? null : etiqueta + pueden,

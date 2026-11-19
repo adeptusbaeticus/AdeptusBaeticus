@@ -207,7 +207,9 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   estar «Clasificando» (0 = salen todos) y las barreras de los rangos.
   En los torneos puntuales, la partida mueve el ELO según los puntos y el formato: 2k cuenta entero; 1k, tres cuartos
   (entero por parejas); Combat Patrol, la mitad (tres cuartos por parejas).
-- **Novel o Veterano:** cada socio es Novel salvo que el admin lo marque como Veterano (en el Ranking ELO).
+- **Novel o Veterano:** solo para los que están «Clasificando»: cada uno es Novel salvo que el admin lo marque como
+  Veterano (en el Ranking ELO, en la lista de clasificando). Quien aún no ha jugado ninguna partida no sale en esa
+  lista y cuenta como Clasificando novel.
 - **Ranking ELO** (botón en Miembros, página `elo.html`): los socios clasificados por su ELO (puesto, título, ELO,
   partidas y V-D-E) y, debajo, los que aún están clasificando (con al menos una partida). Al pasar el ratón por uno,
   una gráfica de sus últimas 5 partidas (victoria, derrota o empate y cuánto subió o bajó); al pulsarlo, arriba de la

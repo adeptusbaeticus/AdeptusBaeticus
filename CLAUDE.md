@@ -291,8 +291,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   recalcula). La K de sus partidas se multiplica por `ELO_MULT[puntos][formato]` (`eloMult`; constantes en
   `src/index.js`): 2k ×1 en todo; 1k ×0,75 (1v1 y equipos) y ×1 (parejas); Combat Patrol ×0,5 (1v1 y equipos) y ×0,75
   (parejas). La liga siempre ×1. Duo I quedó en 2k.
-- **Novel / Veterano** (`users.experiencia`, migración 0040, `novel` por defecto): columna «Experiencia» en las dos
-  tablas de `elo.html`; el admin la cambia pulsando la etiqueta (`/api/admin/socio/experiencia`).
+- **Novel / Veterano** (`users.experiencia`, migración 0040, `novel` por defecto): solo aplica a los «Clasificando».
+  Columna «Experiencia» solo en la tabla de clasificando de `elo.html` (que solo muestra a los que tienen al menos una
+  partida); el admin la cambia pulsando la etiqueta (`/api/admin/socio/experiencia`). Sin partidas, siempre
+  Clasificando novel (`torneoAptos`), aunque tenga marcado Veterano.
 
 ## Torneos con inscripción en la web
 
