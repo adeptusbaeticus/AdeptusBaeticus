@@ -81,9 +81,10 @@
     // [trazos dorados], [rellenos dorados], [rellenos oscuros (huecos)]
     inicio: [["M18.5 46.5h27", "M20 46.5V18.5h24v28", "M24.5 46.5V34c-2.4-2.2-3-5.4-1.6-8.4 1.5-3.2 5-5.1 9.1-5.1s7.6 1.9 9.1 5.1c1.4 3 .8 6.2-1.6 8.4v12.5", "M32 46.5V35"], ["M30.6 20.6h2.8v2.6h-2.8z"], ["M29.4 41.2h1.2v1.2h-1.2zM33.4 41.2h1.2v1.2h-1.2z"]],
     calendario: [["M21 18.5h19a4 4 0 0 1 4 4V45H25a4 4 0 0 1-4-4z", "M21 41a4 4 0 0 1 4-4h19"], ["M27 23h12v10H27z"], ["M28.6 24.6h3v2.8h-3zM34.4 24.6h3v2.8h-3zM28.6 29h3v2.8h-3zM34.4 29h3v2.8h-3z"]],
-    w40k: [["M32 16.5l12.5 4.2v9.6c0 8.2-5.3 13.2-12.5 16.2-7.2-3-12.5-8-12.5-16.2v-9.6z"],
-      ["M32 24.5c-3.9 0-6.4 2.6-6.4 5.8 0 2.1 1 3.4 2.3 4.2V38h8.2v-3.5c1.3-.8 2.3-2.1 2.3-4.2 0-3.2-2.5-5.8-6.4-5.8z"],
-      ["M29.3 29.6a1.8 1.8 0 1 0 0 .1zM34.7 29.6a1.8 1.8 0 1 0 0 .1zM31.2 33.2h1.6l-.8 1.6z"]],
+    // (4.º y 5.º: rellenos que van encima, separados por un contorno oscuro, y sus huecos)
+    w40k: [[], ["M16.5 16.5l4.6 1.3 20 20-3.3 3.3-20-20zM47.5 16.5l-1.3 4.6-20 20-3.3-3.3 20-20zM34.4 42.6l8.2-8.2 2 2-8.2 8.2zM29.6 42.6l-8.2-8.2-2 2 8.2 8.2zM40.4 39.6l5 5-1.8 1.8-5-5zM23.6 39.6l-5 5 1.8 1.8 5-5zM46.6 45a2 2 0 1 0 0 4 2 2 0 1 0 0-4zM17.4 45a2 2 0 1 0 0 4 2 2 0 1 0 0-4z"], [],
+      ["M32 19.5c-5.6 0-9.2 3.6-9.2 8.4 0 3 1.5 5 3.4 6v4.6h11.6v-4.6c1.9-1 3.4-3 3.4-6 0-4.8-3.6-8.4-9.2-8.4z"],
+      ["M28.3 25.9a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5zM35.7 25.9a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5zM31 32.2h2l-1 2.2zM29.3 36h1v2.4h-1zM31.5 36h1v2.4h-1zM33.7 36h1v2.4h-1z"]],
     liga: [["M32 32v6.5", "M25 21.5c-4.2-1.4-7.5-.4-8.7 3 3 .1 5.2 1.2 7.2 3.4", "M39 21.5c4.2-1.4 7.5-.4 8.7 3-3 .1-5.2 1.2-7.2 3.4"],
       ["M24.5 18.5h15v5.2a7.5 7.5 0 0 1-15 0zM26.5 45.5h11l-1.8-6.2h-7.4z"], []],
     elo: [["M19 29.5l8-6.5 6 4.5 10-9", "M38 18.5h5.5V24"], ["M19 46V37h6v9zM29 46V32h6v14zM39 46V27h6v19z"], []],
@@ -130,7 +131,7 @@
     }
     rueda += "Z";
     const nuevo = (tag, attrs) => { const x = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => x.setAttribute(k, v)); return x; };
-    Object.entries(EMBLEMAS).forEach(([n, [trazos, rellenos, huecos]]) => {
+    Object.entries(EMBLEMAS).forEach(([n, [trazos, rellenos, huecos, encima, huecos2]]) => {
       const sym = nuevo("symbol", { id: "abi-" + n, viewBox: "0 0 64 64" });
       sym.appendChild(nuevo("path", { d: rueda, fill: "url(#abi-bronce)", stroke: "#2A1E0C", "stroke-width": "1.2", "stroke-linejoin": "round" }));
       sym.appendChild(nuevo("circle", { cx: 32, cy: 32, r: 25.5, fill: "none", stroke: "#E2BC63", "stroke-width": "1.2", opacity: ".8" }));
@@ -145,6 +146,13 @@
       sym.appendChild(capa(1.4, "#000", ".6"));
       sym.appendChild(capa(0, "url(#abi-oro)", "1"));
       huecos.forEach((d) => sym.appendChild(nuevo("path", { d, fill: "#17171A" })));
+      if (encima) {
+        encima.forEach((d) => sym.appendChild(nuevo("path", { d, fill: "#17171A", stroke: "#17171A", "stroke-width": "3.2", "stroke-linejoin": "round" })));
+        const g = nuevo("g", {});
+        encima.forEach((d) => { g.appendChild(nuevo("path", { d, fill: "#000", opacity: ".6", transform: "translate(0 1.2)" })); g.appendChild(nuevo("path", { d, fill: "url(#abi-oro)", stroke: "#5C4517", "stroke-width": "0.8", "stroke-linejoin": "round" })); });
+        sym.appendChild(g);
+        (huecos2 || []).forEach((d) => sym.appendChild(nuevo("path", { d, fill: "#17171A" })));
+      }
       s.appendChild(sym);
     });
     (document.body || document.documentElement).appendChild(s);
