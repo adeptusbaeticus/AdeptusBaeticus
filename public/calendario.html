@@ -222,6 +222,8 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 .tpasa{margin-top:8px}.tpasa .btn{margin-top:0}
 .tnuevo{margin-top:12px;padding-top:10px;border-top:1px solid #2C3036}.tnuevo strong{flex:1 1 100%}.tnuevo .m{flex:1 1 100%;margin:0}
 .tms.tg{flex-direction:column;align-items:stretch;gap:2px}.tms.tg .tm{flex-wrap:wrap;padding:4px 0}.tacc{display:flex;flex-wrap:wrap;flex-basis:100%}
+.tm .st.sol,.st.ab{background:#2A1A18;color:#F0A39E;border:1px solid #A3211B}
+.st.ab{font-size:12px;padding:1px 7px;border-radius:10px}.tabierto{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:2px 0 6px}.tabierto .tbtn{margin:0}
 .tm .st.cap{background:#3A2E14;color:#F0CE82;border:1px solid #D9B25A}
 .tins li{padding:8px 0;border-top:1px solid #2C3036}
 .tins li strong{display:block;margin-bottom:4px;color:#ECE7DC}
@@ -811,16 +813,21 @@ async function torneoDetalle(e, box) {
     else add("p", "m", "La inscripción está cerrada.");
   } else if (yo.equipo) {
     const mio = d.equipos.find((x) => x.id === yo.equipo);
-    if (yo.confirmado) {
+    if (yo.solicitud) {
+      // Ha pedido unirse a un equipo abierto: espera a que el capitán lo acepte.
+      add("p", "ok", "Has pedido unirte al equipo «" + mio.nombre + "». Falta que su capitán lo acepte.");
+      if (d.abierta) btn("Retirar la solicitud", "alt", (b) => { if (confirm("¿Retirar tu solicitud?")) pide("baja", null, b); });
+    } else if (yo.confirmado) {
       add("p", "ok", eq ? "Estás inscrito en el equipo «" + mio.nombre + "»." : "Estás inscrito.");
       if (yo.nr) { const a = add("a", "btn", "Unirme en New Recruit"); a.href = yo.nr; a.target = "_blank"; a.rel = "noopener"; }
       else add("p", "m", "El enlace de New Recruit estará aquí en cuanto el club lo publique.");
-      if (eq && mio.miembros.some((m) => !m.confirmado)) add("p", "m", "Faltan compañeros por confirmar.");
+      if (eq && mio.miembros.some((m) => !m.confirmado && !m.solicitud)) add("p", "m", "Faltan compañeros por confirmar.");
+      if (eq && mio.n < d.tam) add("p", "m", "Tu equipo tiene huecos libres: otros socios pueden pedir unirse" + (yo.capitan ? " y tú decides si los aceptas." : "."));
       if (d.abierta) btn(yo.capitan ? (eq ? "Cancelar la inscripción del equipo" : "Cancelar inscripción") : "Salir del equipo", "alt", (b) => {
         if (confirm(yo.capitan && eq ? "¿Cancelar la inscripción de todo el equipo?" : "¿Seguro?")) pide("baja", null, b);
       });
       // El capitán también puede irse dejando el equipo inscrito con otro capitán.
-      const otros = mio.miembros.filter((m) => m.id !== yo.id);
+      const otros = mio.miembros.filter((m) => m.id !== yo.id && !m.solicitud);
       if (d.abierta && yo.capitan && eq && otros.length) {
         const fila = add("div", "tadm tpasa");
         const sl = mkSelect("t-pasa", [["", "— Nuevo capitán —"]].concat(otros.map((m) => [m.id, m.name])));
@@ -856,19 +863,18 @@ async function torneoDetalle(e, box) {
       const libres = d.candidatos || [];
       const sels = [];
       for (let i = 1; i < d.tam; i++) {
-        const sl = mkSelect("t-comp" + i, [["", "— Elige un compañero —"]].concat(libres.map((m) => [m.id, m.name])));
+        const sl = mkSelect("t-comp" + i, [["", "— Hueco libre —"]].concat(libres.map((m) => [m.id, m.name])));
         sl.querySelectorAll("option").forEach((o, k) => { if (k) o.setAttribute("translate", "no"); });
         f.appendChild(mkField(d.tam === 2 ? "Compañero" : "Compañero " + i, sl));
         sels.push(sl);
       }
-      if (libres.length < d.tam - 1) add("p", "m", "No hay suficientes socios que cumplan los requisitos y estén libres.", f);
       add("p", "m", "Tus compañeros recibirán un aviso en la servocalavera y tendrán que confirmar su participación.", f);
+      add("p", "m", "Puedes dejar huecos libres: el equipo quedará abierto y otros socios podrán pedir unirse; tú decides si los aceptas.", f);
       const ok = add("button", "btn", "Enviar inscripción", f); ok.type = "submit";
       const no = add("button", "btn alt", "Cancelar", f); no.type = "button"; no.onclick = recarga;
       f.onsubmit = (ev) => {
         ev.preventDefault();
-        const comp = sels.map((x) => x.value);
-        if (comp.some((x) => !x)) { err.textContent = "Elige a todos tus compañeros."; return; }
+        const comp = sels.map((x) => x.value).filter(Boolean);
         if (new Set(comp).size !== comp.length) { err.textContent = "Has elegido al mismo compañero dos veces."; return; }
         pide("inscripcion", { nombre: nom.value, companeros: comp }, ok);
       };
@@ -876,6 +882,7 @@ async function torneoDetalle(e, box) {
       nom.focus();
     });
     b0.dataset.accion = "apuntarme";
+    if (d.equipos.some((x) => x.n < d.tam)) add("p", "m", "O pide unirte a un equipo abierto de la lista.");
   }
   // Inscritos: jugadores (1v1) o equipos con sus jugadores (el capitán, el primero que se inscribió, va delante),
   // confirmados o pendientes. Cada nombre, con su ficha. El admin, con «Gestionar inscritos», puede cambiarlo todo.
@@ -908,21 +915,36 @@ async function torneoDetalle(e, box) {
         mini("Cambiar nombre", fila, (b) => adm({ accion: "renombra", equipo: x.id, nombre: nom.value }, b));
         mini("Borrar equipo", fila, (b) => { if (confirm("¿Borrar este equipo y su inscripción?")) adm({ accion: "borra", equipo: x.id }, b); }, "peligro");
       } else if (eq) { const n = add("strong", "", x.nombre, li); n.setAttribute("translate", "no"); }
+      // Equipo abierto: huecos libres y, si puedes apuntarte, pedir unirte (el capitán lo acepta o lo rechaza).
+      const libres = eq ? d.tam - x.n : 0;
+      if (libres > 0) {
+        const ab = add("div", "tabierto", null, li);
+        add("span", "st ab", libres === 1 ? "Abierto · 1 hueco libre" : "Abierto · " + libres + " huecos libres", ab);
+        if (yo && yo.puede && d.abierta) mini("Pedir unirme", ab, (b) => { if (confirm("¿Pedir unirte al equipo «" + x.nombre + "»? Su capitán tendrá que aceptarte.")) pide("unirme", { equipo: x.id }, b); });
+      }
       const ms = add("div", gestion ? "tms tg" : "tms", null, li);
       x.miembros.forEach((m) => {
         const w = add("span", "tm", null, ms);
         const n = add("span", "", m.name, w); n.setAttribute("translate", "no");
         if (window.abFicha) window.abFicha(n, m.id);
         if (eq && m.id === x.capitan) add("span", "st cap", "Capitán", w);
-        if (eq || gestion || !m.confirmado) add("span", "st " + (m.confirmado ? "si" : "no"), m.confirmado ? "Confirmado" : "Pendiente", w);
+        if (m.solicitud) {
+          add("span", "st sol", "Pide unirse", w);
+          // El capitán (no en la vista de gestión del admin) acepta o rechaza la solicitud.
+          if (!gestion && yo && yo.capitan && yo.equipo === x.id && d.abierta) {
+            const ac = add("span", "tacc", null, w);
+            mini("Aceptar", ac, (b) => pide("solicitud", { discord_id: m.id, acepta: true }, b));
+            mini("Rechazar", ac, (b) => { if (confirm("¿Rechazar la solicitud de " + m.name + "?")) pide("solicitud", { discord_id: m.id, acepta: false }, b); }, "peligro");
+          }
+        } else if (eq || gestion || !m.confirmado) add("span", "st " + (m.confirmado ? "si" : "no"), m.confirmado ? "Confirmado" : "Pendiente", w);
         if (gestion) {
           const ac = add("span", "tacc", null, w);
-          mini(m.confirmado ? "Quitar confirmación" : "Confirmar", ac, (b) => adm({ accion: "confirma", discord_id: m.id, confirmado: !m.confirmado }, b));
+          mini(m.solicitud ? "Aceptar en el equipo" : m.confirmado ? "Quitar confirmación" : "Confirmar", ac, (b) => adm({ accion: "confirma", discord_id: m.id, confirmado: !m.confirmado }, b));
           mini("Recordar New Recruit", ac, (b) => adm({ accion: "recuerda", discord_id: m.id }, b, "Recordatorio enviado a la servocalavera de " + m.name + "."));
           mini("Quitar", ac, (b) => { if (confirm("¿Quitar a " + m.name + " del torneo?")) adm({ accion: "quita", discord_id: m.id }, b); }, "peligro");
         }
       });
-      if (gestion && eq && x.miembros.length < d.tam) {
+      if (gestion && eq && x.n < d.tam) {
         const fila = add("div", "tadm", null, li);
         const sl = elegir("t-add" + x.id); sl.setAttribute("aria-label", "Añadir un jugador al equipo"); fila.appendChild(sl);
         mini("Añadir al equipo", fila, (b) => { if (sl.value) adm({ accion: "anade", equipo: x.id, discord_id: sl.value }, b); });

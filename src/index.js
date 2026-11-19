@@ -1918,17 +1918,18 @@ async function torneoCon(env, id) {
   ).bind(id).first();
   if (!ev) return null;
   const filas = (await env.DB.prepare(
-    `SELECT e.id, e.nombre, e.capitan, m.discord_id, m.confirmado, u.name
+    `SELECT e.id, e.nombre, e.capitan, m.discord_id, m.confirmado, m.solicitud, u.name
      FROM torneo_equipos e JOIN torneo_miembros m ON m.equipo_id=e.id LEFT JOIN users u ON u.discord_id=m.discord_id
      WHERE e.event_id=?1 ORDER BY e.id, (m.discord_id=e.capitan) DESC, m.rowid`
   ).bind(id).all()).results;
   const equipos = [];
   for (const f of filas) {
     let eq = equipos[equipos.length - 1];
-    if (!eq || eq.id !== f.id) { eq = { id: f.id, nombre: f.nombre, capitan: f.capitan, miembros: [] }; equipos.push(eq); }
-    eq.miembros.push({ id: f.discord_id, name: f.name || "?", confirmado: !!f.confirmado });
+    if (!eq || eq.id !== f.id) { eq = { id: f.id, nombre: f.nombre, capitan: f.capitan, miembros: [], n: 0 }; equipos.push(eq); }
+    eq.miembros.push({ id: f.discord_id, name: f.name || "?", confirmado: !!f.confirmado, solicitud: !!f.solicitud });
+    if (!f.solicitud) eq.n++; // las solicitudes para unirse no ocupan hueco ni plaza hasta que el capitán las acepta
   }
-  return { ev, equipos, ocupadas: filas.length };
+  return { ev, equipos, ocupadas: equipos.reduce((a, e) => a + e.n, 0) };
 }
 
 // ===== ELO del club =====
@@ -3714,7 +3715,7 @@ export default {
     // ----- Torneos con inscripción en la web -----
     // Detalle (público): formato, puntos, requisitos, equipos e inscritos; y, con sesión, si puedes inscribirte (o por
     // qué no), tu inscripción y, si ya estás confirmado, el enlace para unirte en New Recruit.
-    const tdm = path.match(/^\/api\/torneos\/(\d+)(?:\/(inscripcion|confirmar|baja))?$/);
+    const tdm = path.match(/^\/api\/torneos\/(\d+)(?:\/(inscripcion|confirmar|baja|unirme|solicitud))?$/);
     if (tdm) {
       const id = Number(tdm[1]), accion = tdm[2];
       const t = await torneoCon(env, id);
@@ -3732,14 +3733,14 @@ export default {
           if (!yoMiembro) {
             if (!abierta) motivo = "la inscripción está cerrada";
             else if (!a.ok) motivo = a.motivoYo || a.motivo;
-            else if (ev.capacity && t.ocupadas + ev.tam_equipo > ev.capacity) motivo = "no quedan plazas";
+            else if (ev.capacity && t.ocupadas + 1 > ev.capacity) motivo = "no quedan plazas";
           }
           // Compañeros que se pueden elegir: solo los admisibles y que no están ya inscritos.
           if (!yoMiembro && !motivo && ev.tam_equipo > 1) {
             const ya = new Set(t.equipos.flatMap((e) => e.miembros.map((m) => m.id)));
             candidatos = [...(await torneoAptos(env, ev, null))].filter(([cid, c]) => c.ok && cid !== s.id && !ya.has(cid)).map(([cid, c]) => ({ id: cid, name: c.name }));
           }
-          yo = { id: s.id, rango: a.rango || null, exp: a.exp || null, puede: !yoMiembro && !motivo, motivo,
+          yo = { id: s.id, solicitud: !!(yoMiembro && yoMiembro.solicitud), rango: a.rango || null, exp: a.exp || null, puede: !yoMiembro && !motivo, motivo,
             equipo: miEquipo ? miEquipo.id : null, capitan: miEquipo ? miEquipo.capitan === s.id : false, confirmado: yoMiembro ? yoMiembro.confirmado : false,
             nr: yoMiembro && yoMiembro.confirmado ? enlaceNr(ev.nr_tournament_id) : null };
         }
@@ -3758,7 +3759,8 @@ export default {
         if (miEquipo) return err("Ya estás inscrito en este torneo", 409);
         let b = {}; try { b = await request.json(); } catch (e) {}
         const comp = [...new Set((Array.isArray(b.companeros) ? b.companeros : []).map(String))].filter((x) => x !== s.id);
-        if (comp.length !== ev.tam_equipo - 1) return err(ev.tam_equipo === 1 ? "En este torneo te inscribes tú solo" : "Elige " + (ev.tam_equipo - 1) + (ev.tam_equipo === 2 ? " compañero" : " compañeros"));
+        // En parejas o equipos se pueden dejar huecos libres: el equipo queda «abierto» y otros socios pueden pedir unirse.
+        if (comp.length > ev.tam_equipo - 1) return err(ev.tam_equipo === 1 ? "En este torneo te inscribes tú solo" : "Elige como máximo " + (ev.tam_equipo - 1) + (ev.tam_equipo === 2 ? " compañero" : " compañeros"));
         const nombre = ev.tam_equipo > 1 ? String(b.nombre || "").trim().replace(/\s+/g, " ").slice(0, 60) : null;
         if (ev.tam_equipo > 1 && nombre.length < 2) return err("Escribe el nombre del equipo");
         const yaEstan = new Set(t.equipos.flatMap((e) => e.miembros.map((m) => m.id)));
@@ -3770,7 +3772,7 @@ export default {
           if (!a) return err("Algún compañero no es socio de la web");
           if (!a.ok) return err(x === s.id ? "No puedes inscribirte: " + a.motivoYo : "«" + a.name + "» no cumple los requisitos del torneo: " + a.motivo);
         }
-        if (ev.capacity && t.ocupadas + ev.tam_equipo > ev.capacity) return err("No quedan plazas", 409);
+        if (ev.capacity && t.ocupadas + 1 + comp.length > ev.capacity) return err("No quedan plazas", 409);
         const ins = await env.DB.prepare("INSERT INTO torneo_equipos (event_id, nombre, capitan) VALUES (?1, ?2, ?3)").bind(id, nombre, s.id).run();
         const eq = ins.meta.last_row_id;
         const capitan = (aptos.get(s.id) || {}).name || s.name;
@@ -3793,7 +3795,7 @@ export default {
       }
       // Confirmar la participación (compañero invitado): ya ve el enlace de New Recruit y su aviso desaparece.
       if (accion === "confirmar") {
-        if (!yoMiembro) return err("No estás en ningún equipo de este torneo", 404);
+        if (!yoMiembro || yoMiembro.solicitud) return err("No estás en ningún equipo de este torneo", 404);
         await env.DB.batch([
           env.DB.prepare("UPDATE torneo_miembros SET confirmado=1 WHERE event_id=?1 AND discord_id=?2").bind(id, s.id),
           env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE discord_id=?1 AND tipo=?2 AND aceptado IS NULL").bind(s.id, "torneo:" + id),
@@ -3806,7 +3808,7 @@ export default {
         // El capitán puede irse pasando la capitanía a un compañero del equipo, que se mantiene inscrito.
         let b = {}; try { b = await request.json(); } catch (e) {}
         if (miEquipo.capitan === s.id && b.pasar_a != null) {
-          const nuevo = miEquipo.miembros.find((m) => m.id === String(b.pasar_a) && m.id !== s.id);
+          const nuevo = miEquipo.miembros.find((m) => m.id === String(b.pasar_a) && m.id !== s.id && !m.solicitud);
           if (!nuevo) return err("Elige a un compañero de tu equipo");
           await env.DB.batch([
             env.DB.prepare("UPDATE torneo_equipos SET capitan=?1 WHERE id=?2").bind(nuevo.id, miEquipo.id),
@@ -3825,6 +3827,60 @@ export default {
             : env.DB.prepare("DELETE FROM torneo_miembros WHERE equipo_id=?1 AND discord_id=?2").bind(miEquipo.id, s.id),
           ...(miEquipo.capitan === s.id ? [env.DB.prepare("DELETE FROM torneo_equipos WHERE id=?1").bind(miEquipo.id)] : []),
           env.DB.prepare("DELETE FROM anuncios WHERE tipo=?1 AND aceptado IS NULL AND discord_id IN (SELECT value FROM json_each(?2))").bind("torneo:" + id, JSON.stringify(quienes)),
+          // Avisos al capitán de solicitudes que ya no están (la del que se va o, si se borra el equipo, todas).
+          env.DB.prepare("DELETE FROM anuncios WHERE aceptado IS NULL AND tipo IN (SELECT ?1 || value FROM json_each(?2))").bind("torneo-sol:" + id + ":", JSON.stringify(quienes)),
+        ]);
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      // Pedir unirse a un equipo abierto (con huecos libres): el capitán recibe un aviso y lo acepta o lo rechaza.
+      if (accion === "unirme") {
+        if (miEquipo) return err("Ya estás inscrito en este torneo", 409);
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        const eq = t.equipos.find((x) => x.id === Number(b.equipo));
+        if (!eq || ev.tam_equipo < 2) return err("Ese equipo no está en el torneo", 404);
+        if (eq.n >= ev.tam_equipo) return err("Ese equipo ya está completo", 409);
+        const a = (await torneoAptos(env, ev, [s.id])).get(s.id);
+        if (!a) return err("No puedes inscribirte: no eres socio de la web");
+        if (!a.ok) return err("No puedes inscribirte: " + a.motivoYo);
+        if (ev.capacity && t.ocupadas + 1 > ev.capacity) return err("No quedan plazas", 409);
+        try {
+          await env.DB.batch([
+            env.DB.prepare("INSERT INTO torneo_miembros (equipo_id, event_id, discord_id, confirmado, solicitud) VALUES (?1, ?2, ?3, 0, 1)").bind(eq.id, id, s.id),
+            env.DB.prepare("INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace) VALUES (?1, ?2, ?3, ?4, ?5)").bind(eq.capitan, "torneo-sol:" + id + ":" + s.id,
+              "Solicitud para unirse a tu equipo", (a.name || s.name) + " quiere unirse a tu equipo «" + eq.nombre + "» en «" + ev.title + "». Entra para aceptarlo o rechazarlo.",
+              "/calendario.html?evento=" + id),
+          ]);
+        } catch (e) { return err("Ya estás inscrito en este torneo", 409); }
+        return Response.json({ ok: true }, { headers: noStore });
+      }
+      // El capitán acepta (entra confirmado, porque lo pidió él) o rechaza una solicitud para unirse a su equipo.
+      if (accion === "solicitud") {
+        let b = {}; try { b = await request.json(); } catch (e) {}
+        if (!miEquipo || miEquipo.capitan !== s.id) return err("Solo el capitán puede aceptar o rechazar solicitudes", 403);
+        const quien = miEquipo.miembros.find((m) => m.id === String(b.discord_id) && m.solicitud);
+        if (!quien) return err("Esa solicitud ya no está", 404);
+        if (b.acepta) {
+          if (miEquipo.n >= ev.tam_equipo) return err("Tu equipo ya está completo", 409);
+          if (ev.capacity && t.ocupadas + 1 > ev.capacity) return err("No quedan plazas", 409);
+        }
+        // Si con esta el equipo se llena, las demás solicitudes a ese equipo se rechazan solas (con su aviso).
+        const sobran = b.acepta && miEquipo.n + 1 >= ev.tam_equipo ? miEquipo.miembros.filter((m) => m.solicitud && m.id !== quien.id).map((m) => m.id) : [];
+        const lista = JSON.stringify(sobran);
+        await env.DB.batch([
+          ...(sobran.length ? [
+            env.DB.prepare("DELETE FROM torneo_miembros WHERE event_id=?1 AND solicitud=1 AND discord_id IN (SELECT value FROM json_each(?2))").bind(id, lista),
+            env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE aceptado IS NULL AND tipo IN (SELECT ?1 || value FROM json_each(?2))").bind("torneo-sol:" + id + ":", lista),
+            env.DB.prepare(`INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace) SELECT value, ?1, ?2, ?3, ?4 FROM json_each(?5)`).bind("torneo-res:" + id,
+              "Solicitud rechazada", "No te han aceptado en el equipo «" + miEquipo.nombre + "» de «" + ev.title + "».", "/calendario.html?evento=" + id, lista),
+          ] : []),
+          b.acepta
+            ? env.DB.prepare("UPDATE torneo_miembros SET solicitud=0, confirmado=1 WHERE event_id=?1 AND discord_id=?2").bind(id, quien.id)
+            : env.DB.prepare("DELETE FROM torneo_miembros WHERE event_id=?1 AND discord_id=?2 AND solicitud=1").bind(id, quien.id),
+          env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE tipo=?1 AND aceptado IS NULL").bind("torneo-sol:" + id + ":" + quien.id),
+          env.DB.prepare("INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace) VALUES (?1, ?2, ?3, ?4, ?5)").bind(quien.id, "torneo-res:" + id,
+            b.acepta ? "Solicitud aceptada" : "Solicitud rechazada",
+            (b.acepta ? "Te han aceptado en el equipo «" : "No te han aceptado en el equipo «") + miEquipo.nombre + "» de «" + ev.title + "»." +
+              (b.acepta ? " Ya tienes el enlace para apuntarte en New Recruit." : ""), "/calendario.html?evento=" + id),
         ]);
         return Response.json({ ok: true }, { headers: noStore });
       }
@@ -4155,7 +4211,7 @@ export default {
           const u = await env.DB.prepare("SELECT name FROM users WHERE discord_id=?1").bind(quien).first();
           if (!u) return err("Ese socio no existe", 404);
           if (eq) {
-            if (eq.miembros.length >= ev.tam_equipo) return err("Ese equipo ya está completo", 409);
+            if (eq.n >= ev.tam_equipo) return err("Ese equipo ya está completo", 409);
             await env.DB.batch([
               env.DB.prepare("INSERT INTO torneo_miembros (equipo_id, event_id, discord_id, confirmado) VALUES (?1, ?2, ?3, 0)").bind(eq.id, id, quien),
               invita(eq.nombre),
@@ -4179,16 +4235,17 @@ export default {
         }
         if (b.accion === "quita") {
           if (!suEquipo) return err("No está inscrito en este torneo", 404);
-          const resto = suEquipo.miembros.filter((m) => m.id !== quien);
+          const resto = suEquipo.miembros.filter((m) => m.id !== quien && !m.solicitud);
           // El capitán es el primero en registrarse: si sale, pasa a serlo el siguiente por orden de inscripción.
           const nuevoCap = suEquipo.capitan === quien && resto.length
-            ? await env.DB.prepare("SELECT discord_id FROM torneo_miembros WHERE equipo_id=?1 AND discord_id<>?2 ORDER BY rowid LIMIT 1").bind(suEquipo.id, quien).first()
+            ? await env.DB.prepare("SELECT discord_id FROM torneo_miembros WHERE equipo_id=?1 AND discord_id<>?2 AND solicitud=0 ORDER BY rowid LIMIT 1").bind(suEquipo.id, quien).first()
             : null;
           await env.DB.batch([
             env.DB.prepare("DELETE FROM torneo_miembros WHERE event_id=?1 AND discord_id=?2").bind(id, quien),
             resto.length
               ? env.DB.prepare("UPDATE torneo_equipos SET capitan=?1 WHERE id=?2").bind(nuevoCap ? nuevoCap.discord_id : suEquipo.capitan, suEquipo.id)
               : env.DB.prepare("DELETE FROM torneo_equipos WHERE id=?1").bind(suEquipo.id),
+            env.DB.prepare("DELETE FROM anuncios WHERE tipo=?1 AND aceptado IS NULL").bind("torneo-sol:" + id + ":" + quien),
             env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1 AND tipo IN (?2, ?3) AND aceptado IS NULL").bind(quien, "torneo:" + id, "torneo-nr:" + id),
           ]);
           return ok();
@@ -4197,7 +4254,8 @@ export default {
           if (!suEquipo) return err("No está inscrito en este torneo", 404);
           const c = b.confirmado ? 1 : 0;
           await env.DB.batch([
-            env.DB.prepare("UPDATE torneo_miembros SET confirmado=?1 WHERE event_id=?2 AND discord_id=?3").bind(c, id, quien),
+            env.DB.prepare("UPDATE torneo_miembros SET confirmado=?1, solicitud=0 WHERE event_id=?2 AND discord_id=?3").bind(c, id, quien),
+            env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE tipo=?1 AND aceptado IS NULL").bind("torneo-sol:" + id + ":" + quien),
             ...(c ? [env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE discord_id=?1 AND tipo=?2 AND aceptado IS NULL").bind(quien, "torneo:" + id)] : []),
           ]);
           return ok();
@@ -4206,6 +4264,7 @@ export default {
           if (!eq) return err("Ese equipo no está en el torneo", 404);
           await env.DB.batch([
             env.DB.prepare("DELETE FROM anuncios WHERE tipo IN (?1, ?2) AND aceptado IS NULL AND discord_id IN (SELECT discord_id FROM torneo_miembros WHERE equipo_id=?3)").bind("torneo:" + id, "torneo-nr:" + id, eq.id),
+            env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1 AND aceptado IS NULL AND tipo LIKE ?2").bind(eq.capitan, "torneo-sol:" + id + ":%"),
             env.DB.prepare("DELETE FROM torneo_miembros WHERE equipo_id=?1").bind(eq.id),
             env.DB.prepare("DELETE FROM torneo_equipos WHERE id=?1").bind(eq.id),
           ]);
@@ -4581,7 +4640,7 @@ export default {
         if (!e) return new Response("No encontrado", { status: 404 });
         // Torneo con inscripción en la web: sus equipos (capitán y compañeros, confirmados o pendientes).
         const torneo = e.formato ? (await env.DB.prepare(
-          `SELECT u.name, u.nr_username, te.nombre AS equipo, m.confirmado, te.created_at, (SELECT name FROM users c WHERE c.discord_id=te.capitan) AS capitan, te.capitan=m.discord_id AS es_capitan
+          `SELECT u.name, u.nr_username, te.nombre AS equipo, m.confirmado, m.solicitud, te.created_at, (SELECT name FROM users c WHERE c.discord_id=te.capitan) AS capitan, te.capitan=m.discord_id AS es_capitan
            FROM torneo_miembros m JOIN torneo_equipos te ON te.id=m.equipo_id LEFT JOIN users u ON u.discord_id=m.discord_id
            WHERE m.event_id=?1 ORDER BY te.id, es_capitan DESC`
         ).bind(eventId).all()).results : null;
@@ -4596,7 +4655,7 @@ export default {
         const players = await matchPlayers(env, "event_id=?1", eventId);
         const list = torneo
           ? torneo.map((r) => ({ name: r.name, nr_username: r.nr_username, status: "inscrito", created_at: r.created_at || "",
-              plan: (r.equipo ? "Equipo «" + r.equipo + "»" : "Individual") + (r.confirmado ? "" : " (pendiente de confirmar)"), partida: "",
+              plan: (r.equipo ? "Equipo «" + r.equipo + "»" : "Individual") + (r.solicitud ? " (solicitud pendiente)" : r.confirmado ? "" : " (pendiente de confirmar)"), partida: "",
               inscrito_por: r.es_capitan ? null : r.capitan }))
           : withPartners(results, players).map((r) => ({
               name: r.name, nr_username: r.nr_username, status: r.status, created_at: r.created_at,
@@ -4620,7 +4679,7 @@ export default {
     if (path === "/api/events") {
       const { results } = await env.DB.prepare(
         `SELECT e.id,e.type,e.title,e.starts_at,e.location,e.description,e.capacity,e.modo,e.formato,e.tam_equipo,e.puntos,
-           (SELECT COUNT(*) FROM torneo_miembros m WHERE m.event_id=e.id) AS jugadores,
+           (SELECT COUNT(*) FROM torneo_miembros m WHERE m.event_id=e.id AND m.solicitud=0) AS jugadores,
            (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='inscrito') AS inscritos,
            (SELECT COUNT(*) FROM registrations r WHERE r.event_id=e.id AND r.status='espera') AS en_espera
          FROM events e WHERE e.status='publicado' ORDER BY e.starts_at`

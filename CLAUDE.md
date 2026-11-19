@@ -320,3 +320,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   él de capitán, `quita` (si sale el capitán, lo es el siguiente que se inscribió; equipo vacío se borra), `confirma`
   (marcar o quitar), `borra` equipo y `recuerda`: anuncio en la servocalavera (tipo `torneo-nr:ID`, sin duplicar) para
   que se apunte en New Recruit, a un jugador o a todos los inscritos.
+- **Equipos abiertos y solicitudes** (migración 0041, `torneo_miembros.solicitud`): el capitán puede inscribir el equipo
+  con huecos libres (menos compañeros). Un socio admisible y libre pide unirse (`/unirme`, fila con `solicitud = 1`, que
+  no ocupa hueco ni plaza: `n` de cada equipo y `ocupadas` las excluyen) y el capitán recibe un anuncio
+  (`torneo-sol:ID:SOCIO`); lo acepta o rechaza en el detalle (`/solicitud`): aceptado entra confirmado; el que pidió
+  recibe un anuncio (`torneo-res:ID`). Si el equipo se llena, las demás solicitudes se rechazan solas. El que pidió
+  puede retirarla (`/baja`); el admin la acepta con «Aceptar en el equipo» (`confirma`).
