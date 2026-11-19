@@ -5,7 +5,7 @@
 // Todo con DOM (textContent), sin innerHTML.
 (function () {
   const ES_CAL = /^\/calendario(\.html)?$/.test(location.pathname);
-  const ES_LIGA = /^\/gran-liga(\.html)?$/.test(location.pathname);
+  const ES_LIGA = /^\/(warhammer-40k\/gran-liga|gran-liga(\.html)?)\/?$/.test(location.pathname);
   if (!ES_CAL && !ES_LIGA) return;
 
   const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };

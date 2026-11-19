@@ -133,7 +133,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
 <div class="c">
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
-    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a class="on" href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>
     <span id="auth"></span>
   </div>
   <h1>Miembros</h1>
@@ -153,7 +153,6 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
       <option value="ant-mas" class="ant">Antigüedad: de más a menos</option>
       <option value="ant-menos" class="ant">Antigüedad: de menos a más</option>
     </select>
-    <a class="btnelo" href="/elo.html">Ranking ELO</a>
     <button type="button" class="btn" id="btro" hidden>Asignar trofeos</button>
   </div>
   <div class="grid" id="grid"><p class="m">Cargando...</p></div>
@@ -335,7 +334,7 @@ function ficha(m) {
       fi.append(el("p", "m", "Facciones jugadas en la liga:"), w);
       fi.lastChild.previousSibling.style.margin = "10px 0 4px";
     }
-    const a = el("a", "m", "Ver la Gran Liga"); a.href = "/gran-liga.html"; a.style.cssText = "display:inline-block;margin-top:8px";
+    const a = el("a", "m", "Ver la Gran Liga"); a.href = "/warhammer-40k/gran-liga"; a.style.cssText = "display:inline-block;margin-top:8px";
     fi.appendChild(a);
   }
   // ELO del club (propio): título y número; hasta 10 partidas, «Clasificando».
@@ -348,7 +347,7 @@ function ficha(m) {
     dato(m.elo.v + "-" + m.elo.d + (m.elo.e ? "-" + m.elo.e : ""), m.elo.e ? "V-D-E" : "V-D");
     fi.appendChild(rk);
   } else fi.appendChild(el("p", "sin", "Todavía no ha jugado ninguna partida de la Gran Liga."));
-  if (m.elo) { const a = el("a", "m", "Ver su evolución en el ranking ELO"); a.href = "/elo.html#" + m.id; a.style.cssText = "display:inline-block;margin-top:8px"; fi.appendChild(a); }
+  if (m.elo) { const a = el("a", "m", "Ver su evolución en el ranking ELO"); a.href = "/warhammer-40k/ranking-elo#" + m.id; a.style.cssText = "display:inline-block;margin-top:8px"; fi.appendChild(a); }
   const nota = el("p", "m", "Empieza en 1500 y se mueve con cada partida de la Gran Liga desde 2026.");
   nota.style.cssText = "margin:8px 0 0;font-size:13px";
   fi.appendChild(nota);

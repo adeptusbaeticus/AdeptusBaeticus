@@ -30,6 +30,18 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   variables, no colores sueltos.
 - **Direcciones:** Cloudflare sirve las páginas sin `.html` (`/inscripcion.html` → `/inscripcion`): al comparar
   `location.pathname` aceptar las dos formas (`/^\/inscripcion(\.html)?$/`), o una redirección puede entrar en bucle.
+- **Navegación (una sola fuente):** el menú lo dibuja `public/nav.js` (`ITEMS`); cada página solo lleva
+  `<nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>` dentro de `.nav`, antes de
+  `#auth`. Al añadir una página o sección, añadirla en `ITEMS` (y en `SECCIONES` de `src/index.js` si va dentro de una
+  categoría). Escritorio (≥ 1024 px): desplegables accesibles y barra de la categoría (`.nb-sub`). Móvil y tablet
+  (< 1024 px): cabecera compacta, barra inferior fija (`.nb-barra`, el `body` deja hueco abajo: los elementos fijos abajo
+  deben subir por encima, como `.saltos` en Inicio) y menú lateral (`.nb-cajon`) con idioma e Inscripción/Entrar para
+  invitados (`window.abNav.invitado`, desde `auth.js`). Zonas táctiles de 44-48 px en móvil y tablet.
+- **Rutas por juego:** `/warhammer-40k/{gran-liga,ranking-elo,recursos,tutoriales}` y
+  `/juegos-de-especialista/{necromunda,blood-bowl}` las sirve el Worker (`SECCIONES`: página que entrega cada una; las
+  secciones en preparación comparten `seccion.html`, estado vacío «Próximamente» elegido por la dirección). `REDIRIGE`:
+  `/gran-liga` y `/elo` (301, conservan `?…`; el `#…` lo guarda el navegador) y las categorías sin sección (302). Enlazar
+  siempre a las direcciones nuevas (avisos, Discord, calendario…).
 - **Roles en la web:** admin, miembro y aspirante. En las fichas (Miembros y ficha rápida) la foto lleva una corona de
   laurel verde (miembro) o roja (admin) (`window.abLaurel` en `public/trofeos.js`); los aspirantes no llevan. No hay «veterano»: el rol de Discord de veterano cuenta como miembro
   (`roleOf`, y las sesiones antiguas en `leeSesion`); no mostrar «veterano» en ningún sitio.
@@ -245,7 +257,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   (`WHERE terminada=0`): todo lo automático (`ligaAuto`, recordatorios, ELO, calendario, Administrar liga,
   aplazar) la usa solo a ella, y el servidor rechaza aplazar o reemplazar en una liga terminada. En Gran Liga (título
   «Gran Liga Adeptus Baeticus»), el desplegable de arriba tiene las fases en curso y el grupo «Ligas pasadas»; cada liga
-  en `gran-liga.html?fase=ID` (podio, clasificación final, rondas sin fechas). Clasificación final de una liga pasada:
+  en `/warhammer-40k/gran-liga?fase=ID` (podio, clasificación final, rondas sin fechas). Clasificación final de una liga pasada:
   la de New Recruit (`liga_jugadores.puesto_final`, migración 0036), no la calculada. La **Gran Liga 2026** (4 rondas, 14 jugadores) se leyó una sola vez de la página pública de su torneo
   en New Recruit (`tourny_get` y `report_get_bulk`, con permiso del propietario) y se guardó con esa migración; en esa
   temporada no se subieron listas ni facciones. Partidas perdidas por **abandono**: `liga_partidas.abandono` = `a`/`b`
@@ -266,9 +278,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   rango fijo por ELO (`eloRango`, barreras en `ajustes` `elo_instructor`/`elo_aprendiz`, `eloUmbrales`; por defecto
   **Instructor ≥ 1560**, **Iniciado 1460-1559**, **Aprendiz ≤ 1459**; se cambian en Admin junto a las partidas para
   clasificar y al guardar se recalcula) y número. `/api/miembros` lo da en `m.elo`; `/api/elo` (público) da clasificados, «clasificando» (con al
-  menos una partida), historiales y nombres para `elo.html` («Ranking ELO», botón en Miembros): tabla, mini gráfica de
+  menos una partida), historiales y nombres para `elo.html` («Ranking ELO», en Warhammer 40K, `/warhammer-40k/ranking-elo`): tabla, mini gráfica de
   las últimas 5 partidas al pasar el ratón y, al pulsar, gráfica de toda la evolución arriba (con scroll hasta ella) y
-  la lista de partidas; `elo.html#ID` la abre directamente. La gráfica grande: escala con líneas cada 5-200 puntos
+  la lista de partidas; `/warhammer-40k/ranking-elo#ID` la abre directamente. La gráfica grande: escala con líneas cada 5-200 puntos
   (1500 discontinua), número de cada partida, una franja por liga con su nombre, puntos por resultado (handshake en
   gris, línea plana) con zona de toque amplia; al tocar un punto se resalta su fila (la lista se desplaza) y se muestra
   su etiqueta, y al pulsar una fila se marca su punto. En esa lista, el rival: al pasar el ratón, su ficha rápida

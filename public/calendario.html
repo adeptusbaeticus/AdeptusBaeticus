@@ -258,7 +258,7 @@ select.chip option{background:#1F2328;color:#ECE7DC}
 <div class="c">
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
-    <nav class="menu"><a href="/">Inicio</a><a class="on" href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>
     <span id="auth"></span>
   </div>
   <div class="top">
@@ -359,7 +359,7 @@ function rondasLiga() {
   });
   return out;
 }
-const enlaceRonda = (r) => "/gran-liga.html?fase=" + r.f.id + "#ronda-" + r.n;
+const enlaceRonda = (r) => "/warhammer-40k/gran-liga?fase=" + r.f.id + "#ronda-" + r.n;
 function marcasLiga(cell, key, rondas) {
   rondas.filter((r) => r.fin === key).forEach((r) => {
     const a = document.createElement("a");

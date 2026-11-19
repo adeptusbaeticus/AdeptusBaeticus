@@ -79,6 +79,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .err{color:#F0A39E;font-size:14px;min-height:20px}
 .adm{display:flex;gap:6px;margin-left:auto}
 .adm button{background:none;border:1px solid #6B6558;color:#ECE7DC;border-radius:8px;min-height:36px;padding:4px 12px;cursor:pointer;font:inherit;font-size:13px}
+@media (max-width:1023px){.adm button{min-height:44px;padding:4px 14px}}
 .adm button.del{color:#F0A39E}
 dialog{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:16px;padding:22px;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-sizing:border-box}
 dialog::backdrop{background:rgba(0,0,0,.7)}
@@ -104,7 +105,7 @@ dialog h2{font:700 22px Cinzel,Georgia,serif;margin:0 0 12px}
 <div class="c">
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
-    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>
     <span id="auth"></span>
   </div>
   <div class="cab">

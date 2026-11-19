@@ -76,7 +76,8 @@ tr.apagada td{opacity:.45}
 .hsx{display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid #6B6558;color:#CFC9BA;font:600 11px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase}
 #adm{margin:0 0 24px}
 #adm h2{margin:0;font-size:20px;display:inline}
-#adm summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;min-height:32px}
+#adm summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;min-height:48px}
+@media (max-width:1023px){table button.exp{min-height:40px;padding-left:12px;padding-right:12px}}
 #adm summary::-webkit-details-marker{display:none}
 #adm summary::before{content:"▸";color:#D9B25A;font-size:18px}
 #adm details[open] summary::before{content:"▾"}
@@ -101,19 +102,18 @@ button.exp:hover{background:#2A2618}
 /* Mini gráfica (al pasar el ratón) */
 .mini{position:absolute;z-index:60;background:#1F2328;border:1px solid #6B5A2E;border-radius:12px;padding:10px 12px;box-shadow:0 12px 32px rgba(0,0,0,.5);pointer-events:none;font-size:13px}
 .mini strong{display:block;font:700 14px Cinzel,Georgia,serif;margin-bottom:4px}
-@media (max-width:600px){h1{font-size:30px}.c{padding:0 16px 48px}th,td{padding:8px 5px;font-size:14px}.oc{display:none}}
+@media (max-width:600px){h1{font-size:30px}.c{padding:0 16px 48px}th,td{padding:8px 5px;font-size:14px}.oc{display:none}td.izq{white-space:normal;overflow-wrap:anywhere}.tabla{padding:8px}table button.exp{padding:0 8px;font-size:10px;min-height:40px}}
 </style>
 </head>
 <body>
 <div class="c">
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
-    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a class="on" href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>
     <span id="auth"></span>
   </div>
   <h1>Ranking ELO del club</h1>
   <p class="lead">Todos empiezan en 1500 y cada partida de la Gran Liga lo mueve. Pasa el ratón por un jugador para ver sus últimas 5 partidas, o púlsalo para ver toda su evolución.</p>
-  <div class="acc"><a class="chip" href="/miembros.html">← Volver a Miembros</a></div>
   <section id="adm" class="card" hidden></section>
   <p class="m" id="msg">Cargando...</p>
   <section id="graf" class="card" hidden aria-live="polite"></section>

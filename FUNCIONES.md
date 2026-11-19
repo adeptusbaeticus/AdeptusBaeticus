@@ -7,6 +7,18 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 
 ## 1. Comunes a toda la web
 
+### Navegación
+- **Secciones:** Inicio, Calendario, **Warhammer 40K** (Gran Liga, Ranking ELO, Recursos y Tutoriales), **Juegos de
+  especialista** (Necromunda y Blood Bowl), Galería, Miembros y Reglas y FAQ. Recursos, Tutoriales, Necromunda y Blood
+  Bowl están en preparación («Próximamente», con enlaces a la Gran Liga y al Calendario).
+- **Ordenador:** barra principal con desplegables para Warhammer 40K y Juegos de especialista (ratón, clic o teclado:
+  Tab, Enter, flechas y Escape) y, dentro de una categoría, una barra con sus secciones; se marca dónde estás.
+- **Móvil y tablet:** cabecera compacta, **barra inferior fija** (Inicio, Calendario, 40K, Galería y Más) y un menú
+  lateral con acordeones para las dos categorías, el idioma y, para invitados, Inscripción y Entrar con Discord.
+  Botones grandes (48 px o más), se cierra al elegir una sección, con Escape o tocando fuera.
+- Las direcciones antiguas (`/gran-liga`, `/elo`) llevan a las nuevas (`/warhammer-40k/gran-liga`,
+  `/warhammer-40k/ranking-elo`) sin perder la liga ni la ronda.
+
 ### Cuenta y acceso
 - **Entrar con Discord.** La web no tiene contraseñas propias: se entra con la cuenta de Discord del servidor del club.
 - **Roles de la web:** admin, miembro y aspirante, sacados del rol que tiene cada uno en Discord. El rol de veterano
@@ -210,7 +222,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Novel o Veterano:** solo para los que están «Clasificando»: cada uno es Novel salvo que el admin lo marque como
   Veterano (en el Ranking ELO, en la lista de clasificando). Quien aún no ha jugado ninguna partida no sale en esa
   lista y cuenta como Clasificando novel.
-- **Ranking ELO** (botón en Miembros, página `elo.html`): los socios clasificados por su ELO (puesto, título, ELO,
+- **Ranking ELO** (Warhammer 40K → Ranking ELO): los socios clasificados por su ELO (puesto, título, ELO,
   partidas y V-D-E) y, debajo, los que aún están clasificando (con al menos una partida). Al pasar el ratón por uno,
   una gráfica de sus últimas 5 partidas (victoria, derrota o empate y cuánto subió o bajó); al pulsarlo, arriba de la
   tabla, la gráfica de toda su evolución (escala detallada, número de partida, separación por ligas y las «handshake» en

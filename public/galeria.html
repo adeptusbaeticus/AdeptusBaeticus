@@ -58,6 +58,8 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .fil{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 24px}
 .fil label{display:block;font-weight:600;font-size:13px;color:#A8A293;margin-bottom:4px}
 .fil select{min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit;min-width:220px}
+.fil>div{flex:1 1 220px;min-width:0;max-width:100%}.fil select{width:100%;max-width:100%;min-width:0}
+@media (max-width:1023px){.bless{min-height:44px}.post button.borrar{min-height:44px;padding:0 8px}}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;z-index:50;gap:12px}
 .ov img{max-width:100%;max-height:74vh;border-radius:8px}
 /* Zoom: rueda o doble clic en el ordenador; pellizco y doble toque en el móvil; arrastrar para moverse. */
@@ -158,7 +160,7 @@ html,body{overflow-x:clip}
 <div class="c">
   <div class="nav">
     <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
-    <nav class="menu"><a href="/">Inicio</a><a href="/calendario.html">Calendario</a><a class="on" href="/galeria.html">Galería</a><a href="/gran-liga.html">Gran Liga</a><a href="/miembros.html">Miembros</a><a href="/faq.html">Reglas y FAQ</a></nav>
+    <nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>
     <span id="auth"></span>
   </div>
   <h1>Galería</h1>

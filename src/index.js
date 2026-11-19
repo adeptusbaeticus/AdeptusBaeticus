@@ -1013,7 +1013,12 @@ const OG_PAGINAS = {
   "/": ["Adeptus Baeticus · Club de Warhammer 40.000 en Málaga", "Club gratuito y abierto a noveles: quedada el primer sábado de cada mes en 2d6 Store, Gran Liga, torneos y pintura."],
   "/calendario": ["Calendario · Adeptus Baeticus", "Quedadas, torneos y partidas del club. Apúntate o busca rival."],
   "/galeria": ["Galería · Adeptus Baeticus", "Miniaturas pintadas por los socios del club."],
-  "/gran-liga": ["Gran Liga Adeptus · Adeptus Baeticus", "Clasificación, rondas y resultados de la liga del club."],
+  "/warhammer-40k/gran-liga": ["Gran Liga Adeptus Baeticus · Adeptus Baeticus", "Clasificación, rondas y resultados de la liga del club."],
+  "/warhammer-40k/ranking-elo": ["Ranking ELO · Adeptus Baeticus", "El ranking ELO del club: Gran Liga y torneos de Warhammer 40.000."],
+  "/warhammer-40k/recursos": ["Recursos de Warhammer 40K · Adeptus Baeticus", "Recursos de Warhammer 40.000 del club. Próximamente."],
+  "/warhammer-40k/tutoriales": ["Tutoriales de Warhammer 40K · Adeptus Baeticus", "Tutoriales de Warhammer 40.000 del club. Próximamente."],
+  "/juegos-de-especialista/necromunda": ["Necromunda · Adeptus Baeticus", "Necromunda en el club. Próximamente."],
+  "/juegos-de-especialista/blood-bowl": ["Blood Bowl · Adeptus Baeticus", "Blood Bowl en el club. Próximamente."],
   "/miembros": ["Miembros · Adeptus Baeticus", "Los socios del club: sus facciones, su ranking y su palmarés."],
   "/faq": ["Reglas y FAQ · Adeptus Baeticus", "El reglamento del club y las dudas más habituales."],
   "/encuestas": ["Encuestas · Adeptus Baeticus", "Las votaciones del club."],
@@ -1022,8 +1027,8 @@ const OG_PAGINAS = {
 const escAttr = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 // Etiquetas de la vista previa de una dirección (para un evento concreto, su nombre, fecha y lugar).
 async function ogPara(env, url) {
-  // Cloudflare sirve las páginas sin «.html» (/gran-liga.html → /gran-liga): se aceptan las dos formas.
-  let ruta = url.pathname.replace(/\.html$/, "");
+  // Cloudflare sirve las páginas sin «.html» (/calendario.html → /calendario): se aceptan las dos formas.
+  let ruta = url.pathname.replace(/\.html$/, "").replace(/(.)\/+$/, "$1");
   if (ruta === "/index") ruta = "/";
   let [titulo, desc] = OG_PAGINAS[ruta] || ["Adeptus Baeticus", OG_PAGINAS["/"][1]];
   const id = ruta === "/calendario" ? Number(url.searchParams.get("evento")) : 0;
@@ -1276,10 +1281,10 @@ async function ligaRecordatorios(env, ahora = nowLocal(), faseDada) {
           if (!yoId) { sinCuenta.push(yo + " (sin cuenta vinculada)"); continue; }
           const texto = tipo === "inicio"
             ? "⚔️ **Gran Liga · " + nombreRonda + "**\nJuegas contra **" + rival + "**" + (aplazadas ? "" : " (mesa " + p.mesa + ")") + ".\n" +
-              "Plazo: hasta el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Resultado en New Recruit: <" + enlace + ">\n" : "") + "Calendario y clasificación: <" + WEB + "/gran-liga.html>"
+              "Plazo: hasta el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Resultado en New Recruit: <" + enlace + ">\n" : "") + "Calendario y clasificación: <" + WEB + "/warhammer-40k/gran-liga>"
             : "⏰ **Gran Liga · " + nombreRonda + "**\nAún no está subido el resultado de tu partida contra **" + rival + "**.\n" +
               "El plazo termina el " + fechaLarga(fin) + " a las 14:00.\n" + (enlace ? "Súbelo en New Recruit: <" + enlace + ">" : "");
-          const push = { tag: "liga", url: "/gran-liga.html?fase=" + fase.id + "#ronda-" + n,
+          const push = { tag: "liga", url: "/warhammer-40k/gran-liga?fase=" + fase.id + "#ronda-" + n,
             titulo: tipo === "inicio" ? "Gran Liga · " + nombreRonda : "Gran Liga · falta tu resultado",
             texto: tipo === "inicio" ? "Juegas contra " + rival + (aplazadas ? "" : " (mesa " + p.mesa + ")") + ". Plazo: " + fechaLarga(fin) + " a las 14:00."
               : "Aún no está subido el resultado contra " + rival + ". Plazo: " + fechaLarga(fin) + " a las 14:00." };
@@ -1378,9 +1383,9 @@ async function calendarioEventos(env, uid) {
       const rival = p.a_id === uid ? p.b : p.a;
       const res = p.pv_a != null ? " (" + (p.a_id === uid ? p.pv_a + "–" + p.pv_b : p.pv_b + "–" + p.pv_a) + ")" : "";
       ev.push({ uid: "liga-" + p.id, dia: masDias(ini, 1), hastaDia: fin, titulo: "🗡️ Gran Liga R" + n + " · contra " + rival + res,
-        desc: "Mesa " + p.mesa + ". Cierre: " + fin + " a las 14:00.", url: WEB + "/gran-liga.html?fase=" + fase.id + "#ronda-" + n });
+        desc: "Mesa " + p.mesa + ". Cierre: " + fin + " a las 14:00.", url: WEB + "/warhammer-40k/gran-liga?fase=" + fase.id + "#ronda-" + n });
       if (p.pv_a == null) ev.push({ uid: "liga-cierre-" + p.id, inicio: fin + "T13:00", fin: fin + "T14:00", titulo: "⏰ Cierre Gran Liga R" + n + ": sube el resultado contra " + rival,
-        url: WEB + "/gran-liga.html?fase=" + fase.id + "#ronda-" + n });
+        url: WEB + "/warhammer-40k/gran-liga?fase=" + fase.id + "#ronda-" + n });
     }
   }
   return ev;
@@ -4723,8 +4728,29 @@ export default {
       }
     }
 
+    // Secciones agrupadas por juego: /warhammer-40k/… y /juegos-de-especialista/… (cada una sirve su página); las
+    // direcciones antiguas (/gran-liga, /elo) y las de las categorías redirigen conservando ?… (y el #… lo guarda el
+    // navegador).
+    const ruta = url.pathname.replace(/\/+$/, "") || "/";
+    const red = REDIRIGE[ruta.replace(/\.html$/, "")];
+    if (red && request.method === "GET") return Response.redirect(url.origin + red + url.search, ruta.startsWith("/gran-liga") || ruta.startsWith("/elo") ? 301 : 302);
+    if (SECCIONES[ruta]) {
+      const pagina = new Request(new URL(SECCIONES[ruta], url).toString(), request);
+      return conVistaPrevia(request, env, url, await env.ASSETS.fetch(pagina));
+    }
     return conVistaPrevia(request, env, url, await env.ASSETS.fetch(request));
   },
+};
+// Dirección de cada sección → página que la sirve (sin «.html»: así la entrega el servidor de estáticos).
+const SECCIONES = {
+  "/warhammer-40k/gran-liga": "/gran-liga", "/warhammer-40k/ranking-elo": "/elo",
+  "/warhammer-40k/recursos": "/seccion", "/warhammer-40k/tutoriales": "/seccion",
+  "/juegos-de-especialista/necromunda": "/seccion", "/juegos-de-especialista/blood-bowl": "/seccion",
+};
+const REDIRIGE = {
+  "/gran-liga": "/warhammer-40k/gran-liga", "/elo": "/warhammer-40k/ranking-elo",
+  "/warhammer-40k": "/warhammer-40k/gran-liga", "/juegos-de-especialista": "/juegos-de-especialista/necromunda",
+  "/seccion": "/warhammer-40k/recursos",
 };
 
 // Solo para las pruebas automáticas (no es una ruta de la web).

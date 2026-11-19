@@ -15,7 +15,7 @@
   ],
   "shortcuts": [
     { "name": "Calendario", "url": "/calendario.html", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Gran Liga", "url": "/gran-liga.html", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Gran Liga", "url": "/warhammer-40k/gran-liga", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Mi ficha", "url": "/miembros.html#yo", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -523,6 +523,7 @@
 
   // Pestaña «Inscripción» en el menú principal, solo para quien no ha entrado (invitados).
   function pestanaInscripcion(mostrar) {
+    if (window.abNav) window.abNav.invitado(mostrar);
     const menu = document.querySelector(".nav .menu");
     if (!menu) return;
     let a = menu.querySelector("a.insc");
