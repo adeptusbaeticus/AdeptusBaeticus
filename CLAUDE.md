@@ -216,6 +216,9 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
 - Cada modalidad de partida tiene su icono (`public/iconos-juego.js`, `iconoJuego()`): placas de esquinas cortadas
   con letra Cinzel para Combat Patrol, 40k 1K y 40k 2K, máscara de gas (Necromunda) y balón con pinchos (Blood
   Bowl). Dibujo propio: no usar logos, ilustraciones ni tipografías de Games Workshop (son marcas registradas).
+  Mismo estilo que los medallones: emblema en oro (degradados `ij-oro`/`ij-oro-alto`, en coordenadas del icono) con
+  relieve sobre placa o disco oscuro con borde de bronce; los cuadros de físico/online (`.mq`) llevan aro de bronce y
+  relieve, con sus colores de `colores.css`.
 
 ## Gran Liga Adeptus
 

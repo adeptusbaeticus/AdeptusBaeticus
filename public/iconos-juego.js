@@ -47,6 +47,26 @@
       ["M2.6 6.9.5 6.2l2.4-1zM11.4 6.9l2.1-.7-2.4-1zM2.6 13.1l-2.1.7 2.4 1zM11.4 13.1l2.1.7-2.4 1z", true],
     ],
   };
+  // Estilo de los medallones del menú (nav.js): emblema en oro con relieve sobre placa o disco oscuro con borde de
+  // bronce. Degradados comunes (en coordenadas del icono, para que valgan también en líneas rectas).
+  let defsListos = false;
+  function defs() {
+    if (defsListos || !document.body) return;
+    defsListos = true;
+    const NS = "http://www.w3.org/2000/svg";
+    const s = document.createElementNS(NS, "svg");
+    s.setAttribute("aria-hidden", "true"); s.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
+    const d = document.createElementNS(NS, "defs");
+    [["ij-oro", 16], ["ij-oro-alto", 20]].forEach(([id, alto]) => {
+      const g = document.createElementNS(NS, "linearGradient");
+      g.id = id; g.setAttribute("gradientUnits", "userSpaceOnUse");
+      g.setAttribute("x1", "0"); g.setAttribute("y1", "0"); g.setAttribute("x2", "0"); g.setAttribute("y2", String(alto));
+      [["0", "#FBE7A8"], ["0.5", "#E2BC63"], ["1", "#9A7530"]].forEach(([o, c]) => { const st = document.createElementNS(NS, "stop"); st.setAttribute("offset", o); st.setAttribute("stop-color", c); g.appendChild(st); });
+      d.appendChild(g);
+    });
+    s.appendChild(d);
+    document.body.appendChild(s);
+  }
   // Devuelve un <span class="ij"> con el icono; con texto (aria-label/title) salvo que sea decorativo.
   // alto = versión vertical si la hay.
   window.iconoJuego = function (activity, decorativo, alto) {
@@ -59,8 +79,18 @@
     if (decorativo) w.setAttribute("aria-hidden", "true");
     else { w.setAttribute("role", "img"); w.setAttribute("aria-label", def[0]); w.title = def[0]; }
     const NS = "http://www.w3.org/2000/svg";
+    defs();
+    const oro = "url(#" + (vertical ? "ij-oro-alto" : "ij-oro") + ")";
     const svg = document.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", vertical ? "0 0 14 20" : "0 0 16 16");
+    svg.style.filter = "drop-shadow(0 .6px 0 rgba(0,0,0,.85))";
+    // Fondo: la placa (si el icono la lleva) o un disco oscuro con borde de bronce.
+    const placa = def[1].find((x) => x[0] === MARCO || x[0] === MARCO_ALTO);
+    const fondo = document.createElementNS(NS, placa ? "path" : "circle");
+    if (placa) fondo.setAttribute("d", placa[0]);
+    else { fondo.setAttribute("cx", vertical ? "7" : "8"); fondo.setAttribute("cy", vertical ? "10" : "8"); fondo.setAttribute("r", vertical ? "6.6" : "7.6"); }
+    fondo.setAttribute("fill", "#1B1C1F"); fondo.setAttribute("stroke", placa ? "none" : "#9C7A35"); fondo.setAttribute("stroke-width", ".8");
+    svg.appendChild(fondo);
     if (vertical) w.classList.add("ij-alto");
     svg.setAttribute("aria-hidden", "true");
     def[1].forEach(([d, relleno, y, tam, ancho]) => {
@@ -71,7 +101,7 @@
         t.textContent = relleno;
         t.setAttribute("x", vertical ? "7" : "8"); t.setAttribute("y", String(y));
         t.setAttribute("text-anchor", "middle");
-        t.setAttribute("fill", "currentColor"); t.setAttribute("stroke", "none");
+        t.setAttribute("fill", oro); t.setAttribute("stroke", "none");
         t.setAttribute("style", "font:700 " + (tam || 5.6) + "px Cinzel,Georgia,serif");
         if (ancho) { t.setAttribute("textLength", String(ancho)); t.setAttribute("lengthAdjust", "spacingAndGlyphs"); }
         svg.appendChild(t);
@@ -80,7 +110,8 @@
       const p = document.createElementNS(NS, "path");
       p.setAttribute("d", d);
       if (grosor) p.setAttribute("stroke-width", String(grosor));
-      if (relleno) { p.setAttribute("fill", "currentColor"); p.setAttribute("fill-rule", "evenodd"); p.setAttribute("stroke", "none"); }
+      if (relleno) { p.setAttribute("fill", oro); p.setAttribute("fill-rule", "evenodd"); p.setAttribute("stroke", "none"); }
+      else { p.setAttribute("fill", "none"); p.setAttribute("stroke", oro); }
       svg.appendChild(p);
     });
     w.appendChild(svg);
