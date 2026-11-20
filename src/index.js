@@ -337,9 +337,9 @@ async function listPartidas(env, uid, id) {
     const jug = js.results.filter((j) => j.partida_id === p.id);
     return {
       id: p.id, activity: p.activity, format: p.format, players: p.players, plan: planText(p),
-      organiza: p.organiza, availability: JSON.parse(p.availability), starts_at: p.starts_at,
+      organiza: p.organiza, organiza_id: p.created_by, availability: JSON.parse(p.availability), starts_at: p.starts_at,
       last_day: p.last_day, mesa: p.mesa, status: p.status, team_a: p.team_a, team_b: p.team_b, modo: p.modo, lugar: p.lugar,
-      jugadores: jug.map((j) => ({ name: j.name, side: j.side, yo: j.discord_id === uid })),
+      jugadores: jug.map((j) => ({ id: j.discord_id, name: j.name, side: j.side, yo: j.discord_id === uid })),
       faltan: Math.max(0, p.team_a + p.team_b - jug.length),
       mia: p.created_by === uid,
       dentro: jug.some((j) => j.discord_id === uid),

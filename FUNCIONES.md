@@ -157,7 +157,14 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
     apunte en New Recruit.
 
 ### Partidas entre socios (aspirante, miembro, admin)
-- **Buscar partida:**
+- Botón partido en dos en el calendario: **«Buscar partida»** a la izquierda y **«Publicar partida»** a la derecha.
+- **Buscar partida:** listado de las partidas publicadas que aún no se han jugado (una fila por día ofrecido), con
+  filtros de modalidad, físico u online, día y franja horaria (mañana, tarde o noche; cuenta si la disponibilidad se
+  solapa con la franja) y «Solo con huecos libres» (marcado al entrar). Cada fila: día y hora, modalidad, quién
+  organiza (con su ficha rápida), lugar y cuántos faltan («Tuya», «Estás dentro» o «Completa»). Al pulsarla se abre
+  la partida con «Volver al listado»; los filtros se recuerdan durante la visita. Enlace directo `?buscar=1`
+  (`?publicar=1` abre el formulario).
+- **Publicar partida:**
   - modalidad y formato (1 contra 1, 1 contra 2, por parejas);
   - número de participantes;
   - días y horas en los que puedes en los próximos 7 días;

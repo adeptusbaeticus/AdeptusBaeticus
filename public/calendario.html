@@ -114,6 +114,43 @@ h1{font:700 34px/1.1 Cinzel,Georgia,serif;margin:0}
 .nv.del:hover{border-color:#F0A39E;color:#F0A39E}
 .nv.cal-b{display:inline-flex;align-items:center;justify-content:center;color:#D9B25A}
 .nv.cal-b:hover{border-color:#D9B25A}
+/* Botón partido: a la izquierda buscar (listado), a la derecha publicar. */
+.split{display:inline-flex;align-items:stretch}
+.split[hidden]{display:none}
+.split .btn{margin:0;display:inline-flex;align-items:center;gap:8px;padding:10px 16px}
+.split .btn:first-child{border-radius:8px 0 0 8px;background:#1F2328;color:#ECE7DC;border:1px solid #A3211B;border-right:0}
+.split .btn:first-child:hover{background:#262A30}
+.split .btn:last-child{border-radius:0 8px 8px 0;border:1px solid #A3211B}
+.split .btn:last-child:hover{filter:brightness(1.12)}
+.split .btn:focus-visible{outline:2px solid #D9B25A;outline-offset:2px;position:relative;z-index:1}
+@media (max-width:600px){
+  .filtros .acc{flex-wrap:nowrap;width:100%}
+  .split{flex:1;min-width:0}
+  .split .btn{flex:1;justify-content:center;padding:10px 8px;font-size:14px;gap:6px;min-height:48px}
+}
+.split .btn{white-space:nowrap}
+@media (max-width:440px){.split .btn svg{display:none}}
+html.ab-movil .bl-i .bl-h{min-width:50px}
+html.ab-movil .bl-i{gap:8px;padding:8px 10px}
+/* Listado de partidas para buscar: filtros y filas. */
+.bl-f{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:4px 0 10px}
+.bl-f label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#A8A293}
+.bl-f select{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;font:inherit;min-height:44px}
+.bl-f .rad{grid-column:1/-1;flex-direction:row;align-items:center;min-height:44px;color:#ECE7DC;font-size:14px}
+.bl-n{font-size:13px;color:#A8A293;margin:0 0 8px}
+.bl-i{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#15171A;border:1px solid #2C3036;border-left:4px solid var(--partida);border-radius:10px;padding:8px 12px;margin-bottom:6px;color:#ECE7DC;font:inherit;cursor:pointer;box-sizing:border-box;min-height:56px}
+.bl-i:hover,.bl-i:focus-visible{border-color:#D9B25A;outline:none}
+.bl-i.x{border-left-color:var(--partida-osc)}
+.bl-i.x .bl-t strong{color:#A8A293}
+.bl-i .bl-h{flex:none;min-width:58px;text-align:center;line-height:1.15}
+.bl-i .bl-h b{display:block;font:700 14px Inter,sans-serif;text-transform:capitalize}
+.bl-i .bl-h small{display:block;font-size:12px;color:#A8A293}
+.bl-i .bl-t{flex:1;min-width:0}
+.bl-i .bl-t strong{display:flex;align-items:center;gap:6px;font-size:14px;overflow-wrap:anywhere}
+.bl-i .bl-t>span{display:block;font-size:13px;color:#A8A293}
+.bl-i .bl-e{flex:none;font:600 12px Inter,sans-serif;border-radius:999px;padding:3px 8px;background:#262A30;color:#F0CE82;border:1px solid #6B6558;white-space:nowrap}
+.bl-i.x .bl-e{color:#A8A293}
+.bl-v{margin:0 0 10px}
 #dcal{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:14px;padding:22px;width:min(480px,calc(100vw - 32px));box-sizing:border-box}
 #dcal::backdrop{background:rgba(0,0,0,.7)}
 #dcal h3{font:700 22px Cinzel,Georgia,serif;margin:0 0 8px}
@@ -292,7 +329,16 @@ select.chip option{background:#1F2328;color:#ECE7DC}
       <button class="nv cal-b" id="bcal" type="button" aria-label="Añadir a mi calendario" title="Añadir a mi calendario">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 13v5M9.5 15.5h5"/></svg>
       </button>
-      <button class="btn" id="bp" type="button" hidden style="margin:0">Buscar partida</button>
+      <div class="split" id="bp" role="group" aria-label="Partidas" hidden>
+        <button class="btn" id="bpb" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+          <span>Buscar partida</span>
+        </button>
+        <button class="btn" id="bpp" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Publicar partida</span>
+        </button>
+      </div>
       <a class="btn" id="bpl" href="/auth/login" hidden style="margin:0;text-decoration:none">Entra con Discord para buscar partida</a>
       <button class="nv del" id="bdel" type="button" hidden aria-label="Borrar mis partidas" title="Borrar mis partidas">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
@@ -709,6 +755,15 @@ function irAFicha() {
   const y = det.getBoundingClientRect().top + window.scrollY - alto - 12;
   const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   window.scrollTo({ top: Math.max(0, y), left: 0, behavior: suave ? "smooth" : "auto" });
+}
+
+// Nombre de un jugador con su ficha rápida (al pasar el ratón; con soloRaton deja libre el clic del botón que lo contiene).
+function nombreJugador(nombre, id, soloRaton) {
+  const s = document.createElement("span");
+  s.textContent = nombre;
+  s.setAttribute("translate", "no");
+  if (window.abFicha) window.abFicha(s, id || null, soloRaton ? { soloRaton: true } : undefined);
+  return s;
 }
 
 // Medallón de un tipo de evento (dibujo común de nav.js); null si no está cargado.
@@ -1274,7 +1329,8 @@ function showPartida(p) {
   const tp = add("h3", "", partidaTitulo(p));
   const ijf = iconoJuego(p.activity, true); if (ijf) tp.prepend(ijf);
   box.appendChild(lineaModo(p.modo, p.modo === "online" ? null : p.lugar || (p.modo === "ambos" ? "" : "A decidir")));
-  add("p", "m", "Organiza: " + p.organiza);
+  const org = add("p", "m", "Organiza: ");
+  org.appendChild(nombreJugador(p.organiza, p.organiza_id));
   if (p.starts_at) add("p", "", fechaLarga(p.starts_at.slice(0, 10)) + " · " + p.starts_at.slice(11, 16));
   else {
     add("p", "", "Puede jugar:");
@@ -1290,12 +1346,18 @@ function showPartida(p) {
 
   // Jugadores por bando, con los huecos libres.
   const names = (side, total) => {
-    const xs = p.jugadores.filter((j) => j.side === side).map((j) => j.name + (j.yo ? " (tú)" : ""));
-    while (xs.length < total) xs.push("hueco libre");
+    const xs = p.jugadores.filter((j) => j.side === side).map((j) => {
+      const s = nombreJugador(j.name, j.id);
+      if (j.yo) s.appendChild(document.createTextNode(" (tú)"));
+      return s;
+    });
+    while (xs.length < total) xs.push(document.createTextNode("hueco libre"));
     return xs;
   };
-  if (p.activity === "necromunda") add("p", "", "Participantes: " + names("A", p.team_a).concat(names("B", p.team_b)).join(", "));
-  else add("p", "", names("A", p.team_a).join(" y ") + " contra " + names("B", p.team_b).join(" y "));
+  // Une nodos con un separador (texto) en un párrafo.
+  const une = (p0, xs, sep) => xs.forEach((x, i) => { if (i) p0.appendChild(document.createTextNode(sep)); p0.appendChild(x); });
+  if (p.activity === "necromunda") { const pp = add("p", "", "Participantes: "); une(pp, names("A", p.team_a).concat(names("B", p.team_b)), ", "); }
+  else { const pp = add("p", "", ""); une(pp, names("A", p.team_a), " y "); pp.appendChild(document.createTextNode(" contra ")); une(pp, names("B", p.team_b), " y "); }
 
   const cerrada = partidaCerrada(p);
   if (p.status === "completa") add("p", "ok", p.mesa ? "Completa · Mesa " + p.mesa : "Completa");
@@ -1417,12 +1479,131 @@ function showPartida(p) {
   box.appendChild(err);
 }
 
-// Formulario "Buscar partida": modalidad y disponibilidad en los próximos 7 días.
+// «Buscar partida»: listado de todas las partidas que aún no se han jugado, con filtros de modalidad,
+// físico/online, día y franja horaria. Los filtros se recuerdan mientras dura la visita.
+const FRANJAS = { manana: ["08:00", "14:00"], tarde: ["14:00", "20:00"], noche: ["20:00", "24:00"] };
+const bfil = { act: "", modo: "", dia: "", hora: "", libres: true };
+function openBuscarPartidas() {
+  const box = $("det");
+  box.textContent = "";
+  const lb = document.createElement("span");
+  lb.className = "lb lb-p"; lb.textContent = "Buscar partida";
+  const md = medallon("partida", 44); if (md) lb.prepend(md);
+  const h = document.createElement("h3");
+  h.textContent = "Partidas publicadas";
+  box.append(lb, h);
+
+  const hoy = localNow().slice(0, 10);
+  // Una fila por partida y día ofrecido (o el día fijado), solo las que aún no se han jugado.
+  const filas = [];
+  partidas.filter((p) => !partidaCerrada(p)).forEach((p) => {
+    if (p.starts_at) filas.push({ p, dia: p.starts_at.slice(0, 10), de: p.starts_at.slice(11, 16), a: null });
+    else p.availability.filter((x) => x.date >= hoy).forEach((x) => filas.push({ p, dia: x.date, de: x.from, a: x.to }));
+  });
+  filas.sort((x, z) => (x.dia + x.de).localeCompare(z.dia + z.de) || x.p.id - z.p.id);
+
+  const f = document.createElement("div");
+  f.className = "bl-f";
+  const sel = (txt, clave, opts) => {
+    const l = document.createElement("label");
+    const s = document.createElement("select");
+    opts.forEach(([v, t]) => { const o = document.createElement("option"); o.value = v; o.textContent = t; s.appendChild(o); });
+    s.value = opts.some(([v]) => v === bfil[clave]) ? bfil[clave] : "";
+    bfil[clave] = s.value;
+    s.onchange = () => { bfil[clave] = s.value; pinta(); };
+    l.append(txt, s);
+    f.appendChild(l);
+    return s;
+  };
+  sel("Modalidad", "act", [["", "Todas"]].concat(JUEGOS.map(([v]) => [v, CORTO[v]])));
+  sel("Dónde", "modo", [["", "Físico u online"], ["fisico", "Físico"], ["online", "Online (TTS)"]]);
+  const dias = [...new Set(filas.map((x) => x.dia))];
+  sel("Día", "dia", [["", "Cualquier día"]].concat(dias.map((d) => [d, (d === hoy ? "Hoy · " : "") + fechaLarga(d)])));
+  sel("Hora", "hora", [["", "Cualquier hora"], ["manana", "Mañana (8 a 14 h)"], ["tarde", "Tarde (14 a 20 h)"], ["noche", "Noche (desde las 20 h)"]]);
+  const lc = document.createElement("label");
+  lc.className = "rad";
+  const cb = document.createElement("input");
+  cb.type = "checkbox"; cb.checked = bfil.libres;
+  cb.onchange = () => { bfil.libres = cb.checked; pinta(); };
+  lc.append(cb, " Solo con huecos libres");
+  f.appendChild(lc);
+  box.appendChild(f);
+
+  const n = document.createElement("p");
+  n.className = "bl-n";
+  n.setAttribute("aria-live", "polite");
+  const lista = document.createElement("div");
+  box.append(n, lista);
+
+  const pinta = () => {
+    lista.textContent = "";
+    const fr = FRANJAS[bfil.hora];
+    const vis = filas.filter(({ p, dia, de, a }) => {
+      if (bfil.act && p.activity !== bfil.act) return false;
+      if (bfil.modo && p.modo !== bfil.modo && p.modo !== "ambos") return false;
+      if (bfil.dia && dia !== bfil.dia) return false;
+      if (bfil.libres && (p.status === "completa" || p.faltan <= 0)) return false;
+      // Franja: la hora fijada cae dentro, o la disponibilidad ofrecida se solapa con ella.
+      if (fr && (a ? !(de < fr[1] && a > fr[0]) : !(de >= fr[0] && de < fr[1]))) return false;
+      return true;
+    });
+    n.textContent = vis.length === 1 ? "1 partida" : vis.length + " partidas";
+    if (!vis.length) {
+      const v = document.createElement("p");
+      v.className = "m";
+      v.textContent = filas.length ? "Ninguna partida coincide con los filtros." : "No hay partidas publicadas ahora mismo. ¡Publica tú la primera!";
+      lista.appendChild(v);
+      return;
+    }
+    vis.forEach(({ p, dia, de, a }) => {
+      const llena = p.status === "completa" || p.faltan <= 0;
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "bl-i" + (llena ? " x" : "");
+      const fh = document.createElement("span"); fh.className = "bl-h";
+      const fb = document.createElement("b");
+      if (dia === hoy) fb.textContent = "Hoy";
+      else {
+        // Día corto ya en el idioma de la página (el traductor no conoce las abreviaturas).
+        const en = window.abI18n && window.abI18n.lang === "en";
+        fb.textContent = new Date(dia + "T12:00").toLocaleDateString(en ? "en-GB" : "es-ES", { weekday: "short", day: "numeric" });
+        fb.setAttribute("translate", "no");
+      }
+      const fs = document.createElement("small"); fs.textContent = a ? de + "–" + a : de;
+      fh.append(fb, fs);
+      const t = document.createElement("span"); t.className = "bl-t";
+      const st = document.createElement("strong");
+      const ij = iconoJuego(es40k(p.activity) ? "40k" : p.activity); if (ij) st.appendChild(ij);
+      st.appendChild(document.createTextNode(partidaTitulo(p)));
+      st.appendChild(cuadroModo(p.modo));
+      const sub = document.createElement("span");
+      sub.append("Organiza: ", nombreJugador(p.organiza, p.organiza_id, true));
+      if (p.modo !== "online" && p.lugar) { const lu = document.createElement("span"); lu.setAttribute("translate", "no"); lu.textContent = " · " + p.lugar; sub.appendChild(lu); }
+      t.append(st, sub);
+      const e = document.createElement("span"); e.className = "bl-e";
+      e.textContent = p.mia ? "Tuya" : p.dentro ? "Estás dentro" : llena ? "Completa" : p.faltan === 1 ? "Falta 1" : "Faltan " + p.faltan;
+      b.append(fh, t, e);
+      b.onclick = () => {
+        y = +dia.slice(0, 4); m = +dia.slice(5, 7) - 1;
+        render();
+        showPartida(p);
+        const v = document.createElement("button");
+        v.type = "button"; v.className = "btn alt bl-v"; v.textContent = "← Volver al listado";
+        v.onclick = () => { openBuscarPartidas(); irAFicha(); };
+        $("det").prepend(v);
+        irAFicha();
+      };
+      lista.appendChild(b);
+    });
+  };
+  pinta();
+}
+
+// Formulario «Publicar partida»: modalidad y disponibilidad en los próximos 7 días.
 function openPartidaForm() {
   const box = $("det");
   box.textContent = "";
   const lb = document.createElement("span");
-  lb.className = "lb"; lb.textContent = "Buscar partida";
+  lb.className = "lb"; lb.textContent = "Publicar partida";
   const h = document.createElement("h3");
   h.textContent = "¿A qué quieres jugar?";
   box.append(lb, h);
@@ -1681,7 +1862,8 @@ $("prev").onclick = () => { m--; if (m < 0) { m = 11; y--; } render(); };
 $("next").onclick = () => { m++; if (m > 11) { m = 0; y++; } render(); };
 
 // En el móvil la ficha queda debajo del calendario: todo lo que se abre en ella baja hasta ella.
-$("bp").onclick = () => { openPartidaForm(); irAFicha(); };
+$("bpb").onclick = () => { openBuscarPartidas(); irAFicha(); };
+$("bpp").onclick = () => { openPartidaForm(); irAFicha(); };
 // Añadir a mi calendario: enlace que el móvil consulta solo (Google Calendar, iPhone/Mac/Outlook).
 let enlacesCal = null, tipoCal = "personal";
 function pintaCal() {
@@ -1735,8 +1917,10 @@ function abrirDesdeEnlace() {
   }
   const p = partidas.find((x) => String(x.id) === q.get("partida"));
   if (p) { irA(partidaDias(p)[0]); showPartida(p); }
-  if (q.get("buscar") === "1" && mine) openPartidaForm();
-  if (e || p || (q.get("buscar") === "1" && mine)) irAFicha();
+  // ?buscar=1 abre el listado de partidas; ?publicar=1, el formulario para publicar una.
+  if (q.get("buscar") === "1" && mine) openBuscarPartidas();
+  if (q.get("publicar") === "1" && mine) openPartidaForm();
+  if (e || p || ((q.get("buscar") === "1" || q.get("publicar") === "1") && mine)) irAFicha();
 }
 render();
 </script>

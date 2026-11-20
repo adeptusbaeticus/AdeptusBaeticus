@@ -401,6 +401,15 @@
     "Todos": "All", "Quedadas": "Meetups", "Torneos": "Tournaments", "Partidas": "Games",
     "Quedada": "Meetup", "Torneo": "Tournament", "Partida": "Game",
     "Buscar partida": "Find a game", "Borrar mis partidas": "Delete my games",
+    "Publicar partida": "Post a game", "Partidas publicadas": "Posted games",
+    "Dónde": "Where", "Físico u online": "In person or online", "Hora": "Time",
+    "Todas": "All", "Cualquier día": "Any day", "Cualquier hora": "Any time",
+    "Mañana (8 a 14 h)": "Morning (8 am to 2 pm)", "Tarde (14 a 20 h)": "Afternoon (2 pm to 8 pm)", "Noche (desde las 20 h)": "Evening (from 8 pm)",
+    "Solo con huecos libres": "Only with free spots", "1 partida": "1 game",
+    "Ninguna partida coincide con los filtros.": "No games match the filters.",
+    "No hay partidas publicadas ahora mismo. ¡Publica tú la primera!": "There are no games posted right now. Post the first one!",
+    "Tuya": "Yours", "Estás dentro": "You're in", "Falta 1": "1 needed", "← Volver al listado": "← Back to the list",
+    "Organiza:": "Organiser:", "Participantes:": "Players:", "contra": "against", "(tú)": "(you)", "y": "and",
     "Mes anterior": "Previous month", "Mes siguiente": "Next month", "Leyenda": "Legend",
     "Lun": "Mon", "Mar": "Tue", "Mié": "Wed", "Jue": "Thu", "Vie": "Fri", "Sáb": "Sat", "Dom": "Sun",
     "Hoy": "Today",
@@ -967,6 +976,8 @@
     [/^Puntos por persona de (.+)$/, "Points per player for $1"],
     [/^Equipo «(.+)»( \(pendiente de confirmar\))?$/, (m, n, p) => "Team «" + n + "»" + (p ? " (pending confirmation)" : "")],
     [/^Individual \(pendiente de confirmar\)$/, "Individual (pending confirmation)"],
+    [/^(\d+) partidas$/, "$1 games"],
+    [/^Faltan (\d+)$/, "$1 needed"],
   ];
 
   // Frases de la interfaz dentro de textos compuestos (fechas, planes, listas de jugadores…).

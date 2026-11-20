@@ -236,7 +236,11 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   ordenador, `iconoModo()` en `calendario.html`; en el mes, en el ordenador un cuadrado sobre la esquina de cada evento y en el móvil en la esquina del día). Las quedadas son siempre físicas (lo fuerza el servidor); los
   torneos los elige el admin. En las partidas físicas se puede indicar `lugar`; vacío = «A decidir» (lo acuerdan
   los jugadores). Las partidas ya no reciben mesa automáticamente (las antiguas conservan la suya).
-- Al buscar partida se puede marcar físico y online a la vez (`modo` `ambos`, migración 0027): icono partido por la
+- Botón partido en el calendario: «Buscar partida» (`openBuscarPartidas`: listado de las partidas sin jugar con
+  filtros de modalidad, modo, día y franja —`FRANJAS`— y «Solo con huecos libres»; filtros en `bfil` durante la visita;
+  `?buscar=1`) y «Publicar partida» (`openPartidaForm`, el formulario de siempre; `?publicar=1`). `/api/partidas` da
+  `organiza_id` y el `id` de cada jugador para su ficha rápida (`nombreJugador`).
+- Al publicar partida se puede marcar físico y online a la vez (`modo` `ambos`, migración 0027): icono partido por la
   mitad (mesa en dorado y ordenador en verde) y quien se une elige cómo se juega, que queda fijado para todos.
 
 - Medallón del **tipo de evento** (`medallon()` en `calendario.html`, con los de `nav.js`): quedada (estandarte),
