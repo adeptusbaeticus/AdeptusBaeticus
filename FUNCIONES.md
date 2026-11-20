@@ -285,6 +285,9 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 ---
 
 ## 7. Miembros
+- En la ficha de cada socio (con sesión): **última conexión** a la web (hoy, ayer, hace N días o la fecha).
+- Etiqueta **«Desconectado»** para quien aún no ha entrado en la web o (salvo el admin) no ha completado sus datos
+  obligatorios; la ficha explica cuál de las dos.
 - Listado de socios con foto, **corona de laurel** (verde para los miembros, roja para el admin), nombre, rol,
   facciones, puesto en la liga, ELO y trofeos.
 - **Buscar** por nombre y **filtrar** por rol y por facción. Un desplegable «Mostrar y ordenar» agrupa: **«Con trofeos»**

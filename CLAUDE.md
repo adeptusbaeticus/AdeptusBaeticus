@@ -166,6 +166,11 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   `window.abAntiguedad` y `window.abAniosClub` en `public/trofeos.js`; solo con sesión).
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
   (migración 0030); en Miembros salen con la etiqueta «Desconectado» hasta su primer inicio de sesión, que lo pone a 1.
+  También salen «Desconectado» (salvo el admin) los que no tienen sus datos obligatorios completos (`/api/miembros`:
+  `desconectado` = `sin_entrar` o `sin_datos`, con su explicación en la ficha).
+- **Última conexión** (`users.ultima_conexion`, migración 0043): se apunta al iniciar sesión y en `/api/me`
+  (`marcaConexion`: como mucho una escritura por hora y socio, también recordado en el proceso; no en «ver como»). En la
+  ficha de Miembros, solo para socios con sesión: «Última conexión: hoy / ayer / hace N días / fecha».
 
 ## Ficha rápida
 

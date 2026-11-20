@@ -303,6 +303,16 @@ function cuentas(m) {
   return ul;
 }
 
+function haceCuanto(t) {
+  const d = new Date(String(t).replace(" ", "T") + "Z");
+  if (isNaN(d)) return "";
+  const dia = (x) => { const y = new Date(x.toLocaleString("en-US", { timeZone: "Europe/Madrid" })); y.setHours(0, 0, 0, 0); return y; };
+  const n = Math.round((dia(new Date()) - dia(d)) / 86400000);
+  if (n <= 0) return "hoy";
+  if (n === 1) return "ayer";
+  if (n < 30) return "hace " + n + " días";
+  return d.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Madrid" });
+}
 function ficha(m) {
   const fi = $("fi");
   fi.textContent = "";
@@ -310,7 +320,9 @@ function ficha(m) {
   const tx = el("div");
   const h = el("h2", "", m.name); h.id = "fi-n"; h.setAttribute("translate", "no");
   tx.append(h, el("span", "rol", ROL[m.role] || m.role));
-  if (m.desconectado) { tx.append(" ", el("span", "rol off", "Desconectado")); tx.appendChild(el("p", "sin", "Todavía no ha entrado en la web.")); }
+  if (m.desconectado) { tx.append(" ", el("span", "rol off", "Desconectado")); tx.appendChild(el("p", "sin", m.desconectado === "sin_datos" ? "Le faltan datos obligatorios por completar." : "Todavía no ha entrado en la web.")); }
+  // Última conexión a la web (solo con sesión): «hoy», «ayer», «hace N días» o la fecha.
+  if (m.ultima) tx.appendChild(el("p", "sin", "Última conexión: " + haceCuanto(m.ultima)));
   // Antigüedad: «En el club desde abril de 2025 · 1 año y 7 meses».
   if (m.alta) tx.appendChild(el("p", "sin", "En el club desde " + mesAnio(m.alta.slice(0, 7)) + " · " + window.abAntiguedad(m.alta)));
   cab.append(avatar(m, true), tx);

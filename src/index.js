@@ -662,6 +662,18 @@ async function faltanDatos(env, s) {
 // Quien ya tiene sus datos completos casi nunca deja de tenerlos: ese «sí» se recuerda 5 minutos en este proceso del
 // servidor (evita una consulta en cada llamada a la API). El «no» se consulta siempre (para que al completarlos entre ya).
 const conDatos = new Map();
+// Última conexión a la web: se apunta al iniciar sesión y al cargar cualquier página, como mucho una vez por hora
+// (recordado también en este proceso, para no consultar D1 en cada página).
+const vistos = new Map();
+function marcaConexion(env, ctx, id) {
+  const t = vistos.get(id);
+  if (t && Date.now() - t < 3600000) return;
+  vistos.set(id, Date.now());
+  const p = (async () => {
+    try { await env.DB.prepare("UPDATE users SET ultima_conexion=datetime('now') WHERE discord_id=?1 AND (ultima_conexion IS NULL OR ultima_conexion < datetime('now','-1 hour'))").bind(id).run(); } catch (e) {}
+  })();
+  if (ctx && ctx.waitUntil) ctx.waitUntil(p);
+}
 async function tieneDatos(env, id) {
   const t = conDatos.get(id);
   if (t && Date.now() - t < 300000) return true;
@@ -3076,7 +3088,7 @@ export default {
       const u = mem.user;
       const name = mem.nick || u.global_name || u.username;
       await env.DB.prepare(
-        "INSERT INTO users (discord_id,name,avatar,role) VALUES (?1,?2,?3,?4) ON CONFLICT(discord_id) DO UPDATE SET name=excluded.name, avatar=excluded.avatar, role=excluded.role, conectado=1"
+        "INSERT INTO users (discord_id,name,avatar,role,ultima_conexion) VALUES (?1,?2,?3,?4,datetime('now')) ON CONFLICT(discord_id) DO UPDATE SET name=excluded.name, avatar=excluded.avatar, role=excluded.role, conectado=1, ultima_conexion=datetime('now')"
       ).bind(u.id, name, u.avatar, role).run();
       try { await ligaVincula(env, u.id); } catch (e) {}
       try { await vinculaAlEntrar(env, u, mem.nick); } catch (e) {}
@@ -3172,6 +3184,8 @@ export default {
         // Perfil borrado (por el admin o por el propio socio): la sesión se cierra; si vuelve a entrar, empieza de cero.
         if (!row && !s.admin) return Response.json(null, { headers: { "cache-control": "no-store", "set-cookie": `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` } });
         nr = row ? row.nr_username : null;
+        // Última conexión (no en el modo «ver como»): como mucho una escritura por hora y socio.
+        if (row && !s.admin) marcaConexion(env, ctx, s.id);
       }
       return Response.json(
         s ? { id: s.id, name: s.name, avatar: s.avatar, role: s.role, nr_username: nr, ver_como: s.admin ? String(s.admin.name || s.admin.id) : null,
@@ -3646,7 +3660,10 @@ export default {
     if (path === "/api/miembros" && request.method === "GET") {
       const s = await readSession(env, request);
       const { results } = await env.DB.prepare(
-        "SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username, conectado, alta FROM users ORDER BY name COLLATE NOCASE"
+        `SELECT discord_id, name, avatar, role, facciones, instagram, steam, bcp, nr_username, conectado, alta, ultima_conexion,
+           (EXISTS (SELECT 1 FROM socios_datos d WHERE d.discord_id=users.discord_id AND d.completado_at IS NOT NULL)
+             OR EXISTS (SELECT 1 FROM solicitudes q WHERE q.discord_id=users.discord_id AND q.estado='aprobada')) AS datos
+         FROM users ORDER BY name COLLATE NOCASE`
       ).all();
       // ELO del club (calculado al llegar resultados y una vez al día; si aún no está, se calcula ahora).
       const eloD = await eloDatos(env).catch(() => ({ minimo: ELO.minimo, jugadores: [] }));
@@ -3699,10 +3716,13 @@ export default {
         try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
         const x = eloDe(u);
         const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
-        if (!u.conectado) m.desconectado = true; // creado desde la web y aún sin iniciar sesión
+        // «Desconectado»: creado desde la web y aún sin iniciar sesión, o (salvo el admin) sin sus datos obligatorios.
+        if (!u.conectado) m.desconectado = "sin_entrar";
+        else if (u.role !== "admin" && !u.datos) m.desconectado = "sin_datos";
         if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username,
           // La antigüedad cuenta desde la inscripción, pero solo se muestra a miembros y admin (no a aspirantes).
-          alta: u.role === "miembro" || u.role === "admin" ? u.alta || null : null });
+          alta: u.role === "miembro" || u.role === "admin" ? u.alta || null : null,
+          ultima: u.ultima_conexion || null });
         m.editable = !!s && (s.id === u.discord_id || s.role === "admin");
         return m;
       });
