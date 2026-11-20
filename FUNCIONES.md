@@ -27,6 +27,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   en inglés; se ven en la propia web al pulsar «Reproducir» (o en YouTube), más el canal oficial y una partida explicada.
 - **Necromunda** y **Blood Bowl:** qué son, cómo empezar, bandas o equipos (con los niveles de Blood Bowl), reglas y
   descargas oficiales, y cómo jugar en el club. Todo en español e inglés.
+- En esas cuatro secciones cada bloque se pliega y despliega (al abrir la página, el primero abierto; botones «Desplegar
+  todo» y «Plegar todo»). Al plegar un bloque se para el vídeo que estuviera sonando.
 - Las direcciones antiguas (`/gran-liga`, `/elo`) llevan a las nuevas (`/warhammer-40k/gran-liga`,
   `/warhammer-40k/ranking-elo`) sin perder la liga ni la ronda.
 

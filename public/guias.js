@@ -212,6 +212,7 @@
       f.allowFullscreen = true;
       f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
       f.className = "g-vf";
+      f.__boton = pant;
       pant.replaceWith(f);
     };
     const pie = el("div", "g-vpie");
@@ -229,6 +230,7 @@
   window.abGuia = function (ruta, caja) {
     const g = GUIAS[ruta];
     if (!g) return false;
+    const abiertos = new Set(); let cerradoPrimero = false; // lo abierto se conserva al cambiar de idioma
     const pinta = () => {
       // (i18n.js se carga después: hasta entonces, el idioma guardado)
       let guardado = null; try { guardado = localStorage.getItem("ab_lang"); } catch (x) {}
@@ -242,9 +244,28 @@
       cab.appendChild(tit);
       caja.appendChild(cab);
       document.title = tx(g.t) + " · Adeptus Baeticus";
-      g.bloques.forEach((b) => {
-        const s = el("section", "g-bloque");
-        s.appendChild(el("h2", "", tx(b.t)));
+      // Botones para abrir o cerrar todos los bloques.
+      const todo = el("div", "g-todo");
+      const bt = (txt, abrir) => { const x = el("button", "", txt); x.type = "button"; x.onclick = () => caja.querySelectorAll("details.g-bloque").forEach((d) => { d.open = abrir; }); return x; };
+      todo.append(bt(L === "en" ? "Expand all" : "Desplegar todo", true), bt(L === "en" ? "Collapse all" : "Plegar todo", false));
+      caja.appendChild(todo);
+      g.bloques.forEach((b, k) => {
+        // Cada bloque se pliega y despliega (abierto el primero o los que se dejaron abiertos en esta visita).
+        const det = el("details", "g-bloque");
+        const clave = ruta + "#" + k;
+        det.open = abiertos.has(clave) || (!abiertos.size && k === 0 && !cerradoPrimero);
+        const sum = el("summary");
+        sum.appendChild(el("h2", "", tx(b.t)));
+        det.appendChild(sum);
+        const s = el("div", "g-cuerpo");
+        det.appendChild(s);
+        det.addEventListener("toggle", () => {
+          if (det.open) abiertos.add(clave); else {
+            abiertos.delete(clave); if (k === 0) cerradoPrimero = true;
+            // Al plegar, se paran los vídeos que estuvieran sonando (vuelve el botón «Reproducir»).
+            det.querySelectorAll("iframe.g-vf").forEach((f) => { if (f.__boton) f.replaceWith(f.__boton); });
+          }
+        });
         if (tx(b.tx)) s.appendChild(el("p", "", tx(b.tx)));
         if (b.lista) { const ul = el("ul", "g-lista"); b.lista.forEach((x) => ul.appendChild(el("li", "", tx(x)))); s.appendChild(ul); }
         if (b.facciones) {
@@ -284,7 +305,7 @@
           if (wv.childNodes.length) s.appendChild(wv);
           if (w.childNodes.length) s.appendChild(w);
         }
-        caja.appendChild(s);
+        caja.appendChild(det);
       });
     };
     pinta();
