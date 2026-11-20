@@ -109,7 +109,8 @@
       ["M24 26.5a3.3 3.3 0 1 0 0 6.6 3.3 3.3 0 1 0 0-6.6zM40 26.5a3.3 3.3 0 1 0 0 6.6 3.3 3.3 0 1 0 0-6.6zM32 20.5a4 4 0 1 0 0 8 4 4 0 1 0 0-8zM24.5 45c.4-6.5 3.4-10.5 7.5-10.5s7.1 4 7.5 10.5z"], []],
     faq: [["M21 18.5h19.5a3.5 3.5 0 0 1 3.5 3.5v23.5H24.5A3.5 3.5 0 0 1 21 42z", "M21 42a3.5 3.5 0 0 1 3.5-3.5H44", "M28.6 26.4a3.6 3.6 0 1 1 5.2 3.2c-1.2.7-1.8 1.4-1.8 2.8"],
       ["M32 34.2a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 1 0 0-2.8z"], []],
-    mas: [["M22 25h20", "M22 32h20", "M22 39h20"], [], []],
+    // Más: tres barras gruesas (rellenas, para que se lean bien también en pequeño y apagadas).
+    mas: [[], ["M20.5 21.5h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4zM20.5 30h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4zM20.5 38.5h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4z"], []],
     // Sugerencias: pergamino con renglones y pluma.
     sugerencias: [["M18.5 21h17v25h-17z", "M22.5 27h9M22.5 32h9M22.5 37h6"], ["M47 15.5c-6.5 1-12.5 6-15.5 14.5l-1.3 4.6 4-2.8c7-3.2 11.3-9.3 12.8-16.3z", "M30.4 34.2l-2.6 4.6 1.2.6 2.6-4.4z"], []],
     // Tipos de evento del calendario: quedada (estandarte), torneo (corona de laurel con espada), partida (espadas).
@@ -239,7 +240,7 @@
     "html.ab-movil .nb-barra{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:45;background:rgba(21,23,26,.97);border-top:1px solid #2C3036;padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 18px rgba(0,0,0,.35)}",
     "html.ab-movil .nb-barra a,html.ab-movil .nb-barra button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:60px;padding:4px 2px;border-radius:12px;color:#A8A293;text-decoration:none;font:500 12px/1.1 Inter,system-ui,sans-serif;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}",
     "html.ab-movil .nb-barra svg{width:34px;height:34px;transition:filter .2s,opacity .2s}",
-    "html.ab-movil .nb-barra a:not(.on) svg,html.ab-movil .nb-barra button:not(.on) svg{filter:saturate(.55) brightness(.85)}",
+    "html.ab-movil .nb-barra a:not(.on) svg,html.ab-movil .nb-barra button:not(.on) svg{filter:saturate(.7) brightness(.95)}",
     "html.ab-movil .nb-barra .on{color:#F0CE82}",
     "html.ab-movil .nb-barra .on svg{color:#D9B25A}",
     "html.ab-movil .nb-barra .on::after{content:'';width:18px;height:3px;border-radius:2px;background:#D9B25A;margin-top:1px}",
