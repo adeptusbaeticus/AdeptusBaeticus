@@ -91,10 +91,18 @@
     },
     "/warhammer-40k/tutoriales": {
       cat: "Warhammer 40K", ic: "tutoriales", t: t("Tutoriales", "Tutorials"),
-      intro: t("Vídeos para aprender a jugar a la 11.ª edición de Warhammer 40.000, fase a fase. Están en inglés (YouTube permite activar subtítulos traducidos al español) y se abren en YouTube.",
-        "Videos to learn to play the 11th edition of Warhammer 40,000, phase by phase. They're in English and open on YouTube."),
+      intro: t("Vídeos para aprender a jugar a la 11.ª edición de Warhammer 40.000: primero en español y después la serie oficial en inglés, fase a fase. Se ven aquí mismo al pulsar «Reproducir».",
+        "Videos to learn to play the 11th edition of Warhammer 40,000: first in Spanish, then the official series in English, phase by phase. Press «Play» to watch them right here."),
       bloques: [
-        { t: t("Serie «How to Play Warhammer 40K 11th Edition»", "«How to Play Warhammer 40K 11th Edition» series"), tx: t("Serie con ScottyD que repasa las reglas básicas de la nueva edición, de los conceptos generales a cada fase del turno. Empieza por la introducción.",
+        { t: t("En español", "In Spanish"), tx: t("Para empezar sin pelearte con el inglés.", "To get started in Spanish."),
+          enlaces: [
+            { t: t("Cómo jugar a Warhammer 40.000 · 11.ª edición", "How to play Warhammer 40,000 · 11th edition"), u: yt("PLoCnPFgF2o"), d: t("La Voz de Horus: para quien empieza y para quien viene de la 10.ª", "La Voz de Horus: for newcomers and players coming from 10th"), tipo: "video", com: true },
+            { t: t("Duelo entre el Caos: aprende a jugar en la 11.ª edición", "Duel among Chaos: learn to play 11th edition"), u: yt("oguC6ytvh3o"), d: t("Partida de iniciación explicada", "Explained introductory game"), tipo: "video" },
+            { t: t("Aprende las reglas básicas en 15 minutos", "Learn the core rules in 15 minutes"), u: yt("RRQea_jFOn4"), d: t("Resumen rápido, paso a paso", "Quick step-by-step summary"), tipo: "video", com: true },
+            { t: t("Podcast: aprende a jugar en menos de una hora", "Podcast: learn to play in under an hour"), u: "https://www.lavozdehorus.com/podcast-472-aprende-a-jugar-warhammer-40k-en-menos-de-una-hora/", d: t("La Voz de Horus · episodio 472, con los cambios respecto a la 10.ª", "La Voz de Horus · episode 472, with the changes from 10th"), tipo: "web", com: true },
+            { t: t("Canal de La Voz de Horus", "La Voz de Horus channel"), u: "https://www.youtube.com/@lavozdehorus", d: t("Más vídeos de 40K en español", "More 40K videos in Spanish"), tipo: "web", com: true },
+          ] },
+        { t: t("Serie «How to Play Warhammer 40K 11th Edition» (en inglés)", "«How to Play Warhammer 40K 11th Edition» series"), tx: t("Serie con ScottyD (YouTube permite activar subtítulos en español) que repasa las reglas básicas de la nueva edición, de los conceptos generales a cada fase del turno. Empieza por la introducción.",
             "Series with ScottyD covering the new edition's core rules, from the general concepts to each phase of the turn. Start with the introduction."),
           enlaces: [
             { t: t("1 · Introducción a la 11.ª edición", "1 · Introduction to 11th edition"), u: yt("eCZ6n2yTMM8"), d: t("Visión general del juego", "General overview of the game"), tipo: "video" },
@@ -189,6 +197,35 @@
   const ETIQUETA = { pdf: t("PDF", "PDF"), web: t("Web", "Web"), video: t("Vídeo", "Video"), app: t("App", "App"), club: t("Club", "Club") };
   const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
 
+  function video(e, id, L, tx) {
+    const c = el("div", "g-v");
+    const pant = el("button", "g-vp");
+    pant.type = "button";
+    pant.setAttribute("aria-label", (L === "en" ? "Play here: " : "Reproducir aquí: ") + tx(e.t));
+    const pl = el("span", "g-play"); pl.setAttribute("aria-hidden", "true");
+    pant.append(pl, el("span", "g-vt", L === "en" ? "Play" : "Reproducir"));
+    pant.onclick = () => {
+      const f = document.createElement("iframe");
+      f.src = "https://www.youtube-nocookie.com/embed/" + id + "?autoplay=1&rel=0&hl=" + L;
+      f.title = tx(e.t);
+      f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+      f.allowFullscreen = true;
+      f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+      f.className = "g-vf";
+      pant.replaceWith(f);
+    };
+    const pie = el("div", "g-vpie");
+    const txt = el("div", "g-tx");
+    txt.append(el("strong", "", tx(e.t)), el("span", "", tx(e.d)));
+    const a = el("a", "g-vyt", L === "en" ? "Watch on YouTube" : "Ver en YouTube");
+    a.href = e.u; a.target = "_blank"; a.rel = "noopener";
+    a.setAttribute("aria-label", tx(e.t) + (L === "en" ? " on YouTube (opens in a new tab)" : " en YouTube (se abre en otra pestaña)"));
+    pie.append(txt);
+    if (e.com) pie.appendChild(el("span", "g-et com", L === "en" ? "Community" : "Comunidad"));
+    c.append(pant, pie, a);
+    return c;
+  }
+
   window.abGuia = function (ruta, caja) {
     const g = GUIAS[ruta];
     if (!g) return false;
@@ -227,8 +264,11 @@
           s.appendChild(todo);
         }
         if (b.enlaces) {
-          const w = el("div", "g-enl");
+          const w = el("div", "g-enl"), wv = el("div", "g-vids");
           b.enlaces.forEach((e) => {
+            // Vídeo de YouTube: se ve aquí al pulsar «Reproducir» (youtube-nocookie; antes no se carga nada de YouTube).
+            const id = e.tipo === "video" && (/[?&]v=([\w-]{11})/.exec(e.u) || [])[1];
+            if (id) { wv.appendChild(video(e, id, L, tx)); return; }
             const a = el("a", "g-e " + e.tipo);
             a.href = e.u;
             const fuera = /^https?:/.test(e.u);
@@ -241,7 +281,8 @@
             if (fuera) a.setAttribute("aria-label", tx(e.t) + (L === "en" ? " (opens in a new tab)" : " (se abre en otra pestaña)"));
             w.appendChild(a);
           });
-          s.appendChild(w);
+          if (wv.childNodes.length) s.appendChild(wv);
+          if (w.childNodes.length) s.appendChild(w);
         }
         caja.appendChild(s);
       });

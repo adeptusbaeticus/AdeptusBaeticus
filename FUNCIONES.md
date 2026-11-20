@@ -23,8 +23,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Recursos (40K):** reglas básicas gratis de la 11.ª edición, el documento («Faction Pack») de cada facción, Balance
   Dataslate y puntos (con el Munitorum Field Manual en la web), la app oficial (App Store y Google Play) y herramientas
   del club (New Recruit, Wahapedia y Tabletop Simulator).
-- **Tutoriales (40K):** serie de vídeos «How to Play Warhammer 40K 11th Edition» (se abren en YouTube), canal oficial y
-  partida explicada.
+- **Tutoriales (40K):** vídeos en español (La Voz de Horus y otros) y la serie «How to Play Warhammer 40K 11th Edition»
+  en inglés; se ven en la propia web al pulsar «Reproducir» (o en YouTube), más el canal oficial y una partida explicada.
 - **Necromunda** y **Blood Bowl:** qué son, cómo empezar, bandas o equipos (con los niveles de Blood Bowl), reglas y
   descargas oficiales, y cómo jugar en el club. Todo en español e inglés.
 - Las direcciones antiguas (`/gran-liga`, `/elo`) llevan a las nuevas (`/warhammer-40k/gran-liga`,

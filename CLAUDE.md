@@ -52,7 +52,8 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   secciones en preparación comparten `seccion.html`, estado vacío «Próximamente» elegido por la dirección). Recursos,
   Tutoriales, Necromunda y Blood Bowl ya tienen contenido: `public/guias.js` (`GUIAS` por dirección, textos `{es, en}`
   pintados según el idioma, con `translate="no"`; enlaces solo oficiales salvo los marcados «Comunidad»; vídeos
-  enlazados a YouTube, sin incrustar, para no meter cookies de terceros). Revisar los enlaces de vez en cuando. `REDIRIGE`:
+  de YouTube incrustados solo al pulsar «Reproducir» (`youtube-nocookie.com`; antes no se carga nada de YouTube, y así
+  consta en la política de privacidad), con enlace «Ver en YouTube»). Revisar los enlaces de vez en cuando. `REDIRIGE`:
   `/gran-liga` y `/elo` (301, conservan `?…`; el `#…` lo guarda el navegador) y las categorías sin sección (302). Enlazar
   siempre a las direcciones nuevas (avisos, Discord, calendario…).
 - **Roles en la web:** admin, miembro y aspirante. En las fichas (Miembros y ficha rápida) la foto lleva una corona de
