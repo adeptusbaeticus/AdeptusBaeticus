@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sugerencias · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#15171A">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Adeptus Baeticus">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.55 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.nav{position:sticky;top:0;z-index:40;background:#15171A}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+.wrap{max-width:900px;margin:32px auto 0}
+.cab{display:flex;gap:20px;align-items:center;margin:0 0 20px}
+.cab svg{flex:none}
+h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0 0 8px}
+.lead{color:#CFC9BA;margin:0}
+.m{color:#A8A293;font-size:14px}
+.err{color:#F0A39E;font-size:14px;min-height:20px;margin:6px 0 0}
+.ok{color:#A9B776}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:0;background:#A3211B;color:#fff;font:600 15px Inter,sans-serif;cursor:pointer;text-decoration:none}
+.btn.s{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
+.btn.s:hover{border-color:#B08A45}
+.btn:disabled{opacity:.6;cursor:default}
+.btn:focus-visible,.chip:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,.voto:focus-visible,.abre:focus-visible{outline:2px solid #D9B25A;outline-offset:2px}
+.barra{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:0 0 16px}
+.barra label{display:flex;flex-direction:column;gap:4px;font:600 12px Inter,sans-serif;color:#A8A293;letter-spacing:.04em}
+select,input[type=text],textarea{min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:10px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit}
+textarea{width:100%;min-height:120px;resize:vertical;line-height:1.5}
+.barra .btn{margin-left:auto}
+.nueva{background:#1F2328;border:1px solid #2C3036;border-radius:14px;padding:18px 20px;margin:0 0 18px}
+.nueva h2,.det h3{font:700 20px Cinzel,Georgia,serif;color:#F0CE82;margin:0 0 12px}
+.fila{display:grid;grid-template-columns:1fr 200px;gap:10px;margin:0 0 10px}
+.fila input{width:100%}
+.lista{display:flex;flex-direction:column;gap:10px}
+.sug{background:#1F2328;border:1px solid #2C3036;border-radius:14px;overflow:hidden}
+.sug.abierta{border-color:#6B5A30}
+.cabsug{display:flex;gap:14px;align-items:flex-start;padding:14px 16px}
+.voto{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:56px;min-height:56px;border-radius:12px;border:1px solid #6B6558;background:#15171A;color:#DCD8C2;font:700 16px Inter,sans-serif;cursor:pointer;padding:4px}
+.voto::before{content:"";width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:9px solid currentColor;margin-bottom:3px}
+.voto[aria-pressed=true]{background:#2A2618;border-color:#D9B25A;color:#F0CE82}
+.voto:disabled{cursor:default;opacity:.7}
+.cuerpo{flex:1;min-width:0}
+.abre{display:block;width:100%;text-align:left;background:none;border:0;padding:0;color:#ECE7DC;font:600 17px/1.35 Inter,sans-serif;cursor:pointer;overflow-wrap:anywhere}
+.abre:hover{color:#FBE7A8}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px;font-size:13px;color:#A8A293}
+.chip{display:inline-flex;align-items:center;font:600 11px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 9px;border:1px solid #6B6558;color:#DCD8C2}
+.est-pendiente{color:#CFC9BA;border-color:#6B6558}
+.est-estudio{color:#F0CE82;border-color:#9C7A35}
+.est-aceptada{color:#C9D69A;border-color:#7C8A4C;background:#232816}
+.est-hecha{color:#DCD8C2;border-color:#7C8A4C;background:#343B20}
+.est-descartada{color:#F0A39E;border-color:#7A2A24}
+.cerr{color:#A8A293}
+.det{border-top:1px solid #2C3036;padding:14px 16px 18px;background:#1A1C20}
+.texto{white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 12px;color:#DCD6C8}
+.nota{border-left:3px solid #B08A45;background:#15171A;border-radius:0 10px 10px 0;padding:10px 12px;margin:0 0 14px}
+.nota b{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#D9B25A;margin-bottom:2px}
+.acc{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.adm{display:grid;grid-template-columns:200px 1fr;gap:10px;background:#15171A;border:1px dashed #6B6558;border-radius:12px;padding:12px;margin:0 0 14px}
+.adm textarea{min-height:60px}
+.adm .pie{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.adm .pie label{display:flex;gap:6px;align-items:center;min-height:44px}
+.resp{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:8px}
+.resp li{background:#15171A;border:1px solid #2C3036;border-radius:10px;padding:10px 12px}
+.resp .quien{font-size:13px;color:#A8A293;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.resp .quien .n{color:#ECE7DC;font-weight:600}
+.resp .mini{background:none;border:0;color:#D9B25A;font:600 12px Inter,sans-serif;cursor:pointer;min-height:32px;padding:0 4px}
+.resp .mini.borra{color:#F0A39E}
+.vacio{text-align:center;padding:36px 16px;border:1px dashed #6B6558;border-radius:14px;color:#CFC9BA}
+.ft{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:48px;color:#A8A293;font-size:14px}
+.ftl{display:flex;gap:20px;flex-wrap:wrap}
+.ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
+@media (max-width:640px){.c{padding-left:16px;padding-right:16px}h1{font-size:30px}.cab svg{width:64px;height:64px}.fila,.adm{grid-template-columns:1fr}.barra label{flex:1 1 140px}.barra select{width:100%}.barra .btn{width:100%;margin:0}.cabsug{padding:12px}}
+html.ab-movil .resp .mini{min-height:44px;padding:0 8px}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>
+    <span id="auth"></span>
+  </div>
+  <main class="wrap">
+    <div class="cab"><span id="ic"></span><div>
+      <h1>Sugerencias</h1>
+      <p class="lead">Propón ideas para el club y la web, vota las que más te gusten y coméntalas. Todo con tu nombre; el club responde y marca en qué estado está cada una.</p>
+    </div></div>
+    <p id="sinsesion" class="vacio" hidden>Entra con Discord para ver y escribir sugerencias.<br><a class="btn" href="/auth/login" style="margin-top:12px">Entrar con Discord</a></p>
+    <div id="app" hidden>
+      <div class="barra">
+        <label>Ordenar<select id="orden"><option value="votos">Más votadas</option><option value="actividad">Última actividad</option><option value="recientes">Más recientes</option></select></label>
+        <label>Estado<select id="festado"><option value="">Todos los estados</option></select></label>
+        <label>Categoría<select id="fcat"><option value="">Todas las categorías</option></select></label>
+        <button class="btn" id="bnueva" type="button">Nueva sugerencia</button>
+      </div>
+      <form class="nueva" id="fnueva" hidden>
+        <h2>Nueva sugerencia</h2>
+        <div class="fila">
+          <input type="text" id="ntit" maxlength="120" required placeholder="Título (qué propones)" aria-label="Título" translate="no">
+          <select id="ncat" aria-label="Categoría"></select>
+        </div>
+        <textarea id="ntxt" maxlength="4000" required placeholder="Explícala: qué cambiarías o añadirías y por qué" aria-label="Texto" translate="no"></textarea>
+        <p class="m">Solo texto. Se publica con tu nombre y la pueden ver todos los socios.</p>
+        <div class="acc"><button class="btn" type="submit">Publicar</button><button class="btn s" type="button" id="ncan">Cancelar</button></div>
+        <p class="err" id="nerr" role="alert"></p>
+      </form>
+      <div class="lista" id="lista"><p class="m">Cargando...</p></div>
+    </div>
+  </main>
+  <footer class="ft">
+    <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
+    <nav class="ftl" aria-label="Enlaces">
+      <a href="/privacidad.html">Privacidad</a>
+      <a href="https://adeptus-baeticus.blogspot.com" target="_blank" rel="noopener">Blog</a>
+      <a href="https://www.instagram.com/adeptusbaeticus/" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a>
+    </nav>
+  </footer>
+</div>
+<script src="/trofeos.js"></script>
+<script src="/ficha-hover.js"></script>
+<script>
+// Foro de sugerencias: lista con votos, filtros y orden; cada una se despliega con su texto, la nota del club,
+// las respuestas y (autor o admin) editar y borrar; el admin cambia el estado, la nota y la cierra.
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+const CAT = { web: "Web", club: "Club", torneos: "Torneos", liga: "Gran Liga", quedadas: "Quedadas", otros: "Otros" };
+const EST = { pendiente: "Pendiente", estudio: "En estudio", aceptada: "Aceptada", hecha: "Hecha", descartada: "Descartada" };
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const fecha = (t) => { const d = new Date(String(t).replace(" ", "T") + "Z"); return isNaN(d) ? "" : d.getDate() + " de " + MESES[d.getMonth()] + " de " + d.getFullYear(); };
+const opciones = (sel, obj) => Object.entries(obj).forEach(([v, t]) => { const o = el("option", "", t); o.value = v; sel.appendChild(o); });
+opciones($("festado"), EST); opciones($("fcat"), CAT); opciones($("ncat"), CAT);
+let D = null, abierta = null; // abierta: id de la sugerencia desplegada
+const pide = async (metodo, ruta, cuerpo) => {
+  const r = await fetch(ruta, { method: metodo, headers: cuerpo ? { "content-type": "application/json" } : {}, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+  const y = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(y.error || "No se pudo guardar.");
+  return y;
+};
+const nombre = (id, n) => { const s = el("span", "n", n || "?"); s.setAttribute("translate", "no"); if (window.abFicha) window.abFicha(s, id); return s; };
+
+async function carga() {
+  try { D = await pide("GET", "/api/sugerencias"); } catch (e) { $("lista").textContent = ""; $("lista").appendChild(el("p", "err", e.message)); return; }
+  pinta();
+}
+function pinta() {
+  const L = $("lista"); L.textContent = "";
+  const est = $("festado").value, cat = $("fcat").value, orden = $("orden").value;
+  let xs = D.sugerencias.filter((x) => (!est || x.estado === est) && (!cat || x.categoria === cat));
+  xs.sort(orden === "votos" ? (a, b) => b.votos - a.votos || (b.actividad > a.actividad ? 1 : -1)
+    : orden === "recientes" ? (a, b) => b.id - a.id : (a, b) => (b.actividad > a.actividad ? 1 : -1));
+  if (!xs.length) { L.appendChild(el("p", "vacio", D.sugerencias.length ? "No hay sugerencias con estos filtros." : "Todavía no hay sugerencias. ¡Escribe la primera!")); return; }
+  xs.forEach((x) => L.appendChild(tarjeta(x)));
+}
+function tarjeta(x) {
+  const c = el("article", "sug" + (abierta === x.id ? " abierta" : "")); c.id = "s" + x.id;
+  const cab = el("div", "cabsug");
+  const v = el("button", "voto", String(x.votos)); v.type = "button";
+  const mia = x.autor === D.yo;
+  v.setAttribute("aria-pressed", String(!!x.yo));
+  v.setAttribute("aria-label", (mia ? "Votos" : x.yo ? "Quitar mi voto" : "Votar") + ": " + x.votos);
+  if (mia) { v.disabled = true; v.title = "No puedes votar tu propia sugerencia"; }
+  v.onclick = async () => { v.disabled = true; try { const r = await pide("POST", "/api/sugerencias/" + x.id + "/voto"); x.yo = r.votado ? 1 : 0; x.votos = r.votos; pinta(); } catch (e) { alert(e.message); v.disabled = false; } };
+  const cu = el("div", "cuerpo");
+  const t = el("button", "abre", x.titulo); t.type = "button"; t.setAttribute("translate", "no");
+  t.setAttribute("aria-expanded", String(abierta === x.id));
+  t.onclick = () => { abierta = abierta === x.id ? null : x.id; pinta(); if (abierta) { const n = $("s" + x.id); if (n) n.scrollIntoView({ block: "nearest" }); } };
+  const m = el("div", "meta");
+  m.append(el("span", "chip est-" + x.estado, EST[x.estado]), el("span", "chip", CAT[x.categoria]));
+  if (x.cerrada) m.appendChild(el("span", "chip cerr", "Cerrada"));
+  const quien = el("span"); quien.append(nombre(x.autor, x.autor_nombre), " · " + fecha(x.creada)); m.appendChild(quien);
+  m.appendChild(el("span", "", x.respuestas === 1 ? "1 respuesta" : x.respuestas + " respuestas"));
+  cu.append(t, m);
+  cab.append(v, cu); c.appendChild(cab);
+  if (abierta === x.id) c.appendChild(detalle(x));
+  return c;
+}
+function detalle(x) {
+  const d = el("div", "det"); d.appendChild(el("p", "m", "Cargando..."));
+  pide("GET", "/api/sugerencias/" + x.id).then((s) => {
+    d.textContent = "";
+    const mia = s.autor === D.yo, admin = D.admin;
+    const tx = el("p", "texto", s.texto); tx.setAttribute("translate", "no"); d.appendChild(tx);
+    if (s.editada) d.appendChild(el("p", "m", "Editada el " + fecha(s.editada)));
+    if (s.nota) { const n = el("div", "nota"); n.appendChild(el("b", "", "Respuesta del club")); const p = el("span", "", s.nota); p.setAttribute("translate", "no"); n.appendChild(p); d.appendChild(n); }
+    const err = el("p", "err"); err.setAttribute("role", "alert");
+    // Autor o admin: editar y borrar.
+    if (mia || admin) {
+      const acc = el("div", "acc");
+      const be = el("button", "btn s", "Editar"); be.type = "button";
+      be.onclick = () => {
+        const f = el("form", "nueva"); f.appendChild(el("h3", "", "Editar sugerencia"));
+        const fila = el("div", "fila");
+        const ti = el("input"); ti.type = "text"; ti.maxLength = 120; ti.value = s.titulo; ti.setAttribute("aria-label", "Título"); ti.setAttribute("translate", "no");
+        const ca = el("select"); opciones(ca, CAT); ca.value = s.categoria; ca.setAttribute("aria-label", "Categoría");
+        fila.append(ti, ca);
+        const te = el("textarea"); te.maxLength = 4000; te.value = s.texto; te.setAttribute("aria-label", "Texto"); te.setAttribute("translate", "no");
+        const a2 = el("div", "acc"); const g = el("button", "btn", "Guardar"); g.type = "submit"; const no = el("button", "btn s", "Cancelar"); no.type = "button"; no.onclick = () => pinta();
+        a2.append(g, no);
+        f.append(fila, te, a2, err);
+        f.onsubmit = async (ev) => { ev.preventDefault(); g.disabled = true; try { await pide("PUT", "/api/sugerencias/" + x.id, { titulo: ti.value, texto: te.value, categoria: ca.value }); await carga(); } catch (e) { err.textContent = e.message; g.disabled = false; } };
+        d.textContent = ""; d.appendChild(f); ti.focus();
+      };
+      const bb = el("button", "btn s", "Borrar"); bb.type = "button";
+      bb.onclick = async () => { if (!confirm("¿Borrar esta sugerencia y sus respuestas?")) return; try { await pide("DELETE", "/api/sugerencias/" + x.id); abierta = null; await carga(); } catch (e) { err.textContent = e.message; } };
+      acc.append(be, bb); d.appendChild(acc);
+    }
+    // Admin: estado, respuesta del club y cerrar.
+    if (admin) {
+      const f = el("form", "adm");
+      const es = el("select"); opciones(es, EST); es.value = s.estado; es.setAttribute("aria-label", "Estado");
+      const no = el("textarea"); no.maxLength = 1000; no.value = s.nota || ""; no.placeholder = "Respuesta del club (opcional)"; no.setAttribute("aria-label", "Respuesta del club"); no.setAttribute("translate", "no");
+      const pie = el("div", "pie");
+      const lc = el("label"); const ck = el("input"); ck.type = "checkbox"; ck.checked = !!s.cerrada; lc.append(ck, "Cerrada (no admite respuestas)");
+      const g = el("button", "btn", "Guardar estado"); g.type = "submit";
+      pie.append(lc, g);
+      f.append(es, no, pie);
+      f.onsubmit = async (ev) => { ev.preventDefault(); g.disabled = true; try { await pide("PUT", "/api/sugerencias/" + x.id, { estado: es.value, nota: no.value, cerrada: ck.checked }); await carga(); } catch (e) { err.textContent = e.message; g.disabled = false; } };
+      d.appendChild(f);
+    }
+    // Respuestas.
+    d.appendChild(el("h3", "", s.respuestas.length ? "Respuestas" : "Sin respuestas todavía"));
+    const ul = el("ul", "resp");
+    s.respuestas.forEach((r) => {
+      const li = el("li");
+      const q = el("div", "quien"); q.append(nombre(r.autor, r.autor_nombre), el("span", "", fecha(r.creada) + (r.editada ? " · editada" : "")));
+      const p = el("p", "texto", r.texto); p.setAttribute("translate", "no"); p.style.margin = "0";
+      if (r.autor === D.yo || admin) {
+        const be = el("button", "mini", "Editar"); be.type = "button";
+        be.onclick = () => {
+          const te = el("textarea"); te.maxLength = 2000; te.value = r.texto; te.setAttribute("aria-label", "Respuesta"); te.setAttribute("translate", "no");
+          const g = el("button", "btn", "Guardar"); g.type = "button";
+          g.onclick = async () => { g.disabled = true; try { await pide("PUT", "/api/sugerencias/respuestas/" + r.id, { texto: te.value }); await carga(); } catch (e) { err.textContent = e.message; g.disabled = false; } };
+          p.replaceWith(te); be.replaceWith(g); te.focus();
+        };
+        const bb = el("button", "mini borra", "Borrar"); bb.type = "button";
+        bb.onclick = async () => { if (!confirm("¿Borrar esta respuesta?")) return; try { await pide("DELETE", "/api/sugerencias/respuestas/" + r.id); await carga(); } catch (e) { err.textContent = e.message; } };
+        q.append(be, bb);
+      }
+      li.append(q, p); ul.appendChild(li);
+    });
+    d.appendChild(ul);
+    if (s.cerrada && !admin) d.appendChild(el("p", "m", "Esta sugerencia está cerrada y no admite más respuestas."));
+    else {
+      const f = el("form");
+      const te = el("textarea"); te.maxLength = 2000; te.placeholder = "Escribe una respuesta"; te.setAttribute("aria-label", "Escribe una respuesta"); te.setAttribute("translate", "no"); te.style.minHeight = "80px";
+      const g = el("button", "btn", "Responder"); g.type = "submit"; g.style.marginTop = "8px";
+      f.append(te, g);
+      f.onsubmit = async (ev) => { ev.preventDefault(); g.disabled = true; try { await pide("POST", "/api/sugerencias/" + x.id + "/respuestas", { texto: te.value }); await carga(); } catch (e) { err.textContent = e.message; g.disabled = false; } };
+      d.appendChild(f);
+    }
+    d.appendChild(err);
+  }).catch((e) => { d.textContent = ""; d.appendChild(el("p", "err", e.message)); });
+  return d;
+}
+["orden", "festado", "fcat"].forEach((k) => $(k).addEventListener("change", pinta));
+$("bnueva").onclick = () => { $("fnueva").hidden = false; $("bnueva").hidden = true; $("ntit").focus(); };
+$("ncan").onclick = () => { $("fnueva").hidden = true; $("bnueva").hidden = false; $("nerr").textContent = ""; };
+$("fnueva").onsubmit = async (ev) => {
+  ev.preventDefault(); const b = $("fnueva").querySelector("button[type=submit]"); b.disabled = true; $("nerr").textContent = "";
+  try {
+    const r = await pide("POST", "/api/sugerencias", { titulo: $("ntit").value, categoria: $("ncat").value, texto: $("ntxt").value });
+    $("fnueva").reset(); $("fnueva").hidden = true; $("bnueva").hidden = false; abierta = r.id; $("orden").value = "recientes"; await carga();
+  } catch (e) { $("nerr").textContent = e.message; }
+  b.disabled = false;
+};
+if (window.abNav && window.abNav.medalla) $("ic").appendChild(window.abNav.medalla("sugerencias", 88));
+// Solo socios con sesión. ?id=N abre esa sugerencia (enlace de los avisos de la servocalavera).
+(window.abMe = window.abMe || fetch("/api/me").then((r) => r.json()).catch(() => null)).then(async (me) => {
+  if (!me || !me.id || me.invitado) { $("sinsesion").hidden = false; return; }
+  $("app").hidden = false;
+  const q = Number(new URLSearchParams(location.search).get("id")); if (q) abierta = q;
+  await carga();
+  if (q) { const n = $("s" + q); if (n) n.scrollIntoView({ block: "start" }); }
+});
+</script>
+<script src="/i18n.js"></script>
+<script src="/auth.js"></script>
+</body>
+</html>

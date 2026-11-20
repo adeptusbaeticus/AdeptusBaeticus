@@ -354,6 +354,15 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 
 ---
 
+## Sugerencias (aspirante, miembro, admin)
+- Foro para proponer ideas para el club y la web: título, categoría (Web, Club, Torneos, Gran Liga, Quedadas u Otros) y
+  texto. Solo texto y siempre con tu nombre; como mucho 5 al día.
+- Votar («+1») las de los demás, responder, ordenar (más votadas, última actividad, más recientes) y filtrar por estado
+  y categoría. El autor puede editar o borrar lo suyo.
+- **Admin:** cambia el estado (pendiente, en estudio, aceptada, hecha o descartada), escribe la respuesta del club y
+  puede cerrarla; también edita o borra cualquier sugerencia o respuesta.
+- Al autor le llega un aviso en la servocalavera cuando le responden o cambia el estado, con enlace a su sugerencia.
+
 ## 11. Reglas y FAQ
 - Preguntas frecuentes copiadas del canal #preguntas-frecuentes de Discord. Se renuevan solas cada 6 horas.
 - **Buscador** de preguntas.

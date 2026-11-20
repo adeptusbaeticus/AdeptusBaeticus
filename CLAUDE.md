@@ -202,6 +202,18 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   La lista se abre sola una vez por visita. Para enviar uno a todos: `anunciaATodos(env, tipo, titulo, texto)` (una
   sola consulta; no duplica si ya tiene uno de ese tipo sin aceptar). Traducir su texto en `i18n.js` (`EXACT`).
 
+## Sugerencias
+
+- Foro de sugerencias (`sugerencias.html`, en el menú; migración 0042: `sugerencias`, `sugerencia_votos`,
+  `sugerencia_respuestas`). Solo socios con sesión (aspirantes, miembros y admin), siempre con su nombre (no hay
+  anónimas) y solo texto (sin fotos): título (4-120), categoría (`web`, `club`, `torneos`, `liga`, `quedadas`,
+  `otros`) y texto (10-4000); como mucho 5 al día por socio y 30 respuestas por hora. Votos («+1», no a las propias),
+  respuestas, orden (más votadas, actividad, recientes) y filtros. Autor o admin: editar y borrar. Admin: estado
+  (`pendiente`, `estudio`, `aceptada`, `hecha`, `descartada`), «Respuesta del club» (`nota`) y cerrar (sin más
+  respuestas salvo el admin). Avisos al autor en la servocalavera (tipo `sug:ID`, uno por sugerencia: respuesta nueva o
+  cambio de estado), con enlace `?id=N` que la abre. API `/api/sugerencias*`; `borraPerfil` borra sus sugerencias,
+  respuestas y votos.
+
 ## Encuestas
 
 - Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí

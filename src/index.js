@@ -642,6 +642,10 @@ async function borraPerfil(env, id) {
     // Inscripciones a torneos: sus equipos como capitán (con sus compañeros) y su plaza en los de otros.
     env.DB.prepare("DELETE FROM torneo_miembros WHERE discord_id=?1 OR equipo_id IN (SELECT id FROM torneo_equipos WHERE capitan=?1)").bind(id),
     env.DB.prepare("DELETE FROM torneo_equipos WHERE capitan=?1").bind(id),
+    // Sugerencias: las suyas (con sus votos y respuestas), sus respuestas y sus votos.
+    env.DB.prepare("DELETE FROM sugerencia_votos WHERE discord_id=?1 OR sugerencia_id IN (SELECT id FROM sugerencias WHERE autor=?1)").bind(id),
+    env.DB.prepare("DELETE FROM sugerencia_respuestas WHERE autor=?1 OR sugerencia_id IN (SELECT id FROM sugerencias WHERE autor=?1)").bind(id),
+    env.DB.prepare("DELETE FROM sugerencias WHERE autor=?1").bind(id),
     env.DB.prepare("UPDATE liga_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM socios_datos WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM solicitudes WHERE discord_id=?1").bind(id),
@@ -1023,6 +1027,7 @@ const OG_PAGINAS = {
   "/faq": ["Reglas y FAQ · Adeptus Baeticus", "El reglamento del club y las dudas más habituales."],
   "/encuestas": ["Encuestas · Adeptus Baeticus", "Las votaciones del club."],
   "/inscripcion": ["Inscripción · Adeptus Baeticus", "Únete al club de Warhammer Adeptus Baeticus en Málaga."],
+  "/sugerencias": ["Sugerencias · Adeptus Baeticus", "Las ideas y propuestas de los socios para el club y la web."],
 };
 const escAttr = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 // Etiquetas de la vista previa de una dirección (para un evento concreto, su nombre, fecha y lugar).
@@ -3891,6 +3896,140 @@ export default {
         ]);
         return Response.json({ ok: true }, { headers: noStore });
       }
+    }
+
+    // ----- Sugerencias (foro de socios: solo con sesión, siempre con su nombre, solo texto) -----
+    if (path === "/api/sugerencias" || path.startsWith("/api/sugerencias/")) {
+      const s = await readSession(env, request);
+      if (!s) return Response.json({ error: "Inicia sesión con Discord para ver y escribir sugerencias" }, { status: 401, headers: noStore });
+      if (request.method !== "GET" && !sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      const admin = s.role === "admin";
+      const err = (t, st = 400) => Response.json({ error: t }, { status: st, headers: noStore });
+      const ok = (x) => Response.json(x || { ok: true }, { headers: noStore });
+      const cuerpo = async () => { try { return await request.json(); } catch (e) { return {}; } };
+      const limpia = (v, max) => String(v == null ? "" : v).replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, max);
+      const SUG_CAT = ["web", "club", "torneos", "liga", "quedadas", "otros"];
+      const SUG_EST = ["pendiente", "estudio", "aceptada", "hecha", "descartada"];
+      const ESTADO_TXT = { pendiente: "Pendiente", estudio: "En estudio", aceptada: "Aceptada", hecha: "Hecha", descartada: "Descartada" };
+      // Aviso en la servocalavera al autor (uno por sugerencia: el nuevo sustituye al anterior sin leer).
+      const avisa = (para, id, titulo, texto) => para === s.id ? [] : [
+        env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1 AND tipo=?2 AND aceptado IS NULL").bind(para, "sug:" + id),
+        env.DB.prepare("INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace) VALUES (?1, ?2, ?3, ?4, ?5)")
+          .bind(para, "sug:" + id, titulo, texto, "/sugerencias.html?id=" + id),
+      ];
+      const sm = path.match(/^\/api\/sugerencias\/(\d+)(?:\/(voto|respuestas))?$/);
+      const rm = path.match(/^\/api\/sugerencias\/respuestas\/(\d+)$/);
+      // Lista (con votos, respuestas y si he votado yo).
+      if (path === "/api/sugerencias" && request.method === "GET") {
+        const { results } = await env.DB.prepare(
+          `SELECT s.id, s.autor, u.name AS autor_nombre, s.categoria, s.titulo, s.estado, s.cerrada, s.creada, s.actividad,
+             (SELECT COUNT(*) FROM sugerencia_votos v WHERE v.sugerencia_id=s.id) AS votos,
+             (SELECT COUNT(*) FROM sugerencia_respuestas r WHERE r.sugerencia_id=s.id) AS respuestas,
+             EXISTS(SELECT 1 FROM sugerencia_votos v WHERE v.sugerencia_id=s.id AND v.discord_id=?1) AS yo
+           FROM sugerencias s LEFT JOIN users u ON u.discord_id=s.autor ORDER BY s.actividad DESC LIMIT 300`
+        ).bind(s.id).all();
+        return ok({ sugerencias: results, admin, yo: s.id });
+      }
+      // Nueva sugerencia (como mucho 5 al día por socio).
+      if (path === "/api/sugerencias" && request.method === "POST") {
+        const b = await cuerpo();
+        const titulo = limpia(b.titulo, 120).replace(/\n/g, " "), texto = limpia(b.texto, 4000);
+        const categoria = SUG_CAT.includes(b.categoria) ? b.categoria : "otros";
+        if (titulo.length < 4) return err("Escribe un título (al menos 4 letras)");
+        if (texto.length < 10) return err("Explica tu sugerencia (al menos 10 letras)");
+        const n = await env.DB.prepare("SELECT COUNT(*) n FROM sugerencias WHERE autor=?1 AND creada > datetime('now','-1 day')").bind(s.id).first();
+        if (n && n.n >= 5) return err("Has enviado muchas sugerencias hoy: vuelve a intentarlo mañana", 429);
+        const r = await env.DB.prepare("INSERT INTO sugerencias (autor, categoria, titulo, texto) VALUES (?1, ?2, ?3, ?4)").bind(s.id, categoria, titulo, texto).run();
+        return ok({ ok: true, id: r.meta.last_row_id });
+      }
+      if (sm) {
+        const id = Number(sm[1]);
+        const su = await env.DB.prepare("SELECT s.*, u.name AS autor_nombre FROM sugerencias s LEFT JOIN users u ON u.discord_id=s.autor WHERE s.id=?1").bind(id).first();
+        if (!su) return err("Esa sugerencia ya no existe", 404);
+        const mia = su.autor === s.id;
+        if (!sm[2] && request.method === "GET") {
+          const [v, r] = await env.DB.batch([
+            env.DB.prepare("SELECT COUNT(*) AS votos, EXISTS(SELECT 1 FROM sugerencia_votos WHERE sugerencia_id=?1 AND discord_id=?2) AS yo FROM sugerencia_votos WHERE sugerencia_id=?1").bind(id, s.id),
+            env.DB.prepare(`SELECT r.id, r.autor, u.name AS autor_nombre, r.texto, r.creada, r.editada FROM sugerencia_respuestas r
+              LEFT JOIN users u ON u.discord_id=r.autor WHERE r.sugerencia_id=?1 ORDER BY r.id`).bind(id),
+          ]);
+          return ok({ ...su, votos: v.results[0].votos, yo: v.results[0].yo, respuestas: r.results, admin });
+        }
+        // Editar: el autor, su título, texto y categoría; el admin, además, el estado, la nota y si está cerrada.
+        if (!sm[2] && request.method === "PUT") {
+          if (!mia && !admin) return err("Solo su autor o el admin pueden cambiarla", 403);
+          const b = await cuerpo();
+          const titulo = b.titulo == null ? su.titulo : limpia(b.titulo, 120).replace(/\n/g, " ");
+          const texto = b.texto == null ? su.texto : limpia(b.texto, 4000);
+          const categoria = SUG_CAT.includes(b.categoria) ? b.categoria : su.categoria;
+          if (titulo.length < 4) return err("Escribe un título (al menos 4 letras)");
+          if (texto.length < 10) return err("Explica tu sugerencia (al menos 10 letras)");
+          let estado = su.estado, nota = su.nota, cerrada = su.cerrada;
+          if (admin) {
+            if (b.estado != null) { if (!SUG_EST.includes(b.estado)) return err("Estado no válido"); estado = b.estado; }
+            if (b.nota != null) nota = limpia(b.nota, 1000) || null;
+            if (b.cerrada != null) cerrada = b.cerrada ? 1 : 0;
+          }
+          const cambiaTexto = titulo !== su.titulo || texto !== su.texto || categoria !== su.categoria;
+          const cambiaEstado = estado !== su.estado || (nota || null) !== (su.nota || null);
+          await env.DB.batch([
+            env.DB.prepare(`UPDATE sugerencias SET titulo=?1, texto=?2, categoria=?3, estado=?4, nota=?5, cerrada=?6,
+              editada=CASE WHEN ?7 THEN datetime('now') ELSE editada END, actividad=datetime('now') WHERE id=?8`)
+              .bind(titulo, texto, categoria, estado, nota, cerrada, cambiaTexto ? 1 : 0, id),
+            ...(cambiaEstado ? avisa(su.autor, id, "Tu sugerencia: " + ESTADO_TXT[estado], "«" + su.titulo + "» ahora está: " + ESTADO_TXT[estado] + "." + (nota ? " " + nota : "")) : []),
+          ]);
+          return ok();
+        }
+        if (!sm[2] && request.method === "DELETE") {
+          if (!mia && !admin) return err("Solo su autor o el admin pueden borrarla", 403);
+          await env.DB.batch([
+            env.DB.prepare("DELETE FROM sugerencia_votos WHERE sugerencia_id=?1").bind(id),
+            env.DB.prepare("DELETE FROM sugerencia_respuestas WHERE sugerencia_id=?1").bind(id),
+            env.DB.prepare("DELETE FROM anuncios WHERE tipo=?1").bind("sug:" + id),
+            env.DB.prepare("DELETE FROM sugerencias WHERE id=?1").bind(id),
+          ]);
+          return ok();
+        }
+        // Votar o quitar el voto (no a las propias).
+        if (sm[2] === "voto" && request.method === "POST") {
+          if (mia) return err("No puedes votar tu propia sugerencia");
+          const ya = await env.DB.prepare("SELECT 1 FROM sugerencia_votos WHERE sugerencia_id=?1 AND discord_id=?2").bind(id, s.id).first();
+          await env.DB.prepare(ya ? "DELETE FROM sugerencia_votos WHERE sugerencia_id=?1 AND discord_id=?2" : "INSERT OR IGNORE INTO sugerencia_votos (sugerencia_id, discord_id) VALUES (?1, ?2)").bind(id, s.id).run();
+          const v = await env.DB.prepare("SELECT COUNT(*) n FROM sugerencia_votos WHERE sugerencia_id=?1").bind(id).first();
+          return ok({ ok: true, votado: !ya, votos: v.n });
+        }
+        // Responder (en una cerrada solo el admin).
+        if (sm[2] === "respuestas" && request.method === "POST") {
+          if (su.cerrada && !admin) return err("Esta sugerencia está cerrada", 409);
+          const b = await cuerpo();
+          const texto = limpia(b.texto, 2000);
+          if (texto.length < 2) return err("Escribe tu respuesta");
+          const n = await env.DB.prepare("SELECT COUNT(*) n FROM sugerencia_respuestas WHERE autor=?1 AND creada > datetime('now','-1 hour')").bind(s.id).first();
+          if (n && n.n >= 30) return err("Has escrito muchas respuestas seguidas: espera un rato", 429);
+          await env.DB.batch([
+            env.DB.prepare("INSERT INTO sugerencia_respuestas (sugerencia_id, autor, texto) VALUES (?1, ?2, ?3)").bind(id, s.id, texto),
+            env.DB.prepare("UPDATE sugerencias SET actividad=datetime('now') WHERE id=?1").bind(id),
+            ...avisa(su.autor, id, "Respuesta a tu sugerencia", s.name + " ha respondido a «" + su.titulo + "»."),
+          ]);
+          return ok();
+        }
+        return new Response("Método no permitido", { status: 405 });
+      }
+      // Editar o borrar una respuesta (su autor o el admin).
+      if (rm) {
+        const r = await env.DB.prepare("SELECT * FROM sugerencia_respuestas WHERE id=?1").bind(Number(rm[1])).first();
+        if (!r) return err("Esa respuesta ya no existe", 404);
+        if (r.autor !== s.id && !admin) return err("Solo su autor o el admin pueden cambiarla", 403);
+        if (request.method === "DELETE") { await env.DB.prepare("DELETE FROM sugerencia_respuestas WHERE id=?1").bind(r.id).run(); return ok(); }
+        if (request.method === "PUT") {
+          const texto = limpia((await cuerpo()).texto, 2000);
+          if (texto.length < 2) return err("Escribe tu respuesta");
+          await env.DB.prepare("UPDATE sugerencia_respuestas SET texto=?1, editada=datetime('now') WHERE id=?2").bind(texto, r.id).run();
+          return ok();
+        }
+        return new Response("Método no permitido", { status: 405 });
+      }
+      return err("No encontrado", 404);
     }
 
     if (path === "/api/members" && request.method === "GET") {

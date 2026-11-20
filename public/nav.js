@@ -35,6 +35,7 @@
     { t: "Galería", u: "/galeria.html", ic: "galeria" },
     { t: "Miembros", u: "/miembros.html", ic: "miembros" },
     { t: "Reglas y FAQ", u: "/faq.html", ic: "faq" },
+    { t: "Sugerencias", u: "/sugerencias.html", ic: "sugerencias" },
   ];
   const BARRA = [
     { t: "Inicio", u: "/", ic: "inicio" },
@@ -109,6 +110,8 @@
     faq: [["M21 18.5h19.5a3.5 3.5 0 0 1 3.5 3.5v23.5H24.5A3.5 3.5 0 0 1 21 42z", "M21 42a3.5 3.5 0 0 1 3.5-3.5H44", "M28.6 26.4a3.6 3.6 0 1 1 5.2 3.2c-1.2.7-1.8 1.4-1.8 2.8"],
       ["M32 34.2a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 1 0 0-2.8z"], []],
     mas: [["M22 25h20", "M22 32h20", "M22 39h20"], [], []],
+    // Sugerencias: pergamino con renglones y pluma.
+    sugerencias: [["M18.5 21h17v25h-17z", "M22.5 27h9M22.5 32h9M22.5 37h6"], ["M47 15.5c-6.5 1-12.5 6-15.5 14.5l-1.3 4.6 4-2.8c7-3.2 11.3-9.3 12.8-16.3z", "M30.4 34.2l-2.6 4.6 1.2.6 2.6-4.4z"], []],
     // Tipos de evento del calendario: quedada (estandarte), torneo (corona de laurel con espada), partida (espadas).
     quedada: [["M23 16.5v30", "M18.5 46.5h9"], ["M24.5 18h19l-4.2 6.2 4.2 6.3h-19z", "M23 14.6a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 1 0 0-3.8z"], ["M31.2 21.4a2.8 2.8 0 1 0 0 .1zM29.6 25.6h3.2v1.4h-3.2z"]],
     torneo: [["M22.5 41c-4.6-4.6-5.4-12.4-1-18.5", "M41.5 41c4.6-4.6 5.4-12.4 1-18.5"],
