@@ -594,10 +594,13 @@ async function vinculaAlEntrar(env, u, nick) {
         (SELECT date(created_at) FROM solicitudes WHERE discord_id=?1 AND estado='aprobada' ORDER BY id DESC LIMIT 1)),
       instagram=COALESCE(instagram, (SELECT instagram FROM socios_datos WHERE discord_id=?1)) WHERE discord_id=?1`).bind(u.id).run();
 }
-// Para /api/me: `datos_pendientes` (aviso junto al usuario, también para el admin) y `completar` (obligatorio, menos el admin).
+// Para /api/me: `datos_pendientes` (aviso junto al usuario, también para Frambu) y `completar` (obligatorio, menos Frambu).
+// Único socio sin datos obligatorios: Frambu (quien administra la web). Todos los demás, también los otros admins,
+// tienen que completarlos.
+const EXENTO_DATOS = "307511848486567936";
 async function avisoDatos(env, s) {
   if (await tieneDatos(env, s.id)) return {};
-  return s.role === "admin" ? { datos_pendientes: true } : { datos_pendientes: true, completar: true };
+  return s.id === EXENTO_DATOS ? { datos_pendientes: true } : { datos_pendientes: true, completar: true };
 }
 // Ajustes generales de la web (tabla `ajustes`, migración 0033).
 async function ajuste(env, clave) {
@@ -654,9 +657,9 @@ async function borraPerfil(env, id) {
 }
 // Lo único de la API que puede usar un socio mientras le faltan sus datos (además de /api/inscripcion*).
 const SIN_DATOS_PERMITIDO = new Set(["/api/me", "/api/ajustes", "/api/socio/datos", "/api/socio/borrar", "/api/ver-como/salir", "/api/push/baja"]);
-// ¿Tiene que completar sus datos? Todos los socios menos el admin, hasta que los completen (o si se inscribieron con la web).
+// ¿Tiene que completar sus datos? Todos los socios menos Frambu (`EXENTO_DATOS`), hasta que los completen (o si se inscribieron con la web).
 async function faltanDatos(env, s) {
-  if (!s || s.role === "admin") return false;
+  if (!s || s.id === EXENTO_DATOS) return false;
   return !(await tieneDatos(env, s.id));
 }
 // Quien ya tiene sus datos completos casi nunca deja de tenerlos: ese «sí» se recuerda 5 minutos en este proceso del
@@ -3716,9 +3719,9 @@ export default {
         try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
         const x = eloDe(u);
         const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
-        // «Desconectado»: creado desde la web y aún sin iniciar sesión, o (salvo el admin) sin sus datos obligatorios.
+        // «Desconectado»: creado desde la web y aún sin iniciar sesión, o (salvo Frambu) sin sus datos obligatorios.
         if (!u.conectado) m.desconectado = "sin_entrar";
-        else if (u.role !== "admin" && !u.datos) m.desconectado = "sin_datos";
+        else if (u.discord_id !== EXENTO_DATOS && !u.datos) m.desconectado = "sin_datos";
         if (s) Object.assign(m, { instagram: u.instagram, steam: u.steam, bcp: u.bcp, nr: u.nr_username,
           // La antigüedad cuenta desde la inscripción, pero solo se muestra a miembros y admin (no a aspirantes).
           alta: u.role === "miembro" || u.role === "admin" ? u.alta || null : null,

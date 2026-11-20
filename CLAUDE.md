@@ -142,13 +142,13 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   rol del club no se le cambia nada: sale en Admin en «Sin rol del club en Discord o fuera del servidor».
   Al pulsar el botón se guarda en `nr_cache` (`discord:sin-datos`) la lista de cuentas del servidor sin datos (cuenta,
   usuario, nombre visible, apodo y rol) para revisar las parejas a mano.
-- Datos obligatorios al entrar: todo socio menos el admin que no se inscribió con la web y aún no ha completado sus datos
+- Datos obligatorios al entrar: todo socio menos Frambu (`EXENTO_DATOS`, su cuenta de Discord; los demás admins sí) que no se inscribió con la web y aún no ha completado sus datos
   (`faltanDatos`, `completar` en `/api/me`) va a `inscripcion.html?completar=1` (`auth.js`) hasta guardarlos
   (`/api/socio/datos`, misma validación que la inscripción, `validaDatosSocio`); vienen rellenos con lo del Excel.
   Los que no están en el Excel son nuevos y lo rellenan entero.
   También lo exige el servidor: mientras le falten, toda la API le responde 403 salvo `SIN_DATOS_PERMITIDO`
   (`/api/me`, `/api/socio/datos`, `/api/ver-como/salir`, `/api/push/baja`) y `/api/inscripcion*`.
-  Además, a quien le falten (también al admin, `datos_pendientes` en `/api/me`), la servocalavera de las encuestas muestra
+  Además, a quien le falten (también a Frambu, `datos_pendientes` en `/api/me`), la servocalavera de las encuestas muestra
   el aviso «Completa tus datos de socio» (cuenta en el número y enlaza al formulario).
 - «Mis datos» (menú del usuario, `inscripcion.html?completar=1`): el socio revisa y edita cuando quiera sus datos (los
   suyos en `socios_datos` o, si se inscribió con la web, los de su solicitud aprobada) y su ficha de Miembros
@@ -166,7 +166,7 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   `window.abAntiguedad` y `window.abAniosClub` en `public/trofeos.js`; solo con sesión).
 - Socios creados desde la web sin haber iniciado sesión (los que se importen del Excel antiguo): `users.conectado = 0`
   (migración 0030); en Miembros salen con la etiqueta «Desconectado» hasta su primer inicio de sesión, que lo pone a 1.
-  También salen «Desconectado» (salvo el admin) los que no tienen sus datos obligatorios completos (`/api/miembros`:
+  También salen «Desconectado» (salvo Frambu) los que no tienen sus datos obligatorios completos (`/api/miembros`:
   `desconectado` = `sin_entrar` o `sin_datos`, con su explicación en la ficha).
 - **Última conexión** (`users.ultima_conexion`, migración 0043): se apunta al iniciar sesión y en `/api/me`
   (`marcaConexion`: como mucho una escritura por hora y socio, también recordado en el proceso; no en «ver como»). En la

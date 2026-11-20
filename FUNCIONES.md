@@ -286,7 +286,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 
 ## 7. Miembros
 - En la ficha de cada socio (con sesión): **última conexión** a la web (hoy, ayer, hace N días o la fecha).
-- Etiqueta **«Desconectado»** para quien aún no ha entrado en la web o (salvo el admin) no ha completado sus datos
+- Etiqueta **«Desconectado»** para quien aún no ha entrado en la web o (salvo Frambu) no ha completado sus datos
   obligatorios; la ficha explica cuál de las dos.
 - Listado de socios con foto, **corona de laurel** (verde para los miembros, roja para el admin), nombre, rol,
   facciones, puesto en la liga, ELO y trofeos.
@@ -328,6 +328,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Borrar todos mis datos**, con confirmación: borra tu perfil de la web y cierra la sesión.
 - **«Completa tus datos» obligatorio:** la primera vez que entras, si no te inscribiste con la web, tienes que
   rellenarlos antes de usar nada. Vienen rellenos con lo que había en el Excel antiguo. El servidor también lo exige.
+  Obligatorio para todos, también los admins, salvo Frambu.
 
 ---
 
