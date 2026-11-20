@@ -49,7 +49,10 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   `<symbol>` y degradados comunes. Dibujo propio: sin águila imperial, marines ni otros motivos de Games Workshop.
 - **Rutas por juego:** `/warhammer-40k/{gran-liga,ranking-elo,recursos,tutoriales}` y
   `/juegos-de-especialista/{necromunda,blood-bowl}` las sirve el Worker (`SECCIONES`: página que entrega cada una; las
-  secciones en preparación comparten `seccion.html`, estado vacío «Próximamente» elegido por la dirección). `REDIRIGE`:
+  secciones en preparación comparten `seccion.html`, estado vacío «Próximamente» elegido por la dirección). Recursos,
+  Tutoriales, Necromunda y Blood Bowl ya tienen contenido: `public/guias.js` (`GUIAS` por dirección, textos `{es, en}`
+  pintados según el idioma, con `translate="no"`; enlaces solo oficiales salvo los marcados «Comunidad»; vídeos
+  enlazados a YouTube, sin incrustar, para no meter cookies de terceros). Revisar los enlaces de vez en cuando. `REDIRIGE`:
   `/gran-liga` y `/elo` (301, conservan `?…`; el `#…` lo guarda el navegador) y las categorías sin sección (302). Enlazar
   siempre a las direcciones nuevas (avisos, Discord, calendario…).
 - **Roles en la web:** admin, miembro y aspirante. En las fichas (Miembros y ficha rápida) la foto lleva una corona de

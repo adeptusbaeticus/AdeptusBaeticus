@@ -20,6 +20,12 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   Botones grandes (48 px o más), se cierra al elegir una sección, con Escape o tocando fuera.
 - Iconos en forma de **medallón** de bronce y hueso (rueda dentada de bronce con un emblema color hueso en relieve) en los desplegables, la
   barra de la categoría, la barra inferior, el menú lateral y las páginas «Próximamente».
+- **Recursos (40K):** reglas básicas gratis de la 11.ª edición, el documento («Faction Pack») de cada facción, Balance
+  Dataslate y puntos, la app oficial (App Store y Google Play) y herramientas del club.
+- **Tutoriales (40K):** serie de vídeos «How to Play Warhammer 40K 11th Edition» (se abren en YouTube), canal oficial y
+  partida explicada.
+- **Necromunda** y **Blood Bowl:** qué son, cómo empezar, bandas o equipos (con los niveles de Blood Bowl), reglas y
+  descargas oficiales, y cómo jugar en el club. Todo en español e inglés.
 - Las direcciones antiguas (`/gran-liga`, `/elo`) llevan a las nuevas (`/warhammer-40k/gran-liga`,
   `/warhammer-40k/ranking-elo`) sin perder la liga ni la ronda.
 

@@ -40,6 +40,32 @@ a{color:#D9B25A}
 .ftl{display:flex;gap:20px;flex-wrap:wrap}
 .ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
 .ftl a:hover{color:#F0CE82;text-decoration:underline}
+/* Guías (Recursos, Tutoriales, Necromunda, Blood Bowl) */
+.guia{max-width:900px;margin:32px auto 0}
+.g-cab{display:flex;gap:22px;align-items:center;margin:0 0 28px}
+.g-cab svg{flex:none;filter:drop-shadow(0 6px 14px rgba(0,0,0,.6))}
+.g-tit .cat{font:600 13px Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#D9B25A;margin:0 0 4px}
+.g-tit h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0 0 10px}
+.g-intro{color:#CFC9BA;margin:0;max-width:680px}
+.g-bloque{background:#1F2328;border:1px solid #2C3036;border-radius:14px;padding:20px 22px;margin:0 0 18px}
+.g-bloque h2{font:700 22px/1.2 Cinzel,Georgia,serif;color:#F0CE82;margin:0 0 8px}
+.g-bloque h3{font:600 13px Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#A8A293;margin:16px 0 8px}
+.g-bloque p{color:#DCD6C8;margin:0 0 12px}
+.g-lista{margin:0 0 12px;padding-left:20px;color:#DCD6C8}.g-lista li{margin:4px 0}
+.g-enl{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.g-e{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 12px;border-radius:12px;border:1px solid #2C3036;background:#15171A;color:#ECE7DC;text-decoration:none}
+.g-e:hover,.g-e:focus-visible{border-color:#B08A45;outline:none;background:#1A1C20}
+.g-e .g-ic{flex:none;display:flex}
+.g-e .g-tx{flex:1;min-width:0}.g-e strong{display:block;font-weight:600;line-height:1.3}.g-e .g-tx span{display:block;font-size:13px;color:#A8A293;line-height:1.35;margin-top:2px}
+.g-et{flex:none;align-self:flex-start;font:600 11px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#DCD8C2;border:1px solid #6B6558;border-radius:999px;padding:2px 8px}
+.g-et.com{color:#A9B776;border-color:#7C8A4C}
+.g-fac{display:flex;flex-wrap:wrap;gap:8px}
+.g-fac a{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid #6B6558;background:#15171A;color:#ECE7DC;text-decoration:none;font-weight:500}
+.g-fac a.pdf{border-color:#9C7A35}
+.g-fac a small{font-size:11px;color:#A8A293;letter-spacing:.04em}
+.g-fac a:hover,.g-fac a:focus-visible{border-color:#D9B25A;color:#F0CE82;outline:none}
+.g-mas{display:inline-flex;align-items:center;min-height:44px;margin-top:10px;font-weight:600;text-decoration:none}
+@media (max-width:600px){.g-cab{flex-direction:column;align-items:flex-start;gap:12px}.g-cab svg{width:72px;height:72px}.g-tit h1{font-size:30px}.g-bloque{padding:16px}.g-enl{grid-template-columns:1fr}}
 @media (max-width:600px){.c{padding-left:16px;padding-right:16px}.vacio{margin-top:28px;padding:32px 18px}.vacio h1{font-size:28px}.acts .btn{flex:1 1 100%}}
 </style>
 </head>
@@ -61,6 +87,7 @@ a{color:#D9B25A}
       <a class="btn s" href="/calendario.html">Ver el calendario</a>
     </div>
   </main>
+  <div id="guia" class="guia" translate="no" hidden></div>
   <footer class="ft">
     <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
     <nav class="ftl" aria-label="Enlaces">
@@ -70,6 +97,7 @@ a{color:#D9B25A}
     </nav>
   </footer>
 </div>
+<script src="/guias.js"></script>
 <script>
 // Estado vacío de las secciones en preparación (una sola página para todas: la elige la dirección).
 const SECCION = {
@@ -84,7 +112,11 @@ document.getElementById("cat").textContent = s.cat;
 document.getElementById("titulo").textContent = s.t;
 document.getElementById("texto").textContent = s.tx + " Sección en preparación: vuelve pronto.";
 document.title = s.t + " · Adeptus Baeticus";
-if (window.abNav) document.getElementById("ic").appendChild(window.abNav.medalla ? window.abNav.medalla(s.ic, 132) : window.abNav.icono(s.ic, 48));
+// Secciones con contenido (guias.js): se pinta la guía en lugar del estado vacío.
+if (window.abGuia && window.abGuia(ruta, document.getElementById("guia"))) {
+  document.getElementById("vacio").hidden = true;
+  document.getElementById("guia").hidden = false;
+} else if (window.abNav) document.getElementById("ic").appendChild(window.abNav.medalla ? window.abNav.medalla(s.ic, 132) : window.abNav.icono(s.ic, 48));
 </script>
 <script src="/i18n.js"></script>
 <script src="/auth.js"></script>
