@@ -69,6 +69,7 @@
             "Games Workshop reviews the game every few months: the Balance Dataslate (rule changes) and the Munitorum Field Manual (points for each unit). They're published on the downloads page and updated automatically in the app."),
           enlaces: [
             { t: t("Balance Dataslate y Munitorum Field Manual", "Balance Dataslate and Munitorum Field Manual"), u: DESCARGAS_40K, d: t("Página de descargas de Warhammer Community", "Warhammer Community downloads page"), tipo: "web" },
+            { t: t("Munitorum Field Manual en la web", "Munitorum Field Manual online"), u: "https://mfm.warhammer-community.com/", d: t("Los puntos de cada unidad, consultables y siempre al día (oficial)", "Points for every unit, searchable and always up to date (official)"), tipo: "web" },
           ] },
         { t: t("App oficial de Warhammer 40.000", "Official Warhammer 40,000 app"), tx: t("La app oficial de Games Workshop (gratuita, con compras dentro) trae las reglas básicas y las hojas de datos de Patrulla de Combate gratis, crea listas de ejército con los puntos al día y lleva la puntuación de la partida. El resto del contenido (hojas de todos los ejércitos, etc.) es de pago.",
             "The official Games Workshop app (free, with in-app purchases) includes the core rules and the Combat Patrol datasheets for free, builds army lists with up-to-date points and tracks the score of your game. The rest of the content (all army datasheets, etc.) is paid."),
@@ -77,10 +78,12 @@
             { t: t("Descargar para Android (Google Play)", "Download for Android (Google Play)"), u: "https://play.google.com/store/apps/details?id=com.gamesworkshop.w40k", d: t("Warhammer 40,000: The App", "Warhammer 40,000: The App"), tipo: "app" },
             { t: t("La app para la nueva edición", "The app for the new edition"), u: WC + "/articles/dv1aslrr/new40k-new-app-for-a-new-edition/", d: t("Warhammer Community · qué incluye", "Warhammer Community · what's included"), tipo: "web" },
           ] },
-        { t: t("Herramientas del club", "Club tools"), tx: t("Las listas de la Gran Liga y de los torneos del club se hacen y se envían en New Recruit.",
-            "Lists for the Grand League and the club's tournaments are built and submitted on New Recruit."),
+        { t: t("Herramientas del club", "Club tools"), tx: t("Las listas de la Gran Liga y de los torneos del club se hacen y se envían en New Recruit; para consultar reglas, Wahapedia, y para jugar online, Tabletop Simulator.",
+            "Lists for the Grand League and the club's tournaments are built and submitted on New Recruit; Wahapedia to look up rules, and Tabletop Simulator to play online."),
           enlaces: [
             { t: t("New Recruit", "New Recruit"), u: "https://www.newrecruit.eu/", d: t("Constructor de listas y torneos (de la comunidad)", "List builder and tournaments (community)"), tipo: "web", com: true },
+            { t: t("Wahapedia (11.ª edición)", "Wahapedia (11th edition)"), u: "https://wahapedia.ru/wh40k11ed/nav.html", d: t("Reglas, hojas de datos y puntos de todas las facciones (de la comunidad)", "Rules, datasheets and points for every faction (community)"), tipo: "web", com: true },
+            { t: t("Tabletop Simulator: comparar precios", "Tabletop Simulator: compare prices"), u: "https://www.allkeyshop.com/blog/buy-tabletop-simulator-cd-key-compare-prices/", d: t("Para jugar online: las partidas online del club son en Tabletop Simulator (Allkeyshop)", "To play online: the club's online games use Tabletop Simulator (Allkeyshop)"), tipo: "web", com: true },
             { t: t("Gran Liga Adeptus Baeticus", "Adeptus Baeticus Grand League"), u: "/warhammer-40k/gran-liga", d: t("Clasificación, rondas y resultados", "Standings, rounds and results"), tipo: "club" },
             { t: t("Ranking ELO del club", "Club ELO ranking"), u: "/warhammer-40k/ranking-elo", d: t("Cómo vas frente al resto del club", "How you stack up against the rest of the club"), tipo: "club" },
           ] },
