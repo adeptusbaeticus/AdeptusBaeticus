@@ -1414,8 +1414,7 @@ const OG_PAGINAS = {
   "/galeria": ["Galería · Adeptus Baeticus", "Miniaturas pintadas por los socios del club."],
   "/warhammer-40k/gran-liga": ["Gran Liga Adeptus Baeticus · Adeptus Baeticus", "Clasificación, rondas y resultados de la liga del club."],
   "/warhammer-40k/ranking-elo": ["Ranking ELO · Adeptus Baeticus", "El ranking ELO del club: Gran Liga y torneos de Warhammer 40.000."],
-  "/warhammer-40k/recursos": ["Recursos de Warhammer 40K · Adeptus Baeticus", "Recursos de Warhammer 40.000 del club. Próximamente."],
-  "/warhammer-40k/tutoriales": ["Tutoriales de Warhammer 40K · Adeptus Baeticus", "Tutoriales de Warhammer 40.000 del club. Próximamente."],
+  "/warhammer-40k/guia": ["Warhammer 40K · Adeptus Baeticus", "Cómo empezar a jugar a Warhammer 40.000: formatos del club, facciones, reglas oficiales, la app y vídeos para aprender."],
   "/juegos-de-especialista/necromunda": ["Necromunda · Adeptus Baeticus", "Necromunda en el club. Próximamente."],
   "/juegos-de-especialista/blood-bowl": ["Blood Bowl · Adeptus Baeticus", "Blood Bowl en el club. Próximamente."],
   "/miembros": ["Miembros · Adeptus Baeticus", "Los socios del club: sus facciones, su ranking y su palmarés."],
@@ -5547,7 +5546,7 @@ export default {
     // navegador).
     const ruta = url.pathname.replace(/\/+$/, "") || "/";
     const red = REDIRIGE[ruta.replace(/\.html$/, "")];
-    if (red && request.method === "GET") return Response.redirect(url.origin + red + url.search, ruta.startsWith("/gran-liga") || ruta.startsWith("/elo") ? 301 : 302);
+    if (red && request.method === "GET") return Response.redirect(url.origin + red + url.search, ruta.startsWith("/gran-liga") || ruta.startsWith("/elo") || /^\/warhammer-40k\/(recursos|tutoriales)$/.test(ruta) ? 301 : 302);
     if (SECCIONES[ruta]) {
       const pagina = new Request(new URL(SECCIONES[ruta], url).toString(), request);
       return conVistaPrevia(request, env, url, await env.ASSETS.fetch(pagina));
@@ -5558,13 +5557,15 @@ export default {
 // Dirección de cada sección → página que la sirve (sin «.html»: así la entrega el servidor de estáticos).
 const SECCIONES = {
   "/warhammer-40k/gran-liga": "/gran-liga", "/warhammer-40k/ranking-elo": "/elo",
-  "/warhammer-40k/recursos": "/seccion", "/warhammer-40k/tutoriales": "/seccion",
+  "/warhammer-40k/guia": "/seccion",
   "/juegos-de-especialista/necromunda": "/seccion", "/juegos-de-especialista/blood-bowl": "/seccion",
 };
 const REDIRIGE = {
   "/gran-liga": "/warhammer-40k/gran-liga", "/elo": "/warhammer-40k/ranking-elo",
   "/warhammer-40k": "/warhammer-40k/gran-liga", "/juegos-de-especialista": "/juegos-de-especialista/necromunda",
-  "/seccion": "/warhammer-40k/recursos",
+  "/seccion": "/warhammer-40k/guia",
+  // Recursos y Tutoriales se juntaron en la guía «Warhammer 40K».
+  "/warhammer-40k/recursos": "/warhammer-40k/guia", "/warhammer-40k/tutoriales": "/warhammer-40k/guia",
 };
 
 // Solo para las pruebas automáticas (no es una ruta de la web).

@@ -25,8 +25,7 @@
     { t: "Warhammer 40K", id: "w40k", ic: "w40k", hijos: [
       { t: "Gran Liga", u: "/warhammer-40k/gran-liga", ic: "liga" },
       { t: "Ranking ELO", u: "/warhammer-40k/ranking-elo", ic: "elo" },
-      { t: "Recursos", u: "/warhammer-40k/recursos", ic: "recursos" },
-      { t: "Tutoriales", u: "/warhammer-40k/tutoriales", ic: "tutoriales" },
+      { t: "Warhammer 40K", u: "/warhammer-40k/guia", ic: "w40k" },
     ] },
     { t: "Juegos de especialista", id: "esp", ic: "esp", hijos: [
       { t: "Necromunda", u: "/juegos-de-especialista/necromunda", ic: "necromunda" },
@@ -381,7 +380,7 @@
   // Entrar. En escritorio no se ve nada de esto.
   const porU = (u) => ITEMS.flatMap((it) => it.hijos || [it]).find((x) => limpia(x.u) === limpia(u));
   const EXPLORAR = [
-    ["Juegos", ["/warhammer-40k/gran-liga", "/warhammer-40k/ranking-elo", "/warhammer-40k/recursos", "/warhammer-40k/tutoriales",
+    ["Juegos", ["/warhammer-40k/gran-liga", "/warhammer-40k/ranking-elo", "/warhammer-40k/guia",
       "/juegos-de-especialista/necromunda", "/juegos-de-especialista/blood-bowl", "/faq.html"]],
     ["Comunidad", ["/galeria.html", "/compraventa.html", "/miembros.html", "/logros.html", "/sugerencias.html"]],
   ];

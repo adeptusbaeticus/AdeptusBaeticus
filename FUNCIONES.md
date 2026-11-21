@@ -8,9 +8,8 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 ## 1. Comunes a toda la web
 
 ### Navegación
-- **Secciones:** Inicio, Calendario, **Warhammer 40K** (Gran Liga, Ranking ELO, Recursos y Tutoriales), **Juegos de
-  especialista** (Necromunda y Blood Bowl), Galería, Miembros y Reglas y FAQ. Recursos, Tutoriales, Necromunda y Blood
-  Bowl están en preparación («Próximamente», con enlaces a la Gran Liga y al Calendario).
+- **Secciones:** Inicio, Calendario, **Warhammer 40K** (Gran Liga, Ranking ELO y la guía «Warhammer 40K»), **Juegos de
+  especialista** (Necromunda y Blood Bowl), Galería, Miembros, Logros, Compraventa, Reglas y FAQ y Sugerencias.
 - **Ordenador:** barra principal con desplegables para Warhammer 40K y Juegos de especialista (ratón, clic o teclado:
   Tab, Enter, flechas y Escape) y, dentro de una categoría, una barra con sus secciones; se marca dónde estás.
 - La vista se elige **según el dispositivo**: en móvil y tablet (pantalla táctil) la vista móvil y en el ordenador la de
@@ -29,14 +28,16 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   Botones grandes (48 px o más).
 - Iconos en forma de **medallón** de bronce y hueso (rueda dentada de bronce con un emblema color hueso en relieve) en los desplegables, la
   barra de la categoría, la barra inferior, sus paneles y las páginas «Próximamente».
-- **Recursos (40K):** reglas básicas gratis de la 11.ª edición, el documento («Faction Pack») de cada facción, Balance
-  Dataslate y puntos (con el Munitorum Field Manual en la web), la app oficial (App Store y Google Play) y herramientas
-  del club (New Recruit, Wahapedia y Tabletop Simulator).
-- **Tutoriales (40K):** vídeos en español (La Voz de Horus y otros) y la serie «How to Play Warhammer 40K 11th Edition»
-  en inglés; se ven en la propia web al pulsar «Reproducir» (o en YouTube), más el canal oficial y una partida explicada.
+- **Warhammer 40K** (guía, `/warhammer-40k/guia`; las antiguas Recursos y Tutoriales llevan aquí): qué es el juego
+  (rondas, fases del turno, puntos de victoria), cómo empezar, los formatos del club (Combat Patrol, 1000 y 2000
+  puntos, online), las facciones (con recomendaciones para empezar), las reglas básicas gratis de la 11.ª edición, el
+  documento («Faction Pack») de cada facción, Balance Dataslate y puntos (con el Munitorum Field Manual en la web), la
+  app oficial (App Store y Google Play), vídeos en español (La Voz de Horus y otros) y la serie «How to Play Warhammer
+  40K 11th Edition» en inglés (se ven en la propia web al pulsar «Reproducir»), herramientas del club (New Recruit,
+  Wahapedia y Tabletop Simulator) y cómo jugar en el club.
 - **Necromunda** y **Blood Bowl:** qué son, cómo empezar, bandas o equipos (con los niveles de Blood Bowl), reglas y
   descargas oficiales, y cómo jugar en el club. Todo en español e inglés.
-- En esas cuatro secciones cada bloque se pliega y despliega (al abrir la página, el primero abierto; botones «Desplegar
+- En esas tres secciones cada bloque se pliega y despliega (al abrir la página, el primero abierto; botones «Desplegar
   todo» y «Plegar todo»). Al plegar un bloque se para el vídeo que estuviera sonando.
 - Las direcciones antiguas (`/gran-liga`, `/elo`) llevan a las nuevas (`/warhammer-40k/gran-liga`,
   `/warhammer-40k/ranking-elo`) sin perder la liga ni la ronda.

@@ -52,10 +52,11 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   Iconos de menú: **medallones** propios (`EMBLEMAS` y `medalla(nombre, tamaño)` en `nav.js`, también
   `window.abNav.medalla`): rueda dentada de bronce, disco oscuro y emblema en hueso con relieve, en un «sprite» SVG con
   `<symbol>` y degradados comunes. Dibujo propio: sin águila imperial, marines ni otros motivos de Games Workshop.
-- **Rutas por juego:** `/warhammer-40k/{gran-liga,ranking-elo,recursos,tutoriales}` y
+- **Rutas por juego:** `/warhammer-40k/{gran-liga,ranking-elo,guia}` y
   `/juegos-de-especialista/{necromunda,blood-bowl}` las sirve el Worker (`SECCIONES`: página que entrega cada una; las
-  secciones en preparación comparten `seccion.html`, estado vacío «Próximamente» elegido por la dirección). Recursos,
-  Tutoriales, Necromunda y Blood Bowl ya tienen contenido: `public/guias.js` (`GUIAS` por dirección, textos `{es, en}`
+  secciones en preparación comparten `seccion.html`, estado vacío «Próximamente» elegido por la dirección). La guía
+  «Warhammer 40K» (`/warhammer-40k/guia`: información básica como en Necromunda y Blood Bowl, más lo que antes eran
+  Recursos y Tutoriales, que redirigen aquí con 301), Necromunda y Blood Bowl tienen contenido: `public/guias.js` (`GUIAS` por dirección, textos `{es, en}`
   pintados según el idioma, con `translate="no"`; enlaces solo oficiales salvo los marcados «Comunidad»; vídeos
   de YouTube incrustados solo al pulsar «Reproducir» (`youtube-nocookie.com`; antes no se carga nada de YouTube, y así
   consta en la política de privacidad), con enlace «Ver en YouTube»). Cada bloque es un desplegable (`details`; abierto el primero, «Desplegar/Plegar

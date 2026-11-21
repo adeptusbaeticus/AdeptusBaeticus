@@ -1,4 +1,5 @@
-// Contenido de las secciones Recursos y Tutoriales (Warhammer 40K) y Necromunda y Blood Bowl (Juegos de especialista).
+// Contenido de las secciones Warhammer 40K (información básica, recursos y tutoriales) y Necromunda y Blood Bowl (Juegos
+// de especialista).
 // Cada texto va en español e inglés ({ es, en }) y se pinta según el idioma elegido (evento «ab-idioma»), como la FAQ:
 // por eso el bloque lleva translate="no" (i18n.js no lo toca). Enlaces externos: solo fuentes oficiales de Games
 // Workshop salvo los marcados como «de la comunidad». Comprobado en noviembre de 2026.
@@ -51,11 +52,41 @@
 
   // Bloques: { t, tx, enlaces: [{ t, u, d (detalle), tipo: "pdf"|"web"|"video"|"app", com (de la comunidad) }], facciones, lista }
   const GUIAS = {
-    "/warhammer-40k/recursos": {
-      cat: "Warhammer 40K", ic: "recursos", t: t("Recursos", "Resources"),
-      intro: t("Todo lo oficial para jugar a la 11.ª edición de Warhammer 40.000 (desde junio de 2026): reglas básicas gratuitas, el documento de cada facción, el equilibrio de puntos y la app oficial.",
-        "Everything official to play the 11th edition of Warhammer 40,000 (since June 2026): free core rules, each faction's document, points balance and the official app."),
+    "/warhammer-40k/guia": {
+      cat: t("Guía del juego", "Game guide"), ic: "w40k", t: t("Warhammer 40K", "Warhammer 40K"),
+      intro: t("Todo para empezar a jugar a Warhammer 40.000 (11.ª edición, desde junio de 2026): qué es y cómo empezar, los formatos del club, las facciones, las reglas y documentos oficiales, la app y vídeos para aprender.",
+        "Everything to start playing Warhammer 40,000 (11th edition, since June 2026): what it is and how to start, the club's formats, the factions, the official rules and documents, the app and videos to learn."),
       bloques: [
+        { t: t("Qué es Warhammer 40.000", "What is Warhammer 40,000"), tx: t("Es un juego de batallas con miniaturas en un futuro lejano y en guerra permanente. Cada jugador lleva un ejército de una facción (el Imperio de la Humanidad, las fuerzas del Caos o alguna de las razas alienígenas), lo monta y pinta a su gusto y se enfrenta al rival en una mesa con escenografía. Se juega por rondas de turnos alternos con cinta métrica y dados de seis caras, y gana quien consigue más puntos de victoria controlando objetivos y cumpliendo misiones.",
+            "It's a miniatures battle game set in a far future of endless war. Each player brings an army from one faction (the Imperium of Mankind, the forces of Chaos or one of the alien races), builds and paints it as they like, and faces their opponent on a table with terrain. It's played in rounds of alternating turns with a tape measure and six-sided dice, and whoever scores more victory points by holding objectives and completing missions wins."),
+          lista: [
+            t("Ronda de batalla: cada jugador juega su turno completo; una partida dura 5 rondas.", "Battle round: each player plays a full turn; a game lasts 5 rounds."),
+            t("Fases del turno: mando (puntos de mando y moral), movimiento, disparo, carga y combate.", "Turn phases: command (command points and morale), movement, shooting, charge and fight."),
+            t("Puntos de victoria: sobre todo por controlar objetivos del tablero y cumplir misiones secundarias.", "Victory points: mainly for holding objectives on the board and completing secondary missions."),
+            t("Cada unidad tiene su hoja de datos (atributos y armas) y cuesta unos puntos; el ejército se hace con un límite de puntos.", "Each unit has its datasheet (characteristics and weapons) and costs points; the army is built up to a points limit."),
+          ] },
+        { t: t("Cómo empezar", "How to start"), tx: t("No hace falta gastar mucho para probarlo: en el club siempre hay alguien que te deja un ejército para una partida de iniciación.",
+            "You don't need to spend much to try it: at the club there's always someone who'll lend you an army for an intro game."),
+          lista: [
+            t("1 · Elige una facción que te guste por su aspecto y su historia: es lo que más vas a disfrutar montando y pintando.", "1 · Pick a faction you like for its look and its lore: that's what you'll enjoy building and painting the most."),
+            t("2 · Empieza con una caja de Patrulla de Combate (Combat Patrol) de tu facción: es un ejército pequeño, equilibrado y listo para jugar con sus propias reglas.", "2 · Start with a Combat Patrol box for your faction: a small, balanced army ready to play with its own rules."),
+            t("3 · Descarga las reglas básicas gratis o la app oficial, y el documento de tu facción.", "3 · Download the free core rules or the official app, and your faction's document."),
+            t("4 · Ven a la quedada del primer sábado de cada mes o busca rival en el calendario: aprenderás jugando.", "4 · Come to the meetup on the first Saturday of every month or find an opponent in the calendar: you'll learn by playing."),
+            t("5 · Cuando ya sepas jugar, amplía tu ejército a 1000 puntos y luego a 2000 (el tamaño de la Gran Liga).", "5 · Once you know how to play, grow your army to 1000 points and then 2000 (the Grand League size)."),
+          ] },
+        { t: t("Formatos de partida en el club", "Game formats at the club"), tx: t("Al publicar una partida en el calendario eliges el formato; los torneos indican el suyo.", "When you post a game in the calendar you choose the format; tournaments state theirs."),
+          lista: [
+            t("Patrulla de Combate (Combat Patrol): ejércitos de caja, partidas de 1 a 1,5 horas. Ideal para empezar.", "Combat Patrol: boxed armies, games of 1 to 1.5 hours. Ideal to start with."),
+            t("40k a 1000 puntos: partidas de unas 2 horas en una mesa más pequeña; también por parejas (1 contra 2 o 2 contra 2).", "40k at 1000 points: games of about 2 hours on a smaller table; also in pairs (1 vs 2 or 2 vs 2)."),
+            t("40k a 2000 puntos: el formato estándar de torneos y de la Gran Liga, partidas de 3 a 4 horas.", "40k at 2000 points: the standard format for tournaments and the Grand League, games of 3 to 4 hours."),
+            t("Online: cualquier formato también se juega en Tabletop Simulator.", "Online: any format can also be played in Tabletop Simulator."),
+          ] },
+        { t: t("Facciones", "Factions"), tx: t("Hay tres grandes bandos. El Imperio de la Humanidad (Marines Espaciales, Astra Militarum, Adepta Sororitas…) defiende la galaxia a cualquier precio; el Caos (Marines Espaciales del Caos, Guardia de la Muerte, demonios…) lo quiere todo para sus dioses; y los Xenos (Aeldari, Necrones, Orkos, Tiránidos, T'au…) persiguen sus propios fines. Cada facción tiene su estilo de juego: elige primero por gusto y después ya aprenderás a sacarle partido.",
+            "There are three great sides. The Imperium of Mankind (Space Marines, Astra Militarum, Adepta Sororitas…) defends the galaxy at any cost; Chaos (Chaos Space Marines, Death Guard, daemons…) wants everything for its gods; and the Xenos (Aeldari, Necrons, Orks, Tyranids, T'au…) pursue their own ends. Each faction has its own playstyle: choose by taste first and you'll learn to make the most of it later."),
+          lista: [
+            t("Muy recomendables para empezar: Marines Espaciales, Necrones, Astra Militarum, Orkos y Tiránidos (muchas miniaturas, reglas sencillas y fáciles de encontrar).", "Great to start with: Space Marines, Necrons, Astra Militarum, Orks and Tyranids (lots of models, simple rules and easy to find)."),
+            t("Más exigentes: Aeldari, Drukhari, Mil Hijos o Agentes Imperiales.", "More demanding: Aeldari, Drukhari, Thousand Sons or Imperial Agents."),
+          ] },
         { t: t("Reglas básicas", "Core rules"), tx: t("Las reglas básicas de la 11.ª edición son gratuitas: se descargan en PDF desde Warhammer Community y también vienen en la app.",
             "The 11th edition core rules are free: download the PDF from Warhammer Community; they're also in the app."),
           enlaces: [
@@ -78,22 +109,6 @@
             { t: t("Descargar para Android (Google Play)", "Download for Android (Google Play)"), u: "https://play.google.com/store/apps/details?id=com.gamesworkshop.w40k", d: t("Warhammer 40,000: The App", "Warhammer 40,000: The App"), tipo: "app" },
             { t: t("La app para la nueva edición", "The app for the new edition"), u: WC + "/articles/dv1aslrr/new40k-new-app-for-a-new-edition/", d: t("Warhammer Community · qué incluye", "Warhammer Community · what's included"), tipo: "web" },
           ] },
-        { t: t("Herramientas del club", "Club tools"), tx: t("Las listas de la Gran Liga y de los torneos del club se hacen y se envían en New Recruit; para consultar reglas, Wahapedia, y para jugar online, Tabletop Simulator.",
-            "Lists for the Grand League and the club's tournaments are built and submitted on New Recruit; Wahapedia to look up rules, and Tabletop Simulator to play online."),
-          enlaces: [
-            { t: t("New Recruit", "New Recruit"), u: "https://www.newrecruit.eu/", d: t("Constructor de listas y torneos (de la comunidad)", "List builder and tournaments (community)"), tipo: "web", com: true },
-            { t: t("Wahapedia (11.ª edición)", "Wahapedia (11th edition)"), u: "https://wahapedia.ru/wh40k11ed/nav.html", d: t("Reglas, hojas de datos y puntos de todas las facciones (de la comunidad)", "Rules, datasheets and points for every faction (community)"), tipo: "web", com: true },
-            { t: t("Tabletop Simulator: comparar precios", "Tabletop Simulator: compare prices"), u: "https://www.allkeyshop.com/blog/buy-tabletop-simulator-cd-key-compare-prices/", d: t("Para jugar online: las partidas online del club son en Tabletop Simulator (Allkeyshop)", "To play online: the club's online games use Tabletop Simulator (Allkeyshop)"), tipo: "web", com: true },
-            { t: t("Gran Liga Adeptus Baeticus", "Adeptus Baeticus Grand League"), u: "/warhammer-40k/gran-liga", d: t("Clasificación, rondas y resultados", "Standings, rounds and results"), tipo: "club" },
-            { t: t("Ranking ELO del club", "Club ELO ranking"), u: "/warhammer-40k/ranking-elo", d: t("Cómo vas frente al resto del club", "How you stack up against the rest of the club"), tipo: "club" },
-          ] },
-      ],
-    },
-    "/warhammer-40k/tutoriales": {
-      cat: "Warhammer 40K", ic: "tutoriales", t: t("Tutoriales", "Tutorials"),
-      intro: t("Vídeos para aprender a jugar a la 11.ª edición de Warhammer 40.000: primero en español y después la serie oficial en inglés, fase a fase. Se ven aquí mismo al pulsar «Reproducir».",
-        "Videos to learn to play the 11th edition of Warhammer 40,000: first in Spanish, then the official series in English, phase by phase. Press «Play» to watch them right here."),
-      bloques: [
         { t: t("En español", "In Spanish"), tx: t("Para empezar sin pelearte con el inglés.", "To get started in Spanish."),
           enlaces: [
             { t: t("Cómo jugar a Warhammer 40.000 · 11.ª edición", "How to play Warhammer 40,000 · 11th edition"), u: yt("PLoCnPFgF2o"), d: t("La Voz de Horus: para quien empieza y para quien viene de la 10.ª", "La Voz de Horus: for newcomers and players coming from 10th"), tipo: "video", com: true },
@@ -118,9 +133,18 @@
             { t: t("Partida explicada: Ángeles Sangrientos contra Orkos", "Explained game: Blood Angels vs Orks"), u: yt("DF7f04a_MUk"), d: t("Las reglas básicas en una partida de ejemplo", "The core rules in an example game"), tipo: "video" },
             { t: t("Reglas básicas gratis (PDF)", "Free core rules (PDF)"), u: WC + "/articles/nhqt9wx3/new40k-rules-download-the-free-core-rules-now/", d: t("Para seguir los vídeos con el reglamento delante", "To follow the videos with the rulebook at hand"), tipo: "pdf" },
           ] },
-        { t: t("¿Y ahora?", "What now?"), tx: t("Busca rival en el calendario del club o ven a la quedada del primer sábado de cada mes: siempre hay alguien dispuesto a enseñar.",
-            "Find an opponent in the club calendar or come to the meetup on the first Saturday of every month: there's always someone happy to teach."),
-          enlaces: [{ t: t("Buscar partida en el calendario", "Find a game in the calendar"), u: "/calendario.html", d: t("Partidas y quedadas del club", "Club games and meetups"), tipo: "club" }] },
+        { t: t("Herramientas del club", "Club tools"), tx: t("Las listas de la Gran Liga y de los torneos del club se hacen y se envían en New Recruit; para consultar reglas, Wahapedia, y para jugar online, Tabletop Simulator.",
+            "Lists for the Grand League and the club's tournaments are built and submitted on New Recruit; Wahapedia to look up rules, and Tabletop Simulator to play online."),
+          enlaces: [
+            { t: t("New Recruit", "New Recruit"), u: "https://www.newrecruit.eu/", d: t("Constructor de listas y torneos (de la comunidad)", "List builder and tournaments (community)"), tipo: "web", com: true },
+            { t: t("Wahapedia (11.ª edición)", "Wahapedia (11th edition)"), u: "https://wahapedia.ru/wh40k11ed/nav.html", d: t("Reglas, hojas de datos y puntos de todas las facciones (de la comunidad)", "Rules, datasheets and points for every faction (community)"), tipo: "web", com: true },
+            { t: t("Tabletop Simulator: comparar precios", "Tabletop Simulator: compare prices"), u: "https://www.allkeyshop.com/blog/buy-tabletop-simulator-cd-key-compare-prices/", d: t("Para jugar online: las partidas online del club son en Tabletop Simulator (Allkeyshop)", "To play online: the club's online games use Tabletop Simulator (Allkeyshop)"), tipo: "web", com: true },
+            { t: t("Gran Liga Adeptus Baeticus", "Adeptus Baeticus Grand League"), u: "/warhammer-40k/gran-liga", d: t("Clasificación, rondas y resultados", "Standings, rounds and results"), tipo: "club" },
+            { t: t("Ranking ELO del club", "Club ELO ranking"), u: "/warhammer-40k/ranking-elo", d: t("Cómo vas frente al resto del club", "How you stack up against the rest of the club"), tipo: "club" },
+          ] },
+        { t: t("Jugar en el club", "Playing at the club"), tx: t("Busca rival en el calendario del club (Combat Patrol, 1K o 2K, en físico u online) o ven a la quedada del primer sábado de cada mes: siempre hay alguien dispuesto a enseñar. Cuando te sientas cómodo, apúntate a un torneo o a la Gran Liga.",
+            "Find an opponent in the club calendar (Combat Patrol, 1K or 2K, in person or online) or come to the meetup on the first Saturday of every month: there's always someone happy to teach. When you feel comfortable, sign up for a tournament or the Grand League."),
+          enlaces: [{ t: t("Buscar partida en el calendario", "Find a game in the calendar"), u: "/calendario.html?buscar=1", d: t("Partidas y quedadas del club", "Club games and meetups"), tipo: "club" }] },
       ],
     },
     "/juegos-de-especialista/necromunda": {
