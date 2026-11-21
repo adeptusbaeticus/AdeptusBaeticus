@@ -151,6 +151,15 @@ html.ab-movil .bl-i{gap:8px;padding:8px 10px}
 .bl-i .bl-e{flex:none;font:600 12px Inter,sans-serif;border-radius:999px;padding:3px 8px;background:#262A30;color:#F0CE82;border:1px solid #6B6558;white-space:nowrap}
 .bl-i.x .bl-e{color:#A8A293}
 .bl-v{margin:0 0 10px}
+/* Partida jugada: estado, foto del resultado y formulario. */
+.jug{border-top:1px solid #2C3036;margin-top:12px;padding-top:12px}
+.jug-e{display:inline-block;margin:0 0 6px;padding:4px 10px;border-radius:999px;font:600 13px Inter,sans-serif;border:1px solid #6B6558;color:#CFC9BA}
+.jug-e.jug-verificada{border-color:#7C8A4C;background:#343B20;color:#DCD8C2}
+.jug-e.jug-pendiente{border-color:#D9B25A;color:#F0CE82}
+.jug-e.jug-rechazada{border-color:#A3211B;color:#F0A39E}
+.jug-t{font-style:italic;color:#ECE7DC;margin:4px 0}
+.jug-foto img{display:block;max-width:100%;max-height:420px;border-radius:8px;margin-top:8px;border:1px solid #2C3036}
+.jug-f input[type=file]{color:#ECE7DC;max-width:100%}
 #dcal{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:14px;padding:22px;width:min(480px,calc(100vw - 32px));box-sizing:border-box}
 #dcal::backdrop{background:rgba(0,0,0,.7)}
 #dcal h3{font:700 22px Cinzel,Georgia,serif;margin:0 0 8px}
@@ -1347,9 +1356,11 @@ function showPartida(p) {
   // Jugadores por bando, con los huecos libres.
   const names = (side, total) => {
     const xs = p.jugadores.filter((j) => j.side === side).map((j) => {
-      const s = nombreJugador(j.name, j.id);
-      if (j.yo) s.appendChild(document.createTextNode(" (tú)"));
-      return s;
+      // El nombre no se traduce; «(tú)» va fuera, para que sí se traduzca.
+      const w = document.createElement("span");
+      w.appendChild(nombreJugador(j.name, j.id));
+      if (j.yo) w.appendChild(document.createTextNode(" (tú)"));
+      return w;
     });
     while (xs.length < total) xs.push(document.createTextNode("hueco libre"));
     return xs;
@@ -1362,7 +1373,11 @@ function showPartida(p) {
   const cerrada = partidaCerrada(p);
   if (p.status === "completa") add("p", "ok", p.mesa ? "Completa · Mesa " + p.mesa : "Completa");
   else if (!cerrada) add("p", "m", "Abierta · falta" + (p.faltan > 1 ? "n " : " ") + p.faltan + " jugador" + (p.faltan > 1 ? "es" : ""));
-  if (cerrada) { add("p", "m", "La partida está cerrada."); return; }
+  if (cerrada) {
+    if (p.status === "completa" && p.starts_at) partidaJugadaUI(p, box);
+    else add("p", "m", "La partida está cerrada.");
+    return;
+  }
 
   const err = document.createElement("div");
   err.className = "err";
@@ -1477,6 +1492,110 @@ function showPartida(p) {
     });
   } else add("p", "m", "No se admiten más jugadores salvo que alguien se caiga.");
   box.appendChild(err);
+}
+
+// Partida ya empezada y completa: marcarla como jugada con una foto del resultado (jugadores) y verificarla (admin).
+// Solo las verificadas cuentan para los logros.
+async function partidaJugadaUI(p, box) {
+  const sec = document.createElement("div");
+  sec.className = "jug";
+  box.appendChild(sec);
+  const me = window.abMe ? await window.abMe.catch(() => null) : null;
+  const admin = !!(me && me.role === "admin");
+  if (!box.isConnected) return;
+  const add = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; sec.appendChild(x); return x; };
+  const err = document.createElement("p"); err.className = "err"; err.setAttribute("role", "alert");
+  const recarga = async () => { await loadPartidas(); render(); const q = partidas.find((x) => x.id === p.id); if (q) showPartida(q); irAFicha(); };
+  // Estado.
+  const chip = add("p", "jug-e jug-" + (p.jugada || "no"),
+    p.jugada === "verificada" ? "✔ Jugada y verificada por un admin" : p.jugada === "pendiente" ? "⏳ Jugada · pendiente de verificar por un admin"
+      : p.jugada === "rechazada" ? "✖ Foto del resultado rechazada" : "Sin marcar como jugada");
+  chip.setAttribute("role", "status");
+  if (p.jugada && p.jugada_por) add("p", "m", "Marcada por: ").appendChild(nombreJugador(p.jugada_por, p.jugada_por_id));
+  if (p.jugada_texto && p.jugada !== "rechazada") { const q = add("p", "jug-t", p.jugada_texto); q.setAttribute("translate", "no"); }
+  if (p.jugada === "rechazada" && p.jugada_motivo) { const q = add("p", "m", "Motivo: "); const n = document.createElement("span"); n.textContent = p.jugada_motivo; n.setAttribute("translate", "no"); q.appendChild(n); }
+  // Foto (los enlaces de Discord caducan: se pide el actual al abrirla).
+  if (p.con_foto && (p.dentro || admin)) {
+    const b = add("button", "btn alt", "Ver la foto del resultado"); b.type = "button";
+    const fig = document.createElement("div"); fig.className = "jug-foto"; sec.appendChild(fig);
+    b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const r = await fetch("/api/partidas/" + p.id + "/foto"); const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "");
+        const a = document.createElement("a"); a.href = d.url; a.target = "_blank"; a.rel = "noopener";
+        const img = document.createElement("img"); img.src = d.url; img.alt = "Foto del resultado"; img.loading = "lazy";
+        a.appendChild(img); fig.textContent = ""; fig.appendChild(a); b.remove();
+      } catch (x) { err.textContent = x.message || "No se pudo cargar la foto."; b.disabled = false; }
+    };
+  }
+  // Admin: verificar o rechazar.
+  if (admin && p.jugada === "pendiente") {
+    const fila = add("div", "row");
+    const v = document.createElement("button"); v.type = "button"; v.className = "btn"; v.textContent = "Verificar partida";
+    const rj = document.createElement("button"); rj.type = "button"; rj.className = "btn alt"; rj.textContent = "Rechazar foto";
+    fila.append(v, rj);
+    const envia = async (cuerpo) => {
+      err.textContent = ""; v.disabled = rj.disabled = true;
+      try {
+        const r = await fetch("/api/partidas/" + p.id + "/verifica", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { err.textContent = d.error || "No se pudo guardar."; v.disabled = rj.disabled = false; return; }
+        await recarga();
+      } catch (x) { err.textContent = "No se pudo guardar."; v.disabled = rj.disabled = false; }
+    };
+    v.onclick = () => envia({ accion: "verificar" });
+    rj.onclick = () => {
+      const m = prompt("¿Por qué se rechaza la foto? (se lo diremos a quien la subió)");
+      if (m && m.trim()) envia({ accion: "rechazar", motivo: m.trim() });
+    };
+  }
+  // Jugadores: marcarla como jugada (o volver a intentarlo si se rechazó).
+  if (p.dentro && (!p.jugada || p.jugada === "rechazada")) {
+    const f = document.createElement("form"); f.className = "fz jug-f";
+    const t = document.createElement("p"); t.className = "m";
+    t.textContent = "¿Ya la habéis jugado? Sube una foto del resultado (la hoja de puntos, la mesa al acabar o la app). Un admin la verificará y entonces contará para los logros.";
+    const fi = document.createElement("input"); fi.type = "file"; fi.accept = "image/*"; fi.id = "jug-foto"; fi.required = true;
+    const wf = mkField("Foto del resultado", fi);
+    const tx = document.createElement("input"); tx.id = "jug-txt"; tx.maxLength = 300; tx.placeholder = "Por ejemplo: 78 a 64, ganó Ana";
+    const wt = mkField("Resultado o comentario (opcional)", tx);
+    const ok = document.createElement("button"); ok.type = "submit"; ok.className = "btn"; ok.textContent = "Marcar como jugada";
+    f.append(t, wf, wt, ok);
+    sec.appendChild(f);
+    f.onsubmit = async (ev) => {
+      ev.preventDefault(); err.textContent = "";
+      const file = fi.files && fi.files[0];
+      if (!file) { err.textContent = "Adjunta una foto del resultado."; return; }
+      ok.disabled = true; ok.textContent = "Subiendo…";
+      try {
+        const fo = await reduceFoto(file);
+        if (!fo) throw new Error("No se pudo leer la foto. Prueba con otra (JPG o PNG).");
+        const fd = new FormData(); fd.append("foto", fo.blob, fo.nombre); fd.append("texto", tx.value);
+        const r = await fetch("/api/partidas/" + p.id + "/jugada", { method: "POST", body: fd });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "No se pudo subir la foto.");
+        await recarga();
+      } catch (x) { err.textContent = x.message || "No se pudo subir la foto."; ok.disabled = false; ok.textContent = "Marcar como jugada"; }
+    };
+  } else if (!p.jugada && !p.dentro && !admin) add("p", "m", "La partida está cerrada.");
+  sec.appendChild(err);
+}
+// Reduce la foto en el navegador (lado mayor 2000 px, JPEG); los GIF van tal cual.
+async function reduceFoto(file) {
+  if (file.type === "image/gif") return { blob: file, nombre: "foto.gif" };
+  const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => null);
+  if (!bmp) return null;
+  const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+  const cv = document.createElement("canvas");
+  cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+  cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+  let q = 0.86, blob = null;
+  for (let i = 0; i < 4; i++) {
+    blob = await new Promise((r) => cv.toBlob(r, "image/jpeg", q));
+    if (blob && blob.size < 2.5 * 1024 * 1024) break;
+    q -= 0.12;
+  }
+  return blob ? { blob, nombre: "foto.jpg" } : null;
 }
 
 // «Buscar partida»: listado de todas las partidas que aún no se han jugado, con filtros de modalidad,

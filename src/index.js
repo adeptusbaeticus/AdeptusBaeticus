@@ -340,11 +340,116 @@ async function listPartidas(env, uid, id) {
       organiza: p.organiza, organiza_id: p.created_by, availability: JSON.parse(p.availability), starts_at: p.starts_at,
       last_day: p.last_day, mesa: p.mesa, status: p.status, team_a: p.team_a, team_b: p.team_b, modo: p.modo, lugar: p.lugar,
       jugadores: jug.map((j) => ({ id: j.discord_id, name: j.name, side: j.side, yo: j.discord_id === uid })),
+      // Marcada como jugada (con foto del resultado) y su verificación por un admin.
+      jugada: p.jugada || null, jugada_texto: p.jugada_texto || null, jugada_motivo: p.jugada === "rechazada" ? p.jugada_motivo || null : null,
+      jugada_por: p.jugada ? (jug.find((j) => j.discord_id === p.jugada_por) || {}).name || null : null, jugada_por_id: p.jugada ? p.jugada_por : null,
+      con_foto: !!p.jugada_msg,
       faltan: Math.max(0, p.team_a + p.team_b - jug.length),
       mia: p.created_by === uid,
       dentro: jug.some((j) => j.discord_id === uid),
     };
   });
+}
+
+// ===== Partida jugada: foto del resultado y verificación de un admin =====
+// accion: "jugada" (POST multipart con `foto` y `texto`: un jugador la marca como jugada; la foto va a un mensaje del bot
+// en #publicaciones-web), "verifica" (POST JSON { accion: "verificar"|"rechazar", motivo }: solo admin) o "foto" (GET:
+// enlace actual de la foto, para los jugadores y los admins; los enlaces de Discord caducan).
+async function partidaJugada(env, ctx, request, s, p, accion, now, ok, fail) {
+  const js = (await env.DB.prepare("SELECT j.discord_id, j.side, u.name FROM partida_players j JOIN users u ON u.discord_id=j.discord_id WHERE j.partida_id=?1 ORDER BY j.created_at, j.rowid").bind(p.id).all()).results;
+  const juega = js.some((j) => j.discord_id === s.id);
+  const admin = s.role === "admin";
+  const enlace = "/calendario.html?partida=" + p.id;
+  const modalidad = MODALIDAD[p.activity] || "partida";
+
+  if (accion === "foto") {
+    if (request.method !== "GET") return new Response("Método no permitido", { status: 405 });
+    if (!juega && !admin) return fail("Solo los jugadores y los admins ven la foto", 403);
+    if (!p.jugada_msg) return fail("La partida no tiene foto", 404);
+    const r = await bot(env, `/channels/${p.jugada_canal}/messages/${p.jugada_msg}`);
+    if (!r.ok) return fail("No se pudo leer la foto en Discord", 502);
+    const a = ((await r.json()).attachments || [])[0];
+    return a ? ok({ url: a.url, width: a.width || null, height: a.height || null }) : fail("La partida no tiene foto", 404);
+  }
+
+  if (accion === "jugada") {
+    if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+    if (!juega) return fail("Solo los jugadores de la partida pueden marcarla como jugada", 403);
+    if (p.status !== "completa" || !p.starts_at) return fail("La partida no llegó a completarse", 409);
+    if (p.starts_at > now) return fail("La partida todavía no ha empezado", 409);
+    if (p.jugada === "pendiente") return fail("Ya está marcada como jugada: falta que un admin la verifique", 409);
+    if (p.jugada === "verificada") return fail("La partida ya está verificada", 409);
+    let fd;
+    try { fd = await request.formData(); } catch (x) { return fail("Adjunta una foto del resultado", 400); }
+    const foto = fd.get("foto");
+    const ext = foto && typeof foto === "object" ? EXT_IMG[(foto.type || "").split(";")[0]] : null;
+    if (!ext) return fail("Adjunta una foto del resultado (PNG, JPG, GIF o WEBP)", 400);
+    if (foto.size > 8 * 1024 * 1024) return fail("La foto es demasiado grande (máximo 8 MB)", 413);
+    const texto = String(fd.get("texto") || "").trim().slice(0, 300) || null;
+    const canal = await canalPublicaciones(env);
+    if (!canal) return fail("No se encontró el canal de Discord para guardar la foto", 502);
+    // Mensaje del bot con la foto (sin mencionar a nadie).
+    const lados = (side) => js.filter((j) => j.side === side).map((j) => j.name).join(" y ");
+    const quien = p.activity === "necromunda" ? js.map((j) => j.name).join(", ") : lados("A") + " contra " + lados("B");
+    const nombre = `resultado-partida-${p.id}.${ext}`;
+    const body = new FormData();
+    body.append("payload_json", JSON.stringify({
+      content: (`🎲 **Resultado de la partida #${p.id}** · ${modalidad} · ${fechaCorta(p.starts_at)}\n${quien}` +
+        (texto ? `\n> ${texto.replace(/\n/g, " ")}` : "") + `\nMarcada como jugada por ${s.name}. Pendiente de verificar por un admin.`).slice(0, 1900),
+      allowed_mentions: { parse: [] }, attachments: [{ id: 0, filename: nombre }],
+    }));
+    body.append("files[0]", foto, nombre);
+    // Si se rechazó antes, su mensaje ya se borró; si quedara alguno, se sustituye.
+    if (p.jugada_msg) await bot(env, `/channels/${p.jugada_canal}/messages/${p.jugada_msg}`, { method: "DELETE" }).catch(() => {});
+    const pm = await bot(env, `/channels/${canal}/messages`, { method: "POST", body });
+    if (!pm.ok) return fail(pm.status === 413 ? "La foto es demasiado grande para Discord" : "No se pudo guardar la foto en Discord", 502);
+    const msg = await pm.json();
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE partidas SET jugada='pendiente', jugada_por=?2, jugada_at=datetime('now'), jugada_texto=?3, jugada_canal=?4, jugada_msg=?5,
+        jugada_motivo=NULL, verificada_por=NULL, verificada_at=NULL WHERE id=?1`).bind(p.id, s.id, texto, canal, msg.id),
+      // Aviso a cada admin en la servocalavera (uno por partida).
+      env.DB.prepare(`INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace)
+        SELECT discord_id, ?1, 'Partida por verificar', ?2, ?3 FROM users u WHERE role='admin'
+          AND NOT EXISTS (SELECT 1 FROM anuncios a WHERE a.discord_id=u.discord_id AND a.tipo=?1 AND a.aceptado IS NULL)`)
+        .bind("partida-ver:" + p.id, `${s.name} ha marcado como jugada la partida de ${modalidad} del ${fechaCorta(p.starts_at)}.`, enlace),
+    ]);
+    return ok({ ok: true });
+  }
+
+  // accion === "verifica" (solo admin)
+  if (request.method !== "POST") return new Response("Método no permitido", { status: 405 });
+  if (!admin) return fail("Solo un admin puede verificar partidas", 403);
+  if (p.jugada !== "pendiente") return fail("La partida no está pendiente de verificar", 409);
+  let b;
+  try { b = await request.json(); } catch (x) { return fail("JSON no válido", 400); }
+  const cerrarAvisos = env.DB.prepare("UPDATE anuncios SET aceptado=datetime('now') WHERE tipo=?1 AND aceptado IS NULL").bind("partida-ver:" + p.id);
+  const ids = JSON.stringify(js.map((j) => j.discord_id));
+  if (b.accion === "verificar") {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE partidas SET jugada='verificada', verificada_por=?2, verificada_at=datetime('now') WHERE id=?1").bind(p.id, s.id),
+      cerrarAvisos,
+      env.DB.prepare(`INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace) SELECT value, ?1, 'Partida verificada', ?2, ?3 FROM json_each(?4)`)
+        .bind("partida-ok:" + p.id, `Tu partida de ${modalidad} del ${fechaCorta(p.starts_at)} ya está verificada y cuenta para los logros.`, enlace, ids),
+    ]);
+    if (p.jugada_msg) ctx.waitUntil(bot(env, `/channels/${p.jugada_canal}/messages/${p.jugada_msg}`, { method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: `🎲 **Resultado de la partida #${p.id}** · ${modalidad} · ${fechaCorta(p.starts_at)}\n✅ Verificada por ${s.name}.`, allowed_mentions: { parse: [] } }) }).catch(() => {}));
+    ctx.waitUntil(logrosCalcula(env).catch(() => {}));
+    return ok({ ok: true });
+  }
+  if (b.accion === "rechazar") {
+    const motivo = String(b.motivo || "").trim().slice(0, 300);
+    if (!motivo) return fail("Indica por qué se rechaza", 400);
+    // La foto no vale: se borra su mensaje de Discord y la partida se puede volver a marcar con otra.
+    if (p.jugada_msg) await bot(env, `/channels/${p.jugada_canal}/messages/${p.jugada_msg}`, { method: "DELETE" }).catch(() => {});
+    await env.DB.batch([
+      env.DB.prepare("UPDATE partidas SET jugada='rechazada', jugada_motivo=?2, jugada_msg=NULL, jugada_canal=NULL, verificada_por=?3, verificada_at=datetime('now') WHERE id=?1").bind(p.id, motivo, s.id),
+      cerrarAvisos,
+      env.DB.prepare(`INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace) VALUES (?1, ?2, 'Resultado rechazado', ?3, ?4)`)
+        .bind(p.jugada_por || js[0].discord_id, "partida-no:" + p.id, `Un admin ha rechazado la foto de tu partida de ${modalidad}: ${motivo}`, enlace),
+    ]);
+    return ok({ ok: true });
+  }
+  return fail("Acción no válida", 400);
 }
 
 // ===== Galería: /publicar, /editar y /borrar desde Discord =====
@@ -641,6 +746,7 @@ async function borraPerfil(env, id) {
     env.DB.prepare("DELETE FROM push_subs WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM dm_canales WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM logros WHERE discord_id=?1").bind(id),
     env.DB.prepare("UPDATE elo_torneo_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
     // Inscripciones a torneos: sus equipos como capitán (con sus compañeros) y su plaza en los de otros.
     env.DB.prepare("DELETE FROM torneo_miembros WHERE discord_id=?1 OR equipo_id IN (SELECT id FROM torneo_equipos WHERE capitan=?1)").bind(id),
@@ -673,7 +779,16 @@ function marcaConexion(env, ctx, id) {
   if (t && Date.now() - t < 3600000) return;
   vistos.set(id, Date.now());
   const p = (async () => {
-    try { await env.DB.prepare("UPDATE users SET ultima_conexion=datetime('now') WHERE discord_id=?1 AND (ultima_conexion IS NULL OR ultima_conexion < datetime('now','-1 hour'))").bind(id).run(); } catch (e) {}
+    try {
+      // Logro secreto «Resucitado»: vuelve después de más de 6 meses sin entrar (antes de apuntar la conexión nueva).
+      const vuelve = "SELECT 1 FROM users WHERE discord_id=?1 AND ultima_conexion < datetime('now','-6 months')";
+      await env.DB.batch([
+        env.DB.prepare(`INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace) SELECT ?1, 'logros:resucitado', '¡Logro desbloqueado!', 'Has conseguido: «Resucitado».', '/logros'
+          WHERE EXISTS (${vuelve}) AND NOT EXISTS (SELECT 1 FROM logros WHERE discord_id=?1 AND logro='resucitado')`).bind(id),
+        env.DB.prepare(`INSERT OR IGNORE INTO logros (discord_id, logro, nivel) SELECT ?1, 'resucitado', 1 WHERE EXISTS (${vuelve})`).bind(id),
+        env.DB.prepare("UPDATE users SET ultima_conexion=datetime('now') WHERE discord_id=?1 AND (ultima_conexion IS NULL OR ultima_conexion < datetime('now','-1 hour'))").bind(id),
+      ]);
+    } catch (e) {}
   })();
   if (ctx && ctx.waitUntil) ctx.waitUntil(p);
 }
@@ -1043,6 +1158,7 @@ const OG_PAGINAS = {
   "/encuestas": ["Encuestas · Adeptus Baeticus", "Las votaciones del club."],
   "/inscripcion": ["Inscripción · Adeptus Baeticus", "Únete al club de Warhammer Adeptus Baeticus en Málaga."],
   "/sugerencias": ["Sugerencias · Adeptus Baeticus", "Las ideas y propuestas de los socios para el club y la web."],
+  "/logros": ["Logros · Adeptus Baeticus", "Insignias por jugar, participar y pintar con el club Adeptus Baeticus."],
 };
 const escAttr = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 // Etiquetas de la vista previa de una dirección (para un evento concreto, su nombre, fecha y lugar).
@@ -2023,7 +2139,8 @@ async function eloPartidas(env) {
   return partidas.sort((x, y) => (x.orden < y.orden ? -1 : x.orden > y.orden ? 1 : 0));
 }
 // Historial de cada jugador: { f: fecha, l: liga y ronda, r: rival, m/s: PV propios y del rival, d: cambio, e: ELO tras
-// la partida, hs: 1 si es «handshake» (no cuenta); en 2 contra 2, r2: el otro rival y c: el compañero } (cambio y ELO
+// la partida, re: ELO del rival antes de la partida (en 2 contra 2, la media de la pareja), hs: 1 si es «handshake» (no
+// cuenta); en 2 contra 2, r2: el otro rival y c: el compañero } (cambio y ELO
 // redondeados, para que cuadren entre sí).
 async function eloCalcula(env) {
   const minimo = await eloMinimo(env);
@@ -2038,12 +2155,13 @@ async function eloCalcula(env) {
       const res = p.pa > p.pb ? 1 : p.pa < p.pb ? 0 : 0.5;
       const cambio = ELO.k * (p.km || 1) * (res - esperado);
       const ids = [[p.a, p.a2], [p.b, p.b2]];
+      const rivales = [Math.round(media(lados[1])), Math.round(media(lados[0]))]; // ELO (media) del rival antes de la partida
       lados.forEach((lado, s) => lado.forEach((J, k) => {
         const antes = Math.round(J.elo), sr = s ? 1 - res : res;
         J.elo += s ? -cambio : cambio; J.n++;
         if (sr === 1) J.v++; else if (sr === 0) J.d++; else J.e++;
         const [r, r2] = ids[1 - s];
-        J.h.push({ f: p.fecha, l: p.etq, r, r2, c: ids[s][1 - k], m: s ? p.pb : p.pa, s: s ? p.pa : p.pb, d: Math.round(J.elo) - antes, e: Math.round(J.elo) });
+        J.h.push({ f: p.fecha, l: p.etq, r, r2, c: ids[s][1 - k], m: s ? p.pb : p.pa, s: s ? p.pa : p.pb, d: Math.round(J.elo) - antes, e: Math.round(J.elo), re: rivales[s] });
       }));
       continue;
     }
@@ -2061,8 +2179,8 @@ async function eloCalcula(env) {
     const ra = Math.round(A.elo), rb = Math.round(B.elo);
     A.elo += cambio; B.elo -= cambio; A.n++; B.n++;
     if (res === 1) { A.v++; B.d++; } else if (res === 0) { A.d++; B.v++; } else { A.e++; B.e++; }
-    A.h.push({ f: p.fecha, l: p.etq, r: p.b, m: p.pa, s: p.pb, d: Math.round(A.elo) - ra, e: Math.round(A.elo) });
-    B.h.push({ f: p.fecha, l: p.etq, r: p.a, m: p.pb, s: p.pa, d: Math.round(B.elo) - rb, e: Math.round(B.elo) });
+    A.h.push({ f: p.fecha, l: p.etq, r: p.b, m: p.pa, s: p.pb, d: Math.round(A.elo) - ra, e: Math.round(A.elo), re: rb });
+    B.h.push({ f: p.fecha, l: p.etq, r: p.a, m: p.pb, s: p.pa, d: Math.round(B.elo) - rb, e: Math.round(B.elo), re: ra });
   }
   const todos = [...t.values()].map((x) => ({ ...x, elo: Math.round(x.elo) }));
   // Clasificados: solo socios con cuenta en la web (los jugadores sin ella cuentan como rivales, pero no salen).
@@ -2081,6 +2199,210 @@ async function eloDatos(env) {
   if (!d || !Array.isArray(d.jugadores)) d = await eloCalcula(env);
   return d;
 }
+// ===== Logros =====
+// Catálogo (nombre en español para los avisos y umbrales de cada nivel: 1 bronce, 2 plata, 3 oro; un solo umbral = un
+// solo nivel). El dibujo, las descripciones y el inglés están en public/logros.js (mismos ids).
+const LOGROS = {
+  juramento: ["Juramento prestado", [1]], expediente: ["Expediente completo", [1]], servocraneo: ["Servocráneo vinculado", [1]],
+  fundador: ["Fundador digital", [1]], servicio: ["Años de servicio", [1, 3, 5]],
+  llamamiento: ["Primer llamamiento", [1]], armas: ["A las armas", [5, 25, 100]], mercenario: ["Mercenario", [10]],
+  enemigos: ["Muchos enemigos", [10]], polivalente: ["Señor de la guerra polivalente", [3]], red: ["Guerra en la red", [1]],
+  hermanos: ["Hermanos de armas", [1]], bajo_tierra: ["Bajo tierra", [1]], placaje: ["Placaje brutal", [1]],
+  llamado: ["Llamado a la liga", [1]], sin_rendicion: ["Sin rendición", [1]], primera_sangre: ["Primera sangre", [1]],
+  imparable: ["Imparable", [3]], podio: ["Podio", [1, 2, 3]], clasificado: ["Clasificado", [1]], ascenso: ["Ascenso", [1]],
+  instructor: ["Instructor", [1]], matagigantes: ["Matagigantes", [1]], caballeroso: ["Caballeroso", [1]],
+  campo_batalla: ["Al campo de batalla", [1]], capitan: ["Capitán", [1]], parejas: ["Por parejas", [1]],
+  habitual: ["Habitual de torneos", [3, 10, 25]],
+  presente: ["Presente", [3, 10, 30]], voz: ["Voz del club", [5]], ciudadano: ["Ciudadano ejemplar", [1]],
+  consejero: ["Consejero", [1]], idea: ["Tu idea, hecha", [1]], debate: ["Debate", [10]],
+  pincel: ["Primer pincel", [1]], artesano: ["Artesano", [5, 20, 50]], bendecido: ["Bendecido por el Emperador", [10]],
+  caos: ["Tocado por el Caos", [10]], disputa: ["Disputa eterna", [5]], juez: ["Juez de la galería", [25]],
+  insomne: ["Insomne", [1]], navidad: ["Navidad en el frente", [1]], empate: ["Empate perfecto", [1]], resucitado: ["Resucitado", [1]],
+};
+const NIVEL_NOMBRE = ["", "bronce", "plata", "oro"];
+const LOGROS_PROGRESO = "logros:progreso";
+const FUNDADORES = 30;
+// Calcula los logros de todos los socios con lo que ya guarda la web (retroactivo) y guarda los nuevos (o los que suben
+// de nivel); nunca quita ninguno. Avisa a cada socio con un anuncio por tanda. Pocas consultas (todo agregado) y el
+// progreso de cada uno queda en nr_cache 'logros:progreso'. «Resucitado» se da al entrar (`marcaConexion`).
+async function logrosCalcula(env) {
+  const q = async (sql, ...b) => (await env.DB.prepare(sql).bind(...b).all()).results;
+  const ahora = nowLocal();
+  const users = await q(`SELECT u.discord_id AS id, u.role, u.conectado, u.alta, u.facciones, u.instagram, u.steam, u.nr_username,
+      (EXISTS (SELECT 1 FROM socios_datos d WHERE d.discord_id=u.discord_id AND d.completado_at IS NOT NULL)
+        OR EXISTS (SELECT 1 FROM solicitudes s WHERE s.discord_id=u.discord_id AND s.estado='aprobada')) AS datos,
+      EXISTS (SELECT 1 FROM push_subs p WHERE p.discord_id=u.discord_id) AS push FROM users u`);
+  const M = new Map(users.map((u) => [u.id, {}]));
+  const pon = (id, k, v) => { const m = M.get(id); if (m) m[k] = Math.max(m[k] || 0, v); };
+  const suma = (id, k, v = 1) => { const m = M.get(id); if (m) m[k] = (m[k] || 0) + v; };
+  const rivales = new Map(), modalidades = new Map();
+  const anade = (map, id, x) => { if (!M.has(id)) return; if (!map.has(id)) map.set(id, new Set()); map.get(id).add(x); };
+
+  // Perfil.
+  const fund = await q(`SELECT discord_id AS id FROM (
+      SELECT discord_id, completado_at AS f FROM socios_datos WHERE discord_id IS NOT NULL AND completado_at IS NOT NULL
+      UNION ALL SELECT discord_id, COALESCE(decidido_at, created_at) FROM solicitudes WHERE estado='aprobada') ORDER BY f LIMIT ?1`, FUNDADORES * 2);
+  const fundadores = new Set();
+  for (const f of fund) { if (fundadores.size >= FUNDADORES) break; fundadores.add(f.id); }
+  for (const u of users) {
+    if (u.conectado && (u.datos || u.id === EXENTO_DATOS)) pon(u.id, "juramento", 1);
+    let fac = [];
+    try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
+    if (Array.isArray(fac) && fac.length && (u.instagram || u.steam) && u.nr_username) pon(u.id, "expediente", 1);
+    if (u.push) pon(u.id, "servocraneo", 1);
+    if (fundadores.has(u.id)) pon(u.id, "fundador", 1);
+    if (u.alta && /^\d{4}-\d{2}-\d{2}/.test(u.alta)) {
+      const [y, m, d] = u.alta.slice(0, 10).split("-").map(Number), [Y, Mo, D] = ahora.slice(0, 10).split("-").map(Number);
+      pon(u.id, "servicio", Y - y - (Mo < m || (Mo === m && D < d) ? 1 : 0));
+    }
+  }
+
+  // Partidas del calendario: publicadas y jugadas (solo las verificadas por un admin).
+  for (const r of await q("SELECT created_by AS id, COUNT(*) AS n FROM partidas GROUP BY created_by")) pon(r.id, "llamamiento", r.n);
+  const ver = await q(`SELECT p.id, p.activity, p.format, p.modo, p.starts_at, p.created_by, j.discord_id AS uid, j.side
+      FROM partidas p JOIN partida_players j ON j.partida_id=p.id WHERE p.jugada='verificada'`);
+  const porPartida = new Map();
+  for (const r of ver) { if (!porPartida.has(r.id)) porPartida.set(r.id, []); porPartida.get(r.id).push(r); }
+  for (const js of porPartida.values()) for (const r of js) {
+    suma(r.uid, "armas");
+    if (r.created_by !== r.uid) suma(r.uid, "mercenario");
+    anade(modalidades, r.uid, r.activity);
+    js.filter((o) => o.uid !== r.uid && (r.activity === "necromunda" || o.side !== r.side)).forEach((o) => anade(rivales, r.uid, o.uid));
+    if (r.modo === "online") pon(r.uid, "red", 1);
+    if (r.format === "2v2") pon(r.uid, "hermanos", 1);
+    if (r.activity === "necromunda") pon(r.uid, "bajo_tierra", 1);
+    if (r.activity === "bloodbowl") pon(r.uid, "placaje", 1);
+    if (r.starts_at && r.starts_at.slice(11, 13) >= "22") pon(r.uid, "insomne", 1);
+    const md = (r.starts_at || "").slice(5, 10);
+    if (md && (md >= "12-08" || md <= "01-07")) pon(r.uid, "navidad", 1);
+  }
+
+  // Liga y torneos (historial del ELO, con «handshake»), rango alcanzado y gigantes vencidos.
+  let elo = await eloDatos(env);
+  if (elo.jugadores.some((x) => x.h.some((h) => !h.hs && h.re == null))) elo = await eloCalcula(env); // historial de antes de guardar «re»
+  const um = elo.umbrales || { instructor: ELO.instructor, aprendiz: ELO.aprendiz };
+  for (const x of elo.jugadores) {
+    if (!M.has(x.id)) continue;
+    let racha = 0, n = 0;
+    for (const h of x.h) {
+      suma(x.id, "armas");
+      anade(rivales, x.id, h.r); if (h.r2) anade(rivales, x.id, h.r2);
+      if (h.c) pon(x.id, "hermanos", 1);
+      if (h.hs) { pon(x.id, "caballeroso", 1); continue; }
+      n++;
+      if (h.m > h.s) {
+        racha++; pon(x.id, "primera_sangre", 1); pon(x.id, "imparable", racha);
+        if (h.re != null && h.re - (h.e - h.d) >= 100) pon(x.id, "matagigantes", 1);
+      } else racha = 0;
+      if (h.m === h.s) pon(x.id, "empate", 1);
+      if (n >= elo.minimo) {
+        pon(x.id, "clasificado", 1);
+        if (h.e > um.aprendiz) pon(x.id, "ascenso", 1);
+        if (h.e >= um.instructor) pon(x.id, "instructor", 1);
+      }
+    }
+  }
+  const liga = await q(`SELECT j.discord_id AS id, f.terminada, j.puesto_final,
+      (SELECT COUNT(*) FROM liga_partidas p WHERE (p.jugador_a=j.id OR p.jugador_b=j.id) AND p.pv_a IS NOT NULL) AS pj,
+      (SELECT COUNT(*) FROM liga_partidas p WHERE (p.jugador_a=j.id AND p.abandono='a') OR (p.jugador_b=j.id AND p.abandono='b')) AS ab
+      FROM liga_jugadores j JOIN liga_fases f ON f.id=j.fase_id WHERE j.discord_id IS NOT NULL`);
+  for (const r of liga) {
+    if (r.pj > 0) { pon(r.id, "llamado", 1); anade(modalidades, r.id, "40k_2000"); }
+    if (r.terminada && r.pj > 0 && !r.ab) pon(r.id, "sin_rendicion", 1);
+    if (r.terminada && r.puesto_final >= 1 && r.puesto_final <= 3) pon(r.id, "podio", 4 - r.puesto_final);
+  }
+  const PUNTOS = { cp: "combat_patrol", "1k": "40k_1000", "2k": "40k_2000" };
+  const torneosDe = new Map();
+  const tor = await q(`SELECT DISTINCT j.discord_id AS id, t.nr_torneo, t.parejas, t.puntos FROM elo_torneo_jugadores j JOIN elo_torneos t ON t.id=j.torneo_id WHERE j.discord_id IS NOT NULL`);
+  for (const r of tor) { anade(torneosDe, r.id, "nr:" + r.nr_torneo); if (r.parejas) pon(r.id, "parejas", 1); anade(modalidades, r.id, PUNTOS[r.puntos] || "40k_2000"); }
+  const web = await q(`SELECT m.discord_id AS id, e.id AS ev, e.formato, e.starts_at, e.nr_tournament_id AS nr, te.capitan=m.discord_id AS cap
+      FROM torneo_miembros m JOIN torneo_equipos te ON te.id=m.equipo_id JOIN events e ON e.id=m.event_id WHERE m.solicitud=0`);
+  for (const r of web) {
+    pon(r.id, "campo_batalla", 1);
+    if (r.cap && r.formato && r.formato !== "1v1") pon(r.id, "capitan", 1);
+    if (r.starts_at <= ahora) {
+      // Si el torneo ya se añadió al ELO desde New Recruit, cuenta una sola vez.
+      const nr = tor.find((t) => t.id === r.id && r.nr && String(r.nr).includes(t.nr_torneo));
+      anade(torneosDe, r.id, nr ? "nr:" + nr.nr_torneo : "ev:" + r.ev);
+      if (r.formato === "2v2") pon(r.id, "parejas", 1);
+    }
+  }
+  for (const [id, s] of torneosDe) pon(id, "habitual", s.size);
+  for (const [id, s] of rivales) pon(id, "enemigos", s.size);
+  for (const [id, s] of modalidades) pon(id, "polivalente", s.size);
+
+  // Comunidad: quedadas (asistencia confirmada), encuestas y sugerencias.
+  for (const r of await q(`SELECT r.discord_id AS id, COUNT(*) AS n FROM registrations r JOIN events e ON e.id=r.event_id
+      WHERE r.asistio=1 AND e.type='quedada' GROUP BY r.discord_id`)) pon(r.id, "presente", r.n);
+  const votos = await q("SELECT DISTINCT encuesta_id AS e, discord_id AS id FROM encuesta_votos");
+  const encs = await q("SELECT id, para, cierra FROM encuestas");
+  const votoDe = new Map();
+  for (const v of votos) anade(votoDe, v.id, v.e);
+  const rolDe = new Map(users.map((u) => [u.id, u.role]));
+  const cerradas = encs.filter((e) => e.cierra && e.cierra <= ahora);
+  const anios = [...new Set(cerradas.map((e) => e.cierra.slice(0, 4)))];
+  for (const [id, s] of votoDe) {
+    pon(id, "voz", s.size);
+    const miembro = ["miembro", "admin"].includes(rolDe.get(id));
+    for (const a of anios) {
+      const suyas = cerradas.filter((e) => e.cierra.startsWith(a) && (e.para !== "miembros" || miembro));
+      if (suyas.length >= 3 && suyas.every((e) => s.has(e.id))) pon(id, "ciudadano", 1);
+    }
+  }
+  for (const r of await q("SELECT autor AS id, COUNT(*) AS n, SUM(estado IN ('aceptada','hecha')) AS ok FROM sugerencias GROUP BY autor")) {
+    pon(r.id, "consejero", r.n); if (r.ok) pon(r.id, "idea", 1);
+  }
+  for (const r of await q("SELECT autor AS id, COUNT(*) AS n FROM sugerencia_respuestas GROUP BY autor")) pon(r.id, "debate", r.n);
+
+  // Galería.
+  for (const r of await q(`SELECT p.discord_id AS id,
+      (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id AND b.tipo='emperador') AS e,
+      (SELECT COUNT(*) FROM bendiciones b WHERE b.publicacion_id=p.id AND b.tipo='ruinosos') AS r
+      FROM publicaciones p WHERE p.status='publicada'`)) {
+    suma(r.id, "pincel"); suma(r.id, "artesano");
+    pon(r.id, "bendecido", r.e); pon(r.id, "caos", r.r); pon(r.id, "disputa", Math.min(r.e, r.r));
+  }
+  for (const r of await q("SELECT discord_id AS id, COUNT(*) AS n FROM bendiciones GROUP BY discord_id")) pon(r.id, "juez", r.n);
+
+  // Niveles y novedades.
+  const antes = new Map((await q("SELECT discord_id, logro, nivel FROM logros")).map((r) => [r.discord_id + "|" + r.logro, r.nivel]));
+  const nuevos = [], porSocio = new Map(), progreso = {};
+  for (const [id, m] of M) {
+    const pr = {};
+    for (const [k, [, umb]] of Object.entries(LOGROS)) {
+      const v = m[k] || 0;
+      if (umb.length > 1 || umb[0] > 1) pr[k] = v;
+      const nivel = umb.filter((t) => v >= t).length;
+      if (nivel > (antes.get(id + "|" + k) || 0)) {
+        nuevos.push({ u: id, l: k, n: nivel });
+        if (!porSocio.has(id)) porSocio.set(id, []);
+        porSocio.get(id).push(LOGROS[k][0] + (umb.length > 1 ? " (" + NIVEL_NOMBRE[nivel] + ")" : ""));
+      }
+    }
+    progreso[id] = pr;
+  }
+  const marca = ahora.replace(/\D/g, "");
+  const avisos = [...porSocio].map(([u, ls]) => ({ u, t: ls.length === 1 ? "¡Logro desbloqueado!" : "¡" + ls.length + " logros desbloqueados!",
+    x: "Has conseguido: " + ls.map((x) => "«" + x + "»").join(", ") + "." }));
+  const ops = [env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES (?1, ?2, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?2, actualizado=datetime('now'), error=NULL")
+    .bind(LOGROS_PROGRESO, JSON.stringify(progreso))];
+  if (nuevos.length) {
+    ops.push(env.DB.prepare(`INSERT INTO logros (discord_id, logro, nivel)
+        SELECT json_extract(value,'$.u'), json_extract(value,'$.l'), json_extract(value,'$.n') FROM json_each(?1) WHERE true
+        ON CONFLICT(discord_id, logro) DO UPDATE SET nivel=excluded.nivel, conseguido=datetime('now') WHERE excluded.nivel > logros.nivel`).bind(JSON.stringify(nuevos)));
+    ops.push(env.DB.prepare(`INSERT INTO anuncios (discord_id, tipo, titulo, texto, enlace)
+        SELECT json_extract(value,'$.u'), 'logros:' || ?2, json_extract(value,'$.t'), json_extract(value,'$.x'), '/logros' FROM json_each(?1)`)
+      .bind(JSON.stringify(avisos), marca));
+  }
+  await env.DB.batch(ops);
+  return { nuevos: nuevos.length, socios: porSocio.size };
+}
+// Una vez al día desde el temporizador (si el ELO ya está al día en esta ejecución, para no juntar los dos cálculos).
+async function logrosDiario(env, fresco) {
+  if (fresco) return;
+  await logrosCalcula(env);
+}
+
 // ----- Torneos puntuales de New Recruit para el ELO (admin) -----
 // Lee el torneo de la página pública de New Recruit (llamadas internas `tourny_get` y `report_get_bulk`: la API oficial
 // no da partidas; con permiso del propietario, solo a mano). Devuelve sus jugadores con sugerencias de socios y lo
@@ -2321,20 +2643,23 @@ export default {
   // Temporizador de Cloudflare (cada minuto): recordatorios de la Gran Liga y envío de la cola de avisos.
   async scheduled(event, env, ctx) {
     // Cada minuto. Para gastar pocas consultas: la fase en curso se lee una vez (recordatorios y resultados) y una sola
-    // consulta dice si los roles (semanal) y el ELO (diario) están al día.
+    // consulta dice si los roles (semanal), el ELO (diario) y los logros (diario) están al día.
     ctx.waitUntil((async () => {
       let fase = null, frescos = new Set();
       try { fase = await env.DB.prepare("SELECT * FROM liga_fases WHERE terminada=0 ORDER BY edicion DESC, fase DESC LIMIT 1").first(); } catch (e) {}
       try {
         frescos = new Set((await env.DB.prepare(
           `SELECT clave FROM nr_cache WHERE (clave='discord:roles' AND actualizado > datetime('now','-7 days'))
-             OR (clave=?1 AND actualizado > datetime('now','-1 day'))`
-        ).bind(ELO.clave).all()).results.map((x) => x.clave));
+             OR (clave=?1 AND actualizado > datetime('now','-1 day'))
+             OR (clave=?2 AND actualizado > datetime('now','-1 day'))`
+        ).bind(ELO.clave, LOGROS_PROGRESO).all()).results.map((x) => x.clave));
       } catch (e) {}
       await ligaRecordatorios(env, nowLocal(), fase).catch(() => {});
       await procesaCola(env, 25).catch(() => {});
       await rolesSemanal(env, frescos.has("discord:roles")).catch(() => {});
       await eloDiario(env, frescos.has(ELO.clave)).catch(() => {});
+      // Logros (diario), en una ejecución en la que no se haya recalculado el ELO.
+      if (frescos.has(ELO.clave)) await logrosDiario(env, frescos.has(LOGROS_PROGRESO)).catch(() => {});
       // Resultados de la Gran Liga desde New Recruit (fase en curso; `ligaAuto` decide si toca consultar).
       if (fase) await ligaAuto(env, fase).catch(() => {});
     })());
@@ -3547,16 +3872,18 @@ export default {
         return ok((await listPartidas(env, s.id)).filter((x) => ids.includes(x.id)));
       }
 
-      const pm = path.match(/^\/api\/partidas\/(\d+)(\/join)?$/);
+      const pm = path.match(/^\/api\/partidas\/(\d+)(\/join|\/jugada|\/verifica|\/foto)?$/);
       if (!pm) return new Response("No encontrado", { status: 404 });
       const pid = Number(pm[1]);
       const p = await env.DB.prepare("SELECT * FROM partidas WHERE id=?1").bind(pid).first();
       if (!p || p.status === "cancelada") return fail("La partida ya no existe", 404);
+      if (pm[2] === "/jugada" || pm[2] === "/verifica" || pm[2] === "/foto") return partidaJugada(env, ctx, request, s, p, pm[2].slice(1), now, ok, fail);
 
       // Retirar la partida (quien la organiza o un admin).
       if (!pm[2]) {
         if (request.method !== "DELETE") return new Response("Método no permitido", { status: 405 });
         if (p.created_by !== s.id && s.role !== "admin") return fail("Solo quien organiza puede retirarla", 403);
+        if (p.jugada === "pendiente" || p.jugada === "verificada") return fail("La partida ya está marcada como jugada", 409);
         await env.DB.prepare("UPDATE partidas SET status='cancelada', mesa=NULL WHERE id=?1").bind(pid).run();
         return ok({ ok: true });
       }
@@ -3660,6 +3987,26 @@ export default {
 
     // Miembros: el listado es público (nombre, foto, rol, facciones, liga y ELO); las cuentas
     // (Discord, Instagram, Steam, New Recruit, BCP) solo se entregan a los socios con sesión.
+    // Logros (público): de un socio (?socio=ID; sin él, los de quien tiene la sesión), con su progreso, y cuántos socios
+    // tienen cada uno (rareza).
+    if (path === "/api/logros" && request.method === "GET") {
+      const s = await readSession(env, request);
+      const id = url.searchParams.get("socio") || (s ? s.id : null);
+      const [tot, rar, mios, pr] = await env.DB.batch([
+        env.DB.prepare("SELECT COUNT(*) AS n FROM users"),
+        env.DB.prepare("SELECT logro, nivel, COUNT(*) AS n FROM logros GROUP BY logro, nivel"),
+        env.DB.prepare("SELECT logro, nivel, conseguido FROM logros WHERE discord_id=?1").bind(id || ""),
+        env.DB.prepare("SELECT datos FROM nr_cache WHERE clave=?1").bind(LOGROS_PROGRESO),
+      ]);
+      const rareza = {};
+      for (const r of rar.results) { rareza[r.logro] = rareza[r.logro] || {}; rareza[r.logro][r.nivel] = r.n; }
+      let progreso = {};
+      try { progreso = (JSON.parse((pr.results[0] || {}).datos || "{}") || {})[id] || {}; } catch (e) {}
+      const u = id ? await env.DB.prepare("SELECT name FROM users WHERE discord_id=?1").bind(id).first() : null;
+      return Response.json({ socios: tot.results[0].n, rareza, socio: u ? { id, name: u.name, yo: !!s && s.id === id } : null,
+        logros: u ? mios.results.map((r) => ({ l: r.logro, n: r.nivel, f: r.conseguido })) : [], progreso: u ? progreso : {} },
+        { headers: { ...noStore, vary: "cookie" } });
+    }
     if (path === "/api/miembros" && request.method === "GET") {
       const s = await readSession(env, request);
       const { results } = await env.DB.prepare(
@@ -3714,11 +4061,14 @@ export default {
         id: x.id, nombre: x.nombre, puesto: x.puesto, modalidad: x.modalidad, fecha: x.fecha,
         con: ganadores.get(x.id).filter((o) => o !== id).map((o) => nombreDe.get(o)).filter(Boolean),
       }));
+      // Logros de cada socio: [id, nivel].
+      const lgs = new Map();
+      try { for (const r of (await env.DB.prepare("SELECT discord_id, logro, nivel FROM logros").all()).results) { if (!lgs.has(r.discord_id)) lgs.set(r.discord_id, []); lgs.get(r.discord_id).push([r.logro, r.nivel]); } } catch (e) {}
       const miembros = results.map((u) => {
         let fac = [];
         try { fac = JSON.parse(u.facciones || "[]"); } catch (e) {}
         const x = eloDe(u);
-        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id) };
+        const m = { id: u.discord_id, name: u.name, avatar: u.avatar, role: u.role, facciones: fac, elo: x, liga: ligaDe.get(u.discord_id) || null, trofeos: trofeosDe(u.discord_id), logros: lgs.get(u.discord_id) || [] };
         // «Desconectado»: creado desde la web y aún sin iniciar sesión, o (salvo Frambu) sin sus datos obligatorios.
         if (!u.conectado) m.desconectado = "sin_entrar";
         else if (u.discord_id !== EXENTO_DATOS && !u.datos) m.desconectado = "sin_datos";
@@ -4739,6 +5089,14 @@ export default {
         return Response.json({ ok: true, comandos: JSON.parse(t).map((c) => c.name) });
       }
 
+      // Partidas marcadas como jugadas que esperan la verificación de un admin.
+      if (path === "/api/admin/partidas/pendientes" && request.method === "GET") {
+        const { results } = await env.DB.prepare(
+          `SELECT p.id, p.activity, p.starts_at, p.jugada_at, p.jugada_por AS jid, u.name AS jugada_por FROM partidas p LEFT JOIN users u ON u.discord_id=p.jugada_por
+           WHERE p.jugada='pendiente' AND p.status<>'cancelada' ORDER BY p.jugada_at`
+        ).all();
+        return Response.json(results, { headers: { "cache-control": "no-store" } });
+      }
       if (path === "/api/admin/events" && request.method === "GET") {
         const { results } = await env.DB.prepare("SELECT * FROM events ORDER BY starts_at DESC").all();
         return Response.json(results, { headers: { "cache-control": "no-store" } });
@@ -4814,7 +5172,7 @@ export default {
            WHERE m.event_id=?1 ORDER BY te.id, es_capitan DESC`
         ).bind(eventId).all()).results : null;
         const { results } = torneo ? { results: [] } : await env.DB.prepare(
-          `SELECT u.name, u.nr_username, r.status, r.created_at, r.discord_id,
+          `SELECT r.id, r.asistio, u.name, u.nr_username, r.status, r.created_at, r.discord_id,
              r.activity, r.format, r.players, r.looking, r.match_id, r.side,
              (SELECT name FROM users a WHERE a.discord_id=r.added_by) AS inscrito_por
            FROM registrations r LEFT JOIN users u ON u.discord_id=r.discord_id
@@ -4827,6 +5185,7 @@ export default {
               plan: (r.equipo ? "Equipo «" + r.equipo + "»" : "Individual") + (r.solicitud ? " (solicitud pendiente)" : r.confirmado ? "" : " (pendiente de confirmar)"), partida: "",
               inscrito_por: r.es_capitan ? null : r.capitan }))
           : withPartners(results, players).map((r) => ({
+              id: r.id, discord_id: r.discord_id, asistio: r.asistio,
               name: r.name, nr_username: r.nr_username, status: r.status, created_at: r.created_at,
               plan: r.plan, partida: partidaText(r), inscrito_por: r.inscrito_por,
             }));
@@ -4841,6 +5200,24 @@ export default {
             "content-disposition": `attachment; filename="inscritos-evento-${eventId}.csv"`,
           },
         });
+      }
+      // Asistencia a una quedada (solo después de su fecha): `asistieron` = filas de inscripción que fueron; el resto
+      // de inscritos queda como «no asistió». Cuenta para los logros de quedadas.
+      const asm = path.match(/^\/api\/admin\/events\/(\d+)\/asistencia$/);
+      if (asm && request.method === "POST") {
+        const eventId = Number(asm[1]);
+        const e = await env.DB.prepare("SELECT type, starts_at FROM events WHERE id=?1").bind(eventId).first();
+        if (!e || e.type !== "quedada") return Response.json({ error: "Solo se marca la asistencia de las quedadas" }, { status: 400 });
+        if (e.starts_at > nowLocal()) return Response.json({ error: "La asistencia se confirma después de la quedada" }, { status: 400 });
+        let b;
+        try { b = await request.json(); } catch (x) { return Response.json({ error: "JSON no válido" }, { status: 400 }); }
+        const ids = Array.isArray(b.asistieron) ? b.asistieron.map(Number).filter(Number.isInteger).slice(0, 500) : [];
+        await env.DB.prepare(
+          `UPDATE registrations SET asistio = CASE WHEN id IN (SELECT value FROM json_each(?2)) THEN 1 ELSE 0 END
+           WHERE event_id=?1 AND status='inscrito'`
+        ).bind(eventId, JSON.stringify(ids)).run();
+        ctx.waitUntil(logrosCalcula(env).catch(() => {}));
+        return Response.json({ ok: true, asistieron: ids.length });
       }
       return new Response("No encontrado", { status: 404 });
     }

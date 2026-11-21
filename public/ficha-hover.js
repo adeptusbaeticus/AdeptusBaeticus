@@ -18,6 +18,7 @@
 .abf-lau{position:relative;display:inline-flex;flex:none;margin:8px}
 .abf-lau .laurel{position:absolute;left:-17%;top:-17%;width:134%;height:134%;pointer-events:none;overflow:visible}
 .abf-cab>div:nth-child(2){flex:1;min-width:0}
+.abf-lg{display:flex;align-items:center;gap:8px;margin-top:8px}.abf-lg .abf-m{font-size:13px;color:#D9B25A;text-decoration:none}
 .abf-tro{display:flex;flex-wrap:wrap;gap:6px 12px;margin-left:auto;justify-content:flex-end;align-items:flex-end}
 .abf-tro .pila{position:relative;display:inline-block;flex:none}
 .abf-tro .pila .copa{position:absolute}
@@ -171,6 +172,19 @@
       dat.appendChild(w);
     }
     if (dat.childNodes.length) c.appendChild(dat);
+    // Logros: las 3 insignias más importantes y cuántos tiene (logros.js se carga la primera vez que hace falta).
+    if (m.logros && m.logros.length) {
+      const lw = el("div", "abf-lg");
+      const pinta = () => {
+        lw.textContent = "";
+        lw.appendChild(window.abLogros.fila(m.logros, 26, 3));
+        const n = el("a", "abf-m", m.logros.length === 1 ? "1 logro" : m.logros.length + " logros"); n.href = "/logros.html?socio=" + m.id;
+        lw.appendChild(n);
+      };
+      if (window.abLogros) pinta();
+      else cargaLogros().then(() => { if (window.abLogros) pinta(); });
+      c.appendChild(lw);
+    }
     const ver = el("a", "abf-ver", "Ver ficha completa →"); ver.href = "/miembros.html#m" + m.id;
     c.appendChild(ver);
     return c;
@@ -212,6 +226,12 @@
 
   // Opciones: { soloRaton: true } → la ficha solo sale al pasar el ratón; el clic y el teclado quedan para quien la usa
   // (p. ej. en el ranking ELO, donde pulsar un rival abre su desglose).
+  // Carga /logros.js una sola vez (para las insignias de la ficha).
+  let logrosP = null;
+  const cargaLogros = () => logrosP || (logrosP = new Promise((ok) => {
+    if (window.abLogros) return ok();
+    const sc = document.createElement("script"); sc.src = "/logros.js"; sc.onload = ok; sc.onerror = ok; document.head.appendChild(sc);
+  }));
   window.abFicha = function (n, id, opc) {
     if (!n) return n;
     id = id || null; // sin cuenta en la web: ficha «REDACTED»

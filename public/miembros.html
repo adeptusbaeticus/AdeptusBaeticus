@@ -60,6 +60,7 @@ h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:40px 0 8px}
 .pila .num{position:absolute;right:-6px;bottom:-2px;min-width:16px;height:16px;padding:0 3px;box-sizing:border-box;border-radius:999px;background:#15171A;border:1px solid #6B6558;color:#ECE7DC;font:700 10px/14px Inter,sans-serif;text-align:center}
 .copa{display:inline-block;width:28px;height:32px;flex:none}
 .copa.p1{color:#E8C25A}.copa.p2{color:#C9CED6}.copa.p3{color:#C98A4B}
+.fi h3 small{font:500 13px Inter,sans-serif;color:#A8A293}
 .trl{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .trl li{display:flex;gap:10px;align-items:center}
 .trl .copa{width:40px;height:45px}
@@ -167,6 +168,7 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
   </footer>
 </div>
 <dialog id="dlg" aria-labelledby="fi-n"><div class="fi" id="fi"></div></dialog>
+<script src="/logros.js"></script>
 <script src="/trofeos.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -375,6 +377,14 @@ function ficha(m) {
       li.appendChild(tx); ul.appendChild(li);
     });
     fi.appendChild(ul);
+  }
+  // Logros: sus insignias (las más importantes primero) y enlace a todos.
+  if (window.abLogros) {
+    const ls = m.logros || [];
+    const h = el("h3", "", "Logros"); h.appendChild(el("small", "", " " + ls.length + " / " + window.abLogros.total)); fi.appendChild(h);
+    if (ls.length) fi.appendChild(window.abLogros.fila(ls, 40, 24));
+    else fi.appendChild(el("p", "sin", "Todavía no tiene logros."));
+    const a = el("a", "m", m.id === D.yo ? "Ver todos mis logros" : "Ver todos sus logros"); a.href = "/logros.html?socio=" + m.id; a.style.cssText = "display:inline-block;margin-top:8px"; fi.appendChild(a);
   }
   fi.appendChild(el("h3", "", "Cuentas"));
   if (D.sesion) fi.appendChild(cuentas(m));

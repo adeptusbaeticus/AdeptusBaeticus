@@ -219,6 +219,31 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   cambio de estado), con enlace `?id=N` que la abre. API `/api/sugerencias*`; `borraPerfil` borra sus sugerencias,
   respuestas y votos.
 
+## Logros
+
+- Página `logros.html` (en el menú, `ITEMS` de `nav.js`, medallón `logros`). Catálogo, textos `{es, en}` (con
+  `translate="no"`) e insignias en `public/logros.js` (`window.abLogros`: `icono(id, nivel, tam)`, `fila(lista, tam,
+  max)`, `titulo`, `LOGROS`, `CATS`): dibujo propio, marco con la forma de la categoría (rueda, escudo, hexágono,
+  octógono, roseta, cuadrado redondeado y estrella para los secretos), color del nivel (bronce / plata / oro; los de un
+  solo nivel en bronce; los secretos en lacre), disco oscuro y emblema en hueso con relieve; apagada si no se tiene.
+  Ids y umbrales iguales en `LOGROS` de `src/index.js` (con el nombre en español para los avisos) y en `logros.js`; al
+  añadir o renombrar uno, cambiar los dos y el mapa `LOGROS_EN` de `i18n.js` (nombres para «Has conseguido: …»).
+- Tabla `logros` (migración 0044; nunca se quitan; nivel 1-3). `logrosCalcula` lo rehace con consultas agregadas
+  (retroactivo): una vez al día desde el temporizador (`logrosDiario`, clave `logros:progreso` en `nr_cache` con el
+  progreso de cada socio; no en la misma ejecución en la que se recalcula el ELO), al verificar una partida y al guardar
+  la asistencia de una quedada. Novedades: un anuncio por socio y tanda (tipo `logros:FECHA`, enlace `/logros`).
+  «Resucitado» se da en `marcaConexion` (vuelve tras más de 6 meses). Liga y torneos salen del historial del ELO (con
+  `re`: ELO del rival antes de la partida, para «Matagigantes»). `/api/logros` (público; `?socio=ID`) y `logros` en
+  `/api/miembros` (ficha de Miembros y ficha rápida, que carga `logros.js` la primera vez). `borraPerfil` los borra.
+- **Partida jugada** (migración 0044, columnas `jugada*` de `partidas`): un jugador la marca con foto del resultado
+  cuando ya ha empezado y está completa (`partidaJugada`: la foto va a un mensaje del bot en #publicaciones-web; la ven
+  solo jugadores y admins, `/api/partidas/:id/foto` pide el enlace actual); anuncio a cada admin `partida-ver:ID`; el
+  admin verifica (anuncio `partida-ok:ID` a los jugadores) o rechaza con motivo (se borra la foto; anuncio
+  `partida-no:ID`). Lista de pendientes en «Administrar eventos» (`/api/admin/partidas/pendientes`). Solo las
+  verificadas cuentan para los logros. Una partida jugada ya no se puede retirar.
+- **Asistencia a quedadas** (`registrations.asistio`, migración 0044): tras la fecha, en «Inscritos y asistencia» del
+  panel de eventos (`/api/admin/events/:id/asistencia`). Solo la asistencia confirmada cuenta para los logros.
+
 ## Encuestas
 
 - Página `encuestas.html` (menú de usuario y tarjeta en Inicio); el admin las crea, edita, cierra y borra ahí

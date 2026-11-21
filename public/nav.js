@@ -34,6 +34,7 @@
     ] },
     { t: "Galería", u: "/galeria.html", ic: "galeria" },
     { t: "Miembros", u: "/miembros.html", ic: "miembros" },
+    { t: "Logros", u: "/logros.html", ic: "logros" },
     { t: "Reglas y FAQ", u: "/faq.html", ic: "faq" },
     { t: "Sugerencias", u: "/sugerencias.html", ic: "sugerencias" },
   ];
@@ -113,6 +114,8 @@
     mas: [[], ["M20.5 21.5h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4zM20.5 30h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4zM20.5 38.5h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4z"], []],
     // Sugerencias: pergamino con renglones y pluma.
     sugerencias: [["M18.5 21h17v25h-17z", "M22.5 27h9M22.5 32h9M22.5 37h6"], ["M47 15.5c-6.5 1-12.5 6-15.5 14.5l-1.3 4.6 4-2.8c7-3.2 11.3-9.3 12.8-16.3z", "M30.4 34.2l-2.6 4.6 1.2.6 2.6-4.4z"], []],
+    // Logros: medalla con cinta y estrella.
+    logros: [[], ["M23.5 14.5h6.5l4 10-5 2.6zM40.5 14.5H34l-4 10 5 2.6z", "M32 25a10.8 10.8 0 1 0 0 21.6 10.8 10.8 0 1 0 0-21.6z"], ["M32.00 29.60L33.59 33.82L38.09 34.02L34.57 36.83L35.76 41.18L32.00 38.70L28.24 41.18L29.43 36.83L25.91 34.02L30.41 33.82Z"]],
     // Tipos de evento del calendario: quedada (estandarte), torneo (corona de laurel con espada), partida (espadas).
     quedada: [["M23 16.5v30", "M18.5 46.5h9"], ["M24.5 18h19l-4.2 6.2 4.2 6.3h-19z", "M23 14.6a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 1 0 0-3.8z"], ["M31.2 21.4a2.8 2.8 0 1 0 0 .1zM29.6 25.6h3.2v1.4h-3.2z"]],
     torneo: [["M22.5 41c-4.6-4.6-5.4-12.4-1-18.5", "M41.5 41c4.6-4.6 5.4-12.4 1-18.5"],

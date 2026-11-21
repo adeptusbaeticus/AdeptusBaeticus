@@ -175,6 +175,12 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **«También buscan rival»:** al publicar, la web te enseña quién busca lo mismo.
 - **Retirar** tu partida, **salir** de una a la que te uniste, y **borrar tus partidas** (las vacías o todas).
 - «Mis partidas de esta semana».
+- **Marcar como jugada:** cuando la partida ya ha empezado y estaba completa, cualquiera de sus jugadores sube una
+  **foto del resultado** (y un comentario opcional). La foto se guarda en un mensaje del bot en #publicaciones-web y solo
+  la ven los jugadores y los admins. Cada admin recibe un aviso en la servocalavera («Partida por verificar»).
+- **Verificación (admin):** en la partida, «Verificar partida» o «Rechazar foto» (con el motivo). Al verificar, los
+  jugadores reciben un aviso y la partida cuenta para los logros. Al rechazar, se borra la foto de Discord, quien la
+  subió recibe el motivo y puede subir otra. Una partida marcada como jugada ya no se puede retirar.
 
 ### Añadir a mi calendario
 - Enlace para **Google Calendar, iPhone, Mac u Outlook**: solo el calendario del club, o «Mi calendario», que incluye
@@ -188,6 +194,9 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   - cancelar un evento o publicarlo de nuevo;
   - ver los **inscritos** de cada quedada (plazas libres, lista de espera, actividad, partida, quién inscribió a
     quién) y **descargarlos en CSV**.
+  - **asistencia** (después de la fecha de la quedada): en «Inscritos y asistencia», marcar quién asistió y «Guardar
+    asistencia» (también «Marcar a todos»). Cuenta para los logros de quedadas.
+  - arriba, las **partidas por verificar** (con enlace a cada una).
 
 ---
 
@@ -373,6 +382,21 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
 - **Admin:** cambia el estado (pendiente, en estudio, aceptada, hecha o descartada), escribe la respuesta del club y
   puede cerrarla; también edita o borra cualquier sugerencia o respuesta.
 - Al autor le llega un aviso en la servocalavera cuando le responden o cambia el estado, con enlace a su sugerencia.
+
+## Logros
+- Página **Logros** (en el menú): 44 insignias de dibujo propio en 7 categorías (bienvenida y perfil, partidas, Gran
+  Liga y ELO, torneos, comunidad, galería y pintura, y secretos). Algunas tienen niveles de **bronce, plata y oro**.
+- Cada insignia: nombre, descripción, niveles con sus umbrales, tu progreso hacia el siguiente (por ejemplo «12/25
+  partidas»), la fecha en que la conseguiste y qué porcentaje de los socios la tiene. Los secretos no se ven hasta
+  conseguirlos. Filtro: todos, conseguidos o por conseguir.
+- Con sesión se ven los tuyos; `?socio=ID` enseña los de otro socio (desde su ficha). Sin sesión, el catálogo.
+- En la ficha de **Miembros**, sus logros (los más importantes primero) y «Ver todos sus logros»; en la **ficha
+  rápida**, las 3 insignias principales y cuántos tiene.
+- Se calculan solos una vez al día con todo lo que guarda la web (son retroactivos), y además al verificar una partida o
+  guardar la asistencia de una quedada. No se pierden nunca. Al conseguir uno (o varios), un aviso en la servocalavera
+  con enlace a Logros.
+- Las partidas del calendario solo cuentan si un admin ha verificado la foto del resultado; las quedadas, solo con la
+  asistencia confirmada por un admin. Las de la liga y los torneos salen del ELO.
 
 ## 11. Reglas y FAQ
 - Preguntas frecuentes copiadas del canal #preguntas-frecuentes de Discord. Se renuevan solas cada 6 horas.

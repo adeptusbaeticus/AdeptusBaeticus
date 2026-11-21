@@ -9,6 +9,9 @@
   if (!ES_CAL && !ES_LIGA) return;
 
   const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+  const MODALIDADES = { combat_patrol: "Combat Patrol", "40k_1000": "40k a 1K", "40k_2000": "40k a 2K", necromunda: "Necromunda", bloodbowl: "Blood Bowl" };
+  // Hora local con el formato de starts_at ("YYYY-MM-DDTHH:MM").
+  const ahoraLocal = () => { const t = new Date(); t.setMinutes(t.getMinutes() - t.getTimezoneOffset()); return t.toISOString().slice(0, 16); };
   const chip = (txt, fn) => { const b = el("button", "apn-chip", txt); b.type = "button"; b.onclick = fn; return b; };
 
   const css = el("style");
@@ -122,7 +125,25 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
     f.append(fg, msg, acts);
     const h = el("h3", "", "Eventos"); h.style.cssText = "font:700 20px Cinzel,Georgia,serif;margin:8px 0 12px";
     const lista = el("div");
-    cuerpo.append(f, h, lista);
+    // Partidas que los jugadores han marcado como jugadas y esperan verificación (se abren en el calendario).
+    const pend = el("div", "card"); pend.hidden = true;
+    cuerpo.append(pend, f, h, lista);
+    fetch("/api/admin/partidas/pendientes").then((r) => (r.ok ? r.json() : [])).then((ps) => {
+      if (!ps.length) return;
+      pend.hidden = false;
+      const t = el("h3", "", ps.length === 1 ? "1 partida por verificar" : ps.length + " partidas por verificar");
+      t.style.cssText = "font:700 18px Cinzel,Georgia,serif;margin:0 0 8px";
+      const ul = el("ul", "lis");
+      ps.forEach((p) => {
+        const li = el("li"); const a = el("a");
+        a.href = "/calendario.html?partida=" + p.id;
+        a.textContent = "#" + p.id + " · " + (MODALIDADES[p.activity] || p.activity) + " · " + (p.starts_at || "").replace("T", " ");
+        const q = el("span", "m"); q.textContent = " · "; const n = el("span", "", p.jugada_por || "?"); n.setAttribute("translate", "no"); if (window.abFicha) window.abFicha(n, p.jid || null);
+        q.append("marcada por ", n);
+        li.append(a, q); ul.appendChild(li);
+      });
+      pend.append(t, ul);
+    }).catch(() => {});
 
     // Las quedadas son siempre físicas: la modalidad y la inscripción en la web solo salen en los torneos.
     const syncModo = () => {
@@ -181,16 +202,50 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
       cab.append(el("span", "m", "Inscritos: " + ins + (e.capacity ? " de " + e.capacity + " · Libres: " + Math.max(0, e.capacity - ins) : "") + " · En espera: " + (l.length - ins)), csv);
       panel.appendChild(cab);
       if (!l.length) { panel.appendChild(el("p", "m", "Todavía no hay inscritos.")); return; }
+      // Quedada ya pasada: el admin confirma quién asistió (cuenta para los logros).
+      const pasada = e.type === "quedada" && e.starts_at <= ahoraLocal();
+      const marcas = [];
+      if (pasada) {
+        const av = el("p", "aviso", "La quedada ya ha pasado: marca quién asistió y pulsa «Guardar asistencia». Cuenta para los logros de quedadas.");
+        av.style.margin = "0 0 8px";
+        panel.appendChild(av);
+      }
       const t = el("table"); const tr = t.createTHead().insertRow();
-      ["#", "Nombre", "Usuario New Recruit", "Estado", "Actividad", "Partida", "Inscrito por", "Fecha de inscripción"].forEach((x) => tr.appendChild(el("th", "", x)));
+      (pasada ? ["Asistió"] : []).concat(["#", "Nombre", "Usuario New Recruit", "Estado", "Actividad", "Partida", "Inscrito por", "Fecha de inscripción"]).forEach((x) => tr.appendChild(el("th", "", x)));
       const tb = t.createTBody();
       l.forEach((x, i) => {
         const r = tb.insertRow();
+        if (pasada) {
+          const c = r.insertCell();
+          if (x.status === "inscrito" && x.id) {
+            const lab = el("label", "ck"); const cb = el("input"); cb.type = "checkbox"; cb.checked = x.asistio === 1;
+            cb.setAttribute("aria-label", "Asistió");
+            lab.appendChild(cb); c.appendChild(lab); marcas.push([x.id, cb]);
+          } else c.textContent = "—";
+        }
         const fch = x.created_at ? new Date(x.created_at.replace(" ", "T") + "Z").toLocaleString("es-ES") : "";
         [String(i + 1), x.name || "(sin nombre)", x.nr_username || "—", x.status === "inscrito" ? "Inscrito" : "Lista de espera", x.plan || "—", x.partida || "—", x.inscrito_por || "—", fch]
           .forEach((v, k) => { const c = r.insertCell(); c.textContent = v; if ([1, 2, 5, 6].includes(k)) c.setAttribute("translate", "no"); });
       });
       const w = el("div"); w.style.overflowX = "auto"; w.appendChild(t); panel.appendChild(w);
+      if (pasada && marcas.length) {
+        const fila = el("div", "acts"); fila.style.marginTop = "10px";
+        const ok = el("p", "m"); ok.setAttribute("role", "status");
+        const todos = chip("Marcar a todos", () => marcas.forEach(([, cb]) => { cb.checked = true; }));
+        const g = el("button", "apn-btn", "Guardar asistencia"); g.type = "button";
+        g.onclick = async () => {
+          g.disabled = true; ok.textContent = "";
+          try {
+            const r = await fetch("/api/admin/events/" + e.id + "/asistencia", { method: "POST", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ asistieron: marcas.filter(([, cb]) => cb.checked).map(([id]) => id) }) });
+            const y = await r.json().catch(() => ({}));
+            ok.textContent = r.ok ? (y.asistieron === 1 ? "Asistencia guardada: 1 asistente." : "Asistencia guardada: " + y.asistieron + " asistentes.") : y.error || "No se pudo guardar la asistencia.";
+          } catch (x) { ok.textContent = "No se pudo guardar la asistencia."; }
+          g.disabled = false;
+        };
+        fila.append(g, todos, ok);
+        panel.appendChild(fila);
+      }
     }
     function pinta() {
       lista.textContent = "";
@@ -205,7 +260,7 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
         if (e.status !== "cancelado") a.appendChild(chip("Cancelar evento", () => ponEstado(e, "cancelado", "¿Cancelar este evento?")));
         else a.appendChild(chip("Publicar de nuevo", () => ponEstado(e, "publicado")));
         const panel = el("div", "regs"); panel.hidden = true;
-        if (e.type === "quedada") a.appendChild(chip("Inscritos", () => inscritos(e, panel)));
+        if (e.type === "quedada") a.appendChild(chip(e.starts_at <= ahoraLocal() ? "Inscritos y asistencia" : "Inscritos", () => inscritos(e, panel)));
         fila.append(info, a, panel);
         lista.appendChild(fila);
       });

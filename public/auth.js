@@ -424,7 +424,8 @@
       // Con enlace (p. ej. una invitación a un torneo): lleva allí; «Aceptar» solo lo quita de la lista.
       if (an.enlace && an.enlace.startsWith("/")) {
         const ir = document.createElement("a");
-        ir.href = an.enlace; ir.className = "ir"; ir.textContent = "Ir al torneo";
+        ir.href = an.enlace; ir.className = "ir"; ir.textContent = /^torneo/.test(an.tipo || "") ? "Ir al torneo" : /^logros/.test(an.tipo || "") ? "Ver mis logros"
+          : /^partida/.test(an.tipo || "") ? "Ir a la partida" : /^sug/.test(an.tipo || "") ? "Ver la sugerencia" : "Ver";
         d.appendChild(ir);
       }
       d.appendChild(ok);
