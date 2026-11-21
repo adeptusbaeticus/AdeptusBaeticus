@@ -19,7 +19,7 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   al elegir algo):
   - **Crear** (botón redondo en el centro): Publicar partida, Nuevo anuncio, Nueva sugerencia y, para miembros, Subir
     fotos y Ofrecer un servicio; para el admin, Crear evento. Cada uno abre directamente su formulario.
-  - **Explorar:** Juegos (Gran Liga, Ranking ELO, Recursos, Tutoriales, Necromunda, Blood Bowl, Reglas y FAQ) y Comunidad
+  - **Explorar:** Juegos (Gran Liga, Ranking ELO, Warhammer 40K, Necromunda, Blood Bowl, Reglas y FAQ) y Comunidad
     (Galería, Compraventa, Miembros, Logros, Sugerencias), con un acceso arriba a la última sección visitada.
   - **Tú** (tu foto, con el número de avisos): tus avisos (los de la servocalavera: anuncios, encuestas y datos
     pendientes; se abre solo cuando llega un aviso nuevo), tu cuenta (Mi ficha, Mis datos, Encuestas, Notificaciones,
