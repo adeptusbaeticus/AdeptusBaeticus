@@ -285,6 +285,8 @@ if (window.abNav && window.abNav.medalla) $("ic").appendChild(window.abNav.medal
   const q = Number(new URLSearchParams(location.search).get("id")); if (q) abierta = q;
   await carga();
   if (q) { const n = $("s" + q); if (n) n.scrollIntoView({ block: "start" }); }
+  // Desde «Crear» (menú del móvil): ?nueva=1 abre el formulario.
+  if (new URLSearchParams(location.search).get("nueva") === "1") $("bnueva").click();
 });
 </script>
 <script src="/i18n.js"></script>

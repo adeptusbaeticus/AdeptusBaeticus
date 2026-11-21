@@ -39,12 +39,6 @@
     { t: "Reglas y FAQ", u: "/faq.html", ic: "faq" },
     { t: "Sugerencias", u: "/sugerencias.html", ic: "sugerencias" },
   ];
-  const BARRA = [
-    { t: "Inicio", u: "/", ic: "inicio" },
-    { t: "Calendario", u: "/calendario.html", ic: "calendario" },
-    { t: "40K", u: "/warhammer-40k/gran-liga", ic: "w40k", cat: "w40k", et: "Warhammer 40K" },
-    { t: "Galería", u: "/galeria.html", ic: "galeria" },
-  ];
 
   // Página actual (con o sin «.html» y sin barra final); las direcciones antiguas cuentan como las nuevas.
   const limpia = (p) => (p.replace(/\.html$/, "").replace(/\/+$/, "") || "/").replace(/^\/index$/, "/");
@@ -117,6 +111,11 @@
     sugerencias: [["M18.5 21h17v25h-17z", "M22.5 27h9M22.5 32h9M22.5 37h6"], ["M47 15.5c-6.5 1-12.5 6-15.5 14.5l-1.3 4.6 4-2.8c7-3.2 11.3-9.3 12.8-16.3z", "M30.4 34.2l-2.6 4.6 1.2.6 2.6-4.4z"], []],
     // Compraventa: etiqueta de precio y moneda.
     compraventa: [[], ["M33 15h14v14L31.5 44.5 18.5 31.5z", "M24 37.5a7 7 0 1 0 0 14 7 7 0 1 0 0-14z"], ["M41.2 18.4a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 1 0 0-5.2zM28 28.6l2-2 8.8 8.8-2 2zM31.8 25l1.6-1.6 3.4 3.4-1.6 1.6zM22.6 40.6h2.8v7.8h-2.8z"]],
+    // Cuenta (panel «Tú»): urna de encuestas, campana de avisos, engranaje de administración y puerta de salir.
+    encuestas: [[], ["M18 30h28v16H18z", "M24.5 15h15v17h-15z"], ["M22.5 33.4h19v2.6h-19zM27.6 21.6l2.4 2.4 4.8-5 1.7 1.7-6.5 6.7-4.1-4.1z"]],
+    avisos: [["M27 43.5a5 5 0 0 0 10 0"], ["M32 16c-6.5 0-9.5 5-9.5 11v7l-4.5 5.5h28L41.5 34v-7c0-6-3-11-9.5-11z", "M30.2 13.2h3.6v3.4h-3.6z"], []],
+    admin: [[], ["M29 15h6l1 4.5 3.6 1.5 3.9-2.5 4.2 4.2-2.5 3.9 1.5 3.6 4.5 1v6l-4.5 1-1.5 3.6 2.5 3.9-4.2 4.2-3.9-2.5-3.6 1.5-1 4.5h-6l-1-4.5-3.6-1.5-3.9 2.5-4.2-4.2 2.5-3.9-1.5-3.6-4.5-1v-6l4.5-1 1.5-3.6-2.5-3.9 4.2-4.2 3.9 2.5 3.6-1.5z"], ["M32 26a6 6 0 1 0 0 12 6 6 0 1 0 0-12z"]],
+    salir: [["M35 18.5H21.5v27H35", "M29 32h17", "M41 26.5l5.5 5.5-5.5 5.5"], [], []],
     // Logros: medalla con cinta y estrella.
     logros: [[], ["M23.5 14.5h6.5l4 10-5 2.6zM40.5 14.5H34l-4 10 5 2.6z", "M32 25a10.8 10.8 0 1 0 0 21.6 10.8 10.8 0 1 0 0-21.6z"], ["M32.00 29.60L33.59 33.82L38.09 34.02L34.57 36.83L35.76 41.18L32.00 38.70L28.24 41.18L29.43 36.83L25.91 34.02L30.41 33.82Z"]],
     // Tipos de evento del calendario: quedada (estandarte), torneo (corona de laurel con espada), partida (espadas).
@@ -225,7 +224,7 @@
     ".nb-sub a:hover{color:#F0CE82;border-color:#6B6558}",
     ".nb-sub a.on{background:#2A2618;color:#F0CE82;border-color:#D9B25A}",
     // Botón del menú lateral, barra inferior y menú lateral (solo móvil y tablet)
-    ".nb-barra,.nb-cortina,.nb-cajon{display:none}",
+    ".nb-barra,.nb-cortina,.nb-hoja{display:none}",
     "html.ab-movil{scroll-padding-top:76px}",
     "html.ab-movil .nav{flex-wrap:wrap;gap:8px;padding:8px 0;min-height:60px;box-sizing:border-box}",
     "html.ab-movil .nav nav.menu{display:none}",
@@ -238,7 +237,7 @@
     "html.ab-movil .nav #auth .um-btn>:not(img){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}",
     "html.ab-movil .nav #auth .um-btn img{width:34px;height:34px}",
     "html.ab-movil .nav #auth>a[href='/auth/login']{display:none!important}",
-    "html.ab-movil .nb-barra a:focus-visible,html.ab-movil .nb-barra button:focus-visible,html.ab-movil .nb-cajon a:focus-visible,html.ab-movil .nb-cajon button:focus-visible{outline:2px solid #D9B25A;outline-offset:2px}",
+    "html.ab-movil .nb-barra a:focus-visible,html.ab-movil .nb-barra button:focus-visible,html.ab-movil .nb-hoja a:focus-visible,html.ab-movil .nb-hoja button:focus-visible{outline:2px solid #D9B25A;outline-offset:2px}",
     "html.ab-movil .nb-sub{order:5;margin:4px 0 -8px;padding:6px 0 8px}",
     "html.ab-movil .nb-sub .nb-cat{display:none}",
     "html.ab-movil .nb-sub a{min-height:44px;font-size:14px;padding:0 14px}",
@@ -251,38 +250,58 @@
     "html.ab-movil .nb-barra .on svg{color:#D9B25A}",
     "html.ab-movil .nb-barra .on::after{content:'';width:18px;height:3px;border-radius:2px;background:#D9B25A;margin-top:1px}",
     "html.ab-movil .nb-barra a:active,html.ab-movil .nb-barra button:active{background:#1F2328}",
-    "html.ab-movil .nb-cortina{display:block;position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.6);opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s .25s}",
-    "html.ab-movil .nb-cajon{display:flex;flex-direction:column;position:fixed;top:0;right:0;bottom:0;z-index:71;width:min(400px,88vw);background:#15171A;border-left:1px solid #2C3036;box-shadow:-12px 0 32px rgba(0,0,0,.5);transform:translateX(100%);visibility:hidden;transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s .28s}",
-    "html.ab-movil.nb-abierto .nb-cortina{opacity:1;visibility:visible;transition:opacity .25s}",
-    "html.ab-movil.nb-abierto .nb-cajon{transform:none;visibility:visible;transition:transform .28s cubic-bezier(.2,.8,.2,1)}",
     "html.ab-movil.nb-abierto,html.ab-movil.nb-abierto body{overflow:hidden}",
-    "html.ab-escritorio .nb-cajon,html.ab-escritorio .nb-cortina,html.ab-escritorio .nb-barra{display:none!important}",
-    ".nb-cajon .nb-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px 10px 20px;border-bottom:1px solid #2C3036}",
-    ".nb-cajon .nb-top strong{font:700 18px Cinzel,Georgia,serif;letter-spacing:.06em;color:#ECE7DC}",
-    ".nb-cajon .nb-x{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:none;border:1px solid #2C3036;border-radius:12px;color:#ECE7DC;cursor:pointer}",
-    ".nb-cajon .nb-lista{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 24px}",
-    ".nb-cajon .nb-lista>a,.nb-cajon .nb-acc>button{display:flex;align-items:center;gap:14px;width:100%;min-height:56px;padding:0 14px;box-sizing:border-box;border-radius:12px;color:#ECE7DC;text-decoration:none;font:500 17px Inter,system-ui,sans-serif;background:none;border:0;cursor:pointer;text-align:left}",
-    ".nb-cajon svg{flex:none;color:#D9B25A}",
-    ".nb-cajon .nb-lista>a+a,.nb-cajon .nb-lista>*+.nb-acc,.nb-cajon .nb-acc+a{margin-top:2px}",
-    ".nb-cajon .nb-lista>a:active,.nb-cajon .nb-acc>button:active{background:#1F2328}",
-    ".nb-cajon .nb-lista>a.on,.nb-cajon .nb-acc>button.on{background:#2A2618;color:#F0CE82}",
-    ".nb-cajon .nb-acc>button .nb-fl{margin-left:auto;transition:transform .25s;color:#DCD8C2}",
-    ".nb-cajon .nb-acc>button[aria-expanded=true] .nb-fl{transform:rotate(180deg)}",
-    ".nb-cajon .nb-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s ease}",
-    ".nb-cajon .nb-panel.abierto{grid-template-rows:1fr}",
-    ".nb-cajon .nb-panel>div{overflow:hidden;padding-left:22px}",
-    ".nb-cajon .nb-panel a{display:flex;align-items:center;gap:12px;min-height:52px;margin:2px 0;padding:0 14px;border-radius:10px;border-left:2px solid #2C3036;color:#CFC9BA;text-decoration:none;font-size:16px}",
-    ".nb-cajon .nb-panel a svg{width:34px;height:34px}",
-    ".nb-cajon .nb-lista>a,.nb-cajon .nb-acc>button{min-height:60px}",
-    ".nb-cajon .nb-panel a.on{color:#F0CE82;background:#2A2618;border-left-color:#D9B25A}",
-    ".nb-cajon .nb-pie{border-top:1px solid #2C3036;margin-top:12px;padding:14px 14px 0;display:flex;flex-direction:column;gap:12px}",
-    ".nb-cajon .nb-pie .nb-et{font:600 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#A8A293}",
-    ".nb-cajon .nb-pie .lang{margin:0;gap:8px}.nb-cajon .nb-pie .lang button{min-width:56px;min-height:48px}",
-    ".nb-cajon .nb-entrar{display:flex;align-items:center;justify-content:center;gap:10px;min-height:52px;border-radius:12px;background:#A3211B;color:#fff;font-weight:600;text-decoration:none}",
-    ".nb-cajon .nb-entrar svg{color:#fff}",
+    "html.ab-escritorio .nb-hoja,html.ab-escritorio .nb-cortina,html.ab-escritorio .nb-barra{display:none!important}",
+    // Móvil: la cabecera solo lleva el escudo (cuenta y avisos van a «Tú»).
+    "html.ab-movil .nav #auth{display:none!important}",
+    "html.ab-movil .nb-barra{align-items:end}",
+    "html.ab-movil .nb-barra .nb-crear{position:relative;color:#F0CE82;justify-content:flex-end}",
+    "html.ab-movil .nb-barra .nb-mas{display:flex;align-items:center;justify-content:center;width:60px;height:60px;margin-top:-26px;border-radius:999px;background:radial-gradient(circle at 40% 35%,#E7BE79,#A87638 55%,#5A3C14);border:3px solid #15171A;box-shadow:0 4px 14px rgba(0,0,0,.6),0 0 0 2px #B08A45;color:#1E160A;font:700 38px/1 Inter,system-ui,sans-serif}",
+    "html.ab-movil .nb-barra .nb-crear[aria-expanded=true] .nb-mas{transform:rotate(45deg)}",
+    "html.ab-movil .nb-barra .nb-crear.on::after,html.ab-movil .nb-barra .nb-crear[aria-expanded=true]::after{content:'';width:18px;height:3px;border-radius:2px;background:#D9B25A;margin-top:1px}",
+    "html.ab-movil .nb-barra [aria-expanded=true]{color:#F0CE82}",
+    "html.ab-movil .nb-av{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px}",
+    "html.ab-movil .nb-av img{width:32px;height:32px;border-radius:50%;border:2px solid #B08A45;box-sizing:border-box}",
+    "html.ab-movil .nb-av b{position:absolute;top:-5px;right:-9px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#A3211B;color:#fff;font:700 11px/18px Inter,sans-serif;text-align:center;border:2px solid #15171A}",
+    "html.ab-movil .nb-barra .nb-entrar-b{color:#fff}",
+    "html.ab-movil .nb-barra .nb-entrar-b svg{width:30px;height:30px;padding:6px;border-radius:999px;background:#A3211B;color:#fff}",
+    "html.ab-movil .nb-cortina{display:block;position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.6);opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s .25s}",
+    "html.ab-movil.nb-abierto .nb-cortina{opacity:1;visibility:visible;transition:opacity .25s}",
+    "html.ab-movil .nb-hoja{display:flex;flex-direction:column;position:fixed;left:0;right:0;bottom:calc(68px + env(safe-area-inset-bottom));z-index:71;max-height:calc(100vh - 140px);background:#1F2328;border:1px solid #2C3036;border-bottom:0;border-radius:18px 18px 0 0;box-shadow:0 -12px 32px rgba(0,0,0,.5);transform:translateY(110%);visibility:hidden;transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s .28s}",
+    "html.ab-movil.nb-abierto .nb-hoja{transform:none;visibility:visible;transition:transform .28s cubic-bezier(.2,.8,.2,1)}",
+    "html.ab-movil.nb-abierto .nb-barra{z-index:72}",
+    "html.ab-movil.nb-abierto,html.ab-movil.nb-abierto body{overflow:hidden}",
+    ".nb-hoja .nb-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 12px 8px 18px}",
+    ".nb-hoja .nb-top strong{font:700 19px Cinzel,Georgia,serif;letter-spacing:.04em;color:#ECE7DC}",
+    ".nb-hoja .nb-x{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:none;border:1px solid #2C3036;border-radius:12px;color:#ECE7DC;cursor:pointer}",
+    ".nb-hoja .nb-x:focus-visible,.nb-hoja a:focus-visible,.nb-hoja button:focus-visible{outline:2px solid #D9B25A;outline-offset:2px}",
+    ".nb-cuerpo{overflow-y:auto;overscroll-behavior:contain;padding:0 14px 18px}",
+    ".nb-cuerpo .nb-gr{font:600 12px Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#D9B25A;margin:14px 4px 4px}",
+    ".nb-fila{display:flex;align-items:center;gap:12px;min-height:52px;padding:2px 10px;border-radius:12px;color:#ECE7DC;text-decoration:none;font:500 16px Inter,system-ui,sans-serif}",
+    ".nb-fila svg{flex:none}",
+    ".nb-fila .nb-tx{display:flex;flex-direction:column}.nb-fila small{font-size:12px;color:#A8A293}",
+    ".nb-fila.on{background:#2A2618;color:#F0CE82}",
+    ".nb-fila:active{background:#2A2F36}",
+    ".nb-fila.nb-ult{border:1px solid #6B5A30;background:#24221B;margin-top:4px}",
+    ".nb-rej{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-top:4px}",
+    ".nb-ac{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:120px;padding:12px;border-radius:14px;background:#15171A;border:1px solid #4A4436;color:#ECE7DC;text-decoration:none}",
+    ".nb-ac strong{font:600 15px Inter,sans-serif}.nb-ac small{font-size:12px;color:#A8A293;line-height:1.3}",
+    ".nb-ac:active{border-color:#D9B25A}",
+    ".nb-yo{display:flex;align-items:center;gap:12px;margin:4px 4px 6px}",
+    ".nb-yo .nb-av.g{width:56px;height:56px}.nb-yo .nb-av.g img{width:56px;height:56px;border-radius:50%;border:2px solid #B08A45}",
+    ".nb-yo strong{display:block;font:700 17px Inter,sans-serif;overflow-wrap:anywhere}.nb-yo span{font-size:13px;color:#A8A293}",
+    ".nb-vacio{margin:4px;color:#A8A293;font-size:14px}",
+    // Avisos y cuenta (los menús de auth.js) dentro del panel «Tú».
+    ".nb-hoja .ss-menu,.nb-hoja .ss-menu[hidden],.nb-hoja .um-menu,.nb-hoja .um-menu[hidden]{display:block!important;position:static!important;width:auto!important;box-shadow:none!important;border:0!important;background:none!important;padding:0!important;margin:0!important;left:auto!important;right:auto!important}",
+    ".nb-hoja .um-menu>a{display:flex!important;align-items:center;gap:12px;min-height:52px;padding:2px 10px!important;border-radius:12px;color:#ECE7DC;font:500 16px Inter,system-ui,sans-serif;text-decoration:none}",
+    ".nb-hoja .um-menu>a svg{flex:none}",
+    ".nb-hoja .um-vc{margin:8px 10px}",
+    ".nb-idioma{display:flex;align-items:center;gap:12px;margin:14px 4px 0;padding-top:12px;border-top:1px solid #2C3036}",
+    ".nb-idioma .nb-et{font:600 12px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#A8A293}",
+    ".nb-idioma .lang{margin:0;gap:8px}.nb-idioma .lang button{min-width:56px;min-height:48px}",
     // Pie: zonas táctiles cómodas también en «Hecho por».
     ".ft a.hecho{display:inline-block;padding:12px 0}",
-    "@media (prefers-reduced-motion:reduce){.nb-pop,.nb-cajon,.nb-cortina,.nb-panel,.nb-cajon .nb-fl,.nav .nb-grp>button svg{transition:none!important}}",
+    "@media (prefers-reduced-motion:reduce){.nb-pop,.nb-hoja,.nb-cortina,.nav .nb-grp>button svg{transition:none!important}}",
   ].join("\n");
   document.head.appendChild(css);
 
@@ -356,115 +375,178 @@
     requestAnimationFrame(() => { const on = sub.querySelector("a.on"); if (on && sub.scrollWidth > sub.clientWidth) sub.scrollLeft = on.offsetLeft - 16; });
   }
 
-  // ----- Móvil y tablet: botón del menú, barra inferior y menú lateral -----
-
+  // ----- Móvil y tablet: barra inferior (Inicio · Calendario · Crear · Explorar · Tú) y sus paneles -----
+  // Crear: lo que se puede publicar. Explorar: Juegos y Comunidad. Tú: avisos (los de la servocalavera) y la cuenta
+  // (el menú del usuario, que auth.js entrega con `abNav.cuenta`). Invitados: Inicio · Calendario · Explorar · Galería ·
+  // Entrar. En escritorio no se ve nada de esto.
+  const porU = (u) => ITEMS.flatMap((it) => it.hijos || [it]).find((x) => limpia(x.u) === limpia(u));
+  const EXPLORAR = [
+    ["Juegos", ["/warhammer-40k/gran-liga", "/warhammer-40k/ranking-elo", "/warhammer-40k/recursos", "/warhammer-40k/tutoriales",
+      "/juegos-de-especialista/necromunda", "/juegos-de-especialista/blood-bowl", "/faq.html"]],
+    ["Comunidad", ["/galeria.html", "/compraventa.html", "/miembros.html", "/logros.html", "/sugerencias.html"]],
+  ];
+  const enExplorar = EXPLORAR.some(([, us]) => us.some((u) => esActual(u)));
+  // Última sección visitada de Explorar (para volver a ella de un toque).
+  try { if (enExplorar) localStorage.setItem("ab_explorar", aqui); } catch (e) {}
+  const enTu = aqui === "/mis-inscripciones";
+  let invitado = false, cuenta = null;
 
   const barra = el("nav", "nb-barra");
   barra.setAttribute("aria-label", "Accesos rápidos");
-  BARRA.forEach((b) => {
-    const a = enlace(b);
-    if (b.cat && catActual && catActual.id === b.cat) { a.classList.add("on"); if (!a.hasAttribute("aria-current")) a.setAttribute("aria-current", "true"); }
-    if (b.et) a.setAttribute("aria-label", b.et);
-    a.append(medalla(b.ic, 34), el("span", "", b.t));
-    barra.appendChild(a);
-  });
-  const mas = el("button");
-  mas.type = "button";
-  mas.setAttribute("aria-expanded", "false");
-  mas.setAttribute("aria-controls", "nb-cajon");
-  mas.append(medalla("mas", 34), el("span", "", "Más"));
-  // «Más» se marca cuando la página actual no está en la barra (Miembros, FAQ, especialista…).
-  const enBarra = BARRA.some((b) => esActual(b.u) || (b.cat && catActual && catActual.id === b.cat));
-  if (!enBarra && aqui !== "/") mas.classList.add("on");
-  barra.appendChild(mas);
+  const boton = (ic, t, cls) => { const b = el("button", cls || ""); b.type = "button"; b.setAttribute("aria-haspopup", "dialog"); b.setAttribute("aria-expanded", "false"); if (ic) b.appendChild(ic); b.appendChild(el("span", "", t)); return b; };
+  const bCrear = boton(null, "Crear", "nb-crear"); bCrear.prepend(el("span", "nb-mas", "+"));
+  const bExp = boton(medalla("w40k", 34), "Explorar"); if (enExplorar) bExp.classList.add("on");
+  const bTu = boton(null, "Tú", "nb-tu"); if (enTu) bTu.classList.add("on");
+  const avTu = el("span", "nb-av"); bTu.prepend(avTu);
+  const entrar = el("a", "nb-entrar-b"); entrar.href = "/auth/login"; entrar.append(icono("entrar", 30), el("span", "", "Entrar"));
+  const lnk = (u, ic, t) => { const a = enlace({ u }); a.append(medalla(ic, 34), el("span", "", t)); return a; };
+  const lInicio = lnk("/", "inicio", "Inicio"), lCal = lnk("/calendario.html", "calendario", "Calendario"), lGal = lnk("/galeria.html", "galeria", "Galería");
+  function pintaBarra() {
+    barra.textContent = "";
+    if (invitado) barra.append(lInicio, lCal, bExp, lGal, entrar);
+    else barra.append(lInicio, lCal, bCrear, bExp, bTu);
+    barra.classList.toggle("inv", invitado);
+    // Tu foto (o un medallón) con el número de avisos pendientes.
+    avTu.textContent = "";
+    const me = cuenta && cuenta.me;
+    if (me && me.avatar) { const im = el("img"); im.src = "https://cdn.discordapp.com/avatars/" + me.id + "/" + me.avatar + ".png?size=64"; im.alt = ""; avTu.appendChild(im); }
+    else avTu.appendChild(medalla("miembros", 34));
+    if (cuenta && cuenta.pend) { const n = el("b", "", String(cuenta.pend)); n.setAttribute("aria-hidden", "true"); avTu.appendChild(n); }
+    bTu.setAttribute("aria-label", cuenta && cuenta.pend ? "Tú: " + cuenta.pend + " avisos pendientes" : "Tú");
+  }
+  pintaBarra();
 
+  // Panel inferior (uno solo; su contenido cambia según la pestaña).
   const cortina = el("div", "nb-cortina");
-  const cajon = el("div", "nb-cajon");
-  cajon.id = "nb-cajon";
-  cajon.setAttribute("role", "dialog");
-  cajon.setAttribute("aria-modal", "true");
-  cajon.setAttribute("aria-labelledby", "nb-cajon-t");
+  const hoja = el("div", "nb-hoja");
+  hoja.id = "nb-hoja";
+  hoja.setAttribute("role", "dialog");
+  hoja.setAttribute("aria-modal", "true");
+  hoja.setAttribute("aria-labelledby", "nb-hoja-t");
   const top = el("div", "nb-top");
-  const tt = el("strong", "", "Menú"); tt.id = "nb-cajon-t";
-  const x = el("button", "nb-x"); x.type = "button"; x.setAttribute("aria-label", "Cerrar el menú"); x.appendChild(icono("cerrar", 24));
+  const tt = el("strong", "", ""); tt.id = "nb-hoja-t";
+  const x = el("button", "nb-x"); x.type = "button"; x.setAttribute("aria-label", "Cerrar"); x.appendChild(icono("cerrar", 24));
   top.append(tt, x);
-  const lista = el("nav", "nb-lista");
-  lista.setAttribute("aria-label", "Navegación principal");
-  ITEMS.forEach((it) => {
-    if (!it.hijos) { const a = enlace(it); a.append(medalla(it.ic, 40), it.t); lista.appendChild(a); return; }
-    const acc = el("div", "nb-acc");
-    const b = el("button");
-    b.type = "button";
-    b.id = "nb-a-" + it.id;
-    b.setAttribute("aria-controls", "nb-ap-" + it.id);
-    const abre = catActual === it;
-    b.setAttribute("aria-expanded", String(abre));
-    if (abre) b.classList.add("on");
-    const fl = icono("flecha", 22); fl.classList.add("nb-fl");
-    b.append(medalla(it.ic, 40), it.t, fl);
-    const panel = el("div", "nb-panel" + (abre ? " abierto" : ""));
-    panel.id = "nb-ap-" + it.id;
-    panel.setAttribute("role", "region");
-    panel.setAttribute("aria-labelledby", b.id);
-    const dentro = el("div");
-    it.hijos.forEach((h) => { const a = enlace(h); a.append(medalla(h.ic, 34), h.t); if (!abre) a.tabIndex = -1; dentro.appendChild(a); });
-    panel.appendChild(dentro);
-    b.onclick = () => {
-      const si = b.getAttribute("aria-expanded") !== "true";
-      b.setAttribute("aria-expanded", String(si));
-      panel.classList.toggle("abierto", si);
-      dentro.querySelectorAll("a").forEach((a) => { a.tabIndex = si ? 0 : -1; });
-    };
-    acc.append(b, panel);
-    lista.appendChild(acc);
-  });
-  // Invitados: Inscripción y Entrar con Discord (en la cabecera del móvil no caben).
-  const insc = el("a"); insc.href = "/inscripcion.html"; insc.append(medalla("insc", 40), "Inscripción"); insc.hidden = true;
-  if (/^\/inscripcion$/.test(aqui)) { insc.classList.add("on"); insc.setAttribute("aria-current", "page"); }
-  lista.appendChild(insc);
-  const pie = el("div", "nb-pie");
-  const entrar = el("a", "nb-entrar"); entrar.href = "/auth/login"; entrar.append(icono("entrar", 22), "Entrar con Discord"); entrar.hidden = true;
-  const idioma = el("div"); idioma.append(el("span", "nb-et", "Idioma"));
-  pie.append(entrar, idioma);
-  lista.appendChild(pie);
-  cajon.append(top, lista);
-  document.body.append(barra, cortina, cajon);
+  const cuerpo = el("div", "nb-cuerpo");
+  hoja.append(top, cuerpo);
+  document.body.append(barra, cortina, hoja);
 
-  let antes = null;
+  const fila = (u, ic, t, sub) => {
+    const a = enlace({ u }); a.className = "nb-fila" + (a.classList.contains("on") ? " on" : "");
+    a.appendChild(medalla(ic, 38));
+    const tx = el("span", "nb-tx"); tx.appendChild(el("span", "", t)); if (sub) tx.appendChild(el("small", "", sub));
+    a.appendChild(tx);
+    return a;
+  };
+  const grupo = (t) => el("h3", "nb-gr", t);
+  const idioma = () => { const w = el("div", "nb-idioma"); w.appendChild(el("span", "nb-et", "Idioma")); if (window.abI18n) w.appendChild(window.abI18n.selector()); return w; };
+  function llenaCrear() {
+    tt.textContent = "¿Qué quieres crear?";
+    const me = cuenta && cuenta.me, rol = me ? me.role : "aspirante", miembro = rol === "miembro" || rol === "admin";
+    const rej = el("div", "nb-rej");
+    const op = (u, ic, t, sub) => { const a = el("a", "nb-ac"); a.href = u; a.appendChild(medalla(ic, 42)); a.appendChild(el("strong", "", t)); a.appendChild(el("small", "", sub)); rej.appendChild(a); };
+    op("/calendario.html?publicar=1", "partida", "Publicar partida", "Busca rival para esta semana");
+    op("/compraventa.html?nuevo=anuncio", "compraventa", "Nuevo anuncio", "Vende, busca o intercambia");
+    if (miembro) op("/galeria.html?subir=1", "galeria", "Subir fotos", "Enseña lo que has pintado");
+    op("/sugerencias.html?nueva=1", "sugerencias", "Nueva sugerencia", "Propón una idea al club");
+    if (miembro) op("/compraventa.html?nuevo=servicio", "compraventa", "Ofrecer un servicio", "Pintura, clases o impresión 3D");
+    if (rol === "admin" && !(me && me.ver_como)) op("/calendario.html?eventos=1", "quedada", "Crear evento", "Quedada o torneo");
+    cuerpo.appendChild(rej);
+  }
+  function llenaExplorar() {
+    tt.textContent = "Explorar";
+    if (invitado) cuerpo.appendChild(fila("/inscripcion.html", "insc", "Inscripción", "Únete al club"));
+    // Volver de un toque a la última sección visitada.
+    let ult = null;
+    try { ult = localStorage.getItem("ab_explorar"); } catch (e) {}
+    const u = ult && porU(ult);
+    if (u && !esActual(u.u)) { const a = fila(u.u, u.ic, u.t, "Volver a la última sección"); a.classList.add("nb-ult"); cuerpo.appendChild(a); }
+    EXPLORAR.forEach(([g, us]) => {
+      cuerpo.appendChild(grupo(g));
+      us.forEach((x) => { const it = porU(x); if (it) cuerpo.appendChild(fila(it.u, it.ic, it.t)); });
+    });
+    if (invitado) cuerpo.appendChild(idioma());
+  }
+  const ICONOS_CUENTA = { "/miembros.html#yo": "miembros", "/inscripcion.html?completar=1": "insc", "/encuestas.html": "encuestas",
+    "/mis-inscripciones.html": "calendario", "/logros.html": "logros", "/compraventa.html?mios=1": "compraventa", "/admin.html": "admin", "/auth/logout": "salir" };
+  function llenaTu() {
+    tt.textContent = "Tú";
+    if (!cuenta) { cuerpo.appendChild(el("p", "nb-vacio", "Cargando…")); return; }
+    const me = cuenta.me;
+    const yo = el("div", "nb-yo");
+    const av = el("span", "nb-av g");
+    if (me.avatar) { const im = el("img"); im.src = "https://cdn.discordapp.com/avatars/" + me.id + "/" + me.avatar + ".png?size=128"; im.alt = ""; av.appendChild(im); }
+    else av.appendChild(medalla("miembros", 52));
+    const d = el("div"); const n = el("strong", "", me.name); n.setAttribute("translate", "no");
+    d.append(n, el("span", "", { admin: "Admin", miembro: "Miembro", aspirante: "Aspirante" }[me.role] || ""));
+    yo.append(av, d); cuerpo.appendChild(yo);
+    cuerpo.appendChild(grupo("Avisos"));
+    if (cuenta.avisos) { cuenta.avisos.hidden = false; cuerpo.appendChild(cuenta.avisos); }
+    else cuerpo.appendChild(el("p", "nb-vacio", "No tienes avisos pendientes."));
+    cuerpo.appendChild(grupo("Tu cuenta"));
+    const m = cuenta.menu; m.hidden = false;
+    // Cada opción con su medallón (una sola vez).
+    m.querySelectorAll(":scope>a").forEach((a) => {
+      if (a.querySelector("svg")) return;
+      const ic = a.dataset.ic || ICONOS_CUENTA[a.getAttribute("href")] || "mas";
+      a.prepend(medalla(ic, 34));
+    });
+    cuerpo.appendChild(m);
+    cuerpo.appendChild(idioma());
+  }
+
+  let antes = null, abierta = null;
   const raiz = document.documentElement;
-  const enfocables = () => [...cajon.querySelectorAll("a[href],button")].filter((e) => !e.hidden && e.tabIndex !== -1 && e.offsetParent !== null);
-  function abreCajon() {
-    // El selector de idioma se crea al abrir (i18n.js se carga después de este script).
-    if (window.abI18n && !idioma.querySelector(".lang")) idioma.appendChild(window.abI18n.selector());
-    antes = document.activeElement;
+  const botones = { crear: bCrear, explorar: bExp, tu: bTu };
+  const enfocables = () => [...hoja.querySelectorAll("a[href],button,select")].filter((e) => !e.hidden && e.offsetParent !== null);
+  function abre(tipo) {
+    if (abierta === tipo) return cierra(true);
+    antes = antes || document.activeElement;
+    abierta = tipo;
+    cuerpo.textContent = "";
+    hoja.dataset.tipo = tipo;
+    ({ crear: llenaCrear, explorar: llenaExplorar, tu: llenaTu })[tipo]();
+    Object.entries(botones).forEach(([k, b]) => b.setAttribute("aria-expanded", String(k === tipo)));
     raiz.classList.add("nb-abierto");
-    mas.setAttribute("aria-expanded", "true");
+    cuerpo.scrollTop = 0;
     setTimeout(() => x.focus(), 30);
   }
-  function cierraCajon(volver) {
+  function cierra(volver) {
     if (!raiz.classList.contains("nb-abierto")) return;
     raiz.classList.remove("nb-abierto");
-    mas.setAttribute("aria-expanded", "false");
+    Object.values(botones).forEach((b) => b.setAttribute("aria-expanded", "false"));
+    abierta = null;
     if (volver && antes && antes.focus) antes.focus();
+    antes = null;
   }
-  mas.onclick = abreCajon;
-  x.onclick = () => cierraCajon(true);
-  cortina.onclick = () => cierraCajon(true);
-  // Al elegir una sección se cierra (también si es la misma página).
-  cajon.addEventListener("click", (e) => { if (e.target.closest("a[href]")) cierraCajon(false); });
-  cajon.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { e.preventDefault(); cierraCajon(true); return; }
+  bCrear.onclick = () => abre("crear");
+  bExp.onclick = () => abre("explorar");
+  bTu.onclick = () => abre("tu");
+  x.onclick = () => cierra(true);
+  cortina.onclick = () => cierra(true);
+  // Al elegir un destino se cierra (también si es la misma página).
+  hoja.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a && a.getAttribute("href") !== "#") cierra(false); });
+  hoja.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); cierra(true); return; }
     if (e.key !== "Tab") return;
     const f = enfocables(); if (!f.length) return;
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
     else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
   });
-  // Si se pasa a escritorio con el menú abierto, se cierra; al volver atrás en el historial, también.
-    window.addEventListener("pageshow", () => cierraCajon(false));
+  // Al volver atrás en el historial (página guardada por el navegador), el panel aparece cerrado.
+  window.addEventListener("pageshow", (e) => { if (e.persisted) cierra(false); });
 
-  // Para auth.js: invitados (Inscripción y Entrar en el menú lateral).
+  // Para auth.js.
   window.abNav = {
-    invitado(si) { insc.hidden = !si; entrar.hidden = !si; },
-    abre: abreCajon, cierra: cierraCajon, icono, medalla,
+    // Invitados: otra barra (sin Crear ni Tú, con Entrar) e Inscripción en Explorar.
+    invitado(si) { if (invitado === !!si) return; invitado = !!si; pintaBarra(); },
+    // Cuenta y avisos (de auth.js): { me, menu, avisos, pend }, o null sin sesión.
+    cuenta(c) {
+      if (!raiz.classList.contains("ab-movil")) return; // en escritorio siguen en la cabecera
+      cuenta = c; pintaBarra();
+      if (abierta === "tu") { cuerpo.textContent = ""; llenaTu(); }
+    },
+    abreTu() { if (!invitado && abierta !== "tu") abre("tu"); },
+    abre: () => abre("explorar"), cierra, icono, medalla,
   };
 })();

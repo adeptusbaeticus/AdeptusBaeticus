@@ -240,7 +240,15 @@ html.ab-movil .fotos .fo button{width:40px;height:40px}
     D = await r.json();
     $("app").hidden = false; $("sinsesion").hidden = true;
     $("bserv").hidden = !D.puede_servicio;
+    // Enlaces directos (menú «Crear» y «Mis anuncios» del móvil): ?nuevo=anuncio|servicio y ?mios=1.
+    const qs = new URLSearchParams(location.search);
+    if (qs.get("mios") === "1" && !carga.hecho) $("a-mios").checked = true;
     pinta();
+    if (!carga.hecho) {
+      carga.hecho = true;
+      if (qs.get("nuevo") === "anuncio" && D.activos < D.limites.maxAnuncios) formulario("anuncio");
+      else if (qs.get("nuevo") === "servicio" && D.puede_servicio) formulario("servicio");
+    }
   }
 
   // ---------- Detalle ----------

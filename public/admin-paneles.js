@@ -550,5 +550,7 @@ dialog.apn::backdrop{background:rgba(0,0,0,.6)}
     let d = null;
     b.onclick = () => { if (!d) d = ES_CAL ? panelEventos() : panelJugadores(); d.showModal(); };
     sitio.insertAdjacentElement("afterend", b);
+    // Desde «Crear» (menú del móvil): ?eventos=1 abre el panel directamente.
+    if (ES_CAL && new URLSearchParams(location.search).get("eventos") === "1") b.click();
   });
 })();

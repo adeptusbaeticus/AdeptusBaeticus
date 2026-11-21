@@ -40,10 +40,15 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   categoría). **La vista la elige el dispositivo, no el ancho:** `nav.js` pone en `<html>` la clase `ab-movil` (pantalla
   táctil: `hover:none` + `pointer:coarse`, o móvil/tablet por el navegador) o `ab-escritorio` (y `window.abDispositivo`);
   los estilos de cada vista cuelgan de esas clases (también los ajustes táctiles de las páginas: `html.ab-movil …`).
-  Escritorio: desplegables accesibles y barra de la categoría (`.nb-sub`). Móvil y tablet: cabecera compacta (sin botón
-  de menú: lo abre «Más»), barra inferior fija (`.nb-barra`, el `body` deja hueco abajo: los elementos fijos abajo
-  deben subir por encima, como `.saltos` en Inicio) y menú lateral (`.nb-cajon`) con idioma e Inscripción/Entrar para
-  invitados (`window.abNav.invitado`, desde `auth.js`). Zonas táctiles de 44-48 px en móvil y tablet.
+  Escritorio: desplegables accesibles y barra de la categoría (`.nb-sub`). Móvil y tablet (opción «C»): cabecera solo con el escudo (`#auth` oculto) y barra inferior fija (`.nb-barra`, el
+  `body` deja hueco abajo: los elementos fijos abajo deben subir por encima, como `.saltos` en Inicio) con Inicio ·
+  Calendario · **Crear** (botón redondo central) · **Explorar** · **Tú**; cada grupo abre un panel inferior (`.nb-hoja`,
+  `abre(tipo)`): Crear (enlaces directos a los formularios: `?publicar=1`, `compraventa?nuevo=anuncio|servicio`,
+  `galeria?subir=1`, `sugerencias?nueva=1`, `calendario?eventos=1`), Explorar (`EXPLORAR`: Juegos y Comunidad; acceso a
+  la última sección, `localStorage` `ab_explorar`) y Tú: `auth.js` le entrega con `abNav.cuenta({ me, menu, avisos,
+  pend })` el menú del usuario y la lista de la servocalavera (se mueven al panel; en escritorio siguen en la cabecera)
+  y, con un anuncio nuevo, lo abre (`abNav.abreTu`). Invitados (`abNav.invitado`): Inicio · Calendario · Explorar ·
+  Galería · Entrar. Zonas táctiles de 44-48 px en móvil y tablet.
   Iconos de menú: **medallones** propios (`EMBLEMAS` y `medalla(nombre, tamaño)` en `nav.js`, también
   `window.abNav.medalla`): rueda dentada de bronce, disco oscuro y emblema en hueso con relieve, en un «sprite» SVG con
   `<symbol>` y degradados comunes. Dibujo propio: sin águila imperial, marines ni otros motivos de Games Workshop.

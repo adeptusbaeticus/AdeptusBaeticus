@@ -377,7 +377,7 @@
     const datos = !!(me && me.datos_pendientes);
     // Notificaciones tipo anuncio: se quedan hasta que el socio pulsa «Aceptar».
     const anuncios = (me && !me.ver_como && me.anuncios) || [];
-    if (!abiertas.length && !datos && !anuncios.length) return;
+    if (!abiertas.length && !datos && !anuncios.length) return null;
     const pend = abiertas.filter((e) => !e.mis_votos.length).length + (datos ? 1 : 0) + anuncios.length;
     const ss = document.createElement("span");
     ss.className = "ss";
@@ -487,11 +487,14 @@
     if (nuevos && vistos !== nuevos) {
       // (la cabecera puede volver a pintarse enseguida: se da por visto solo cuando de verdad se ha abierto)
       setTimeout(() => {
+        // En el móvil la lista vive en el panel «Tú» de la barra inferior: se abre ese panel.
+        if (document.documentElement.classList.contains("ab-movil") && window.abNav && window.abNav.abreTu) { window.abNav.abreTu(); try { sessionStorage.setItem("ab_anuncios_vistos", nuevos); } catch (e) {} return; }
         if (!ss.isConnected) return;
         abre(true);
         try { sessionStorage.setItem("ab_anuncios_vistos", nuevos); } catch (e) {}
       }, 600);
     }
+    return { m, pend };
   }
   function cargaEncuestas(me) {
     if (!me || me.invitado) return;
@@ -540,6 +543,7 @@
   function pinta(me) {
   ultimoMe = me;
   pestanaInscripcion(!me || !!me.invitado);
+  if ((!me || me.invitado) && window.abNav && window.abNav.cuenta) window.abNav.cuenta(null);
   box.textContent = "";
   if (window.abI18n) box.appendChild(window.abI18n.selector());
   if (me && me.invitado) {
@@ -587,13 +591,16 @@
     item("/miembros.html#yo", "Mi ficha");
     item("/inscripcion.html?completar=1", "Mis datos");
     item("/encuestas.html", "Encuestas");
-    item("#", "Notificaciones").addEventListener("click", (e) => { e.preventDefault(); abre(false); dialogoAvisos(); });
-    item("/mis-inscripciones.html", "Mis inscripciones");
+    const noti = item("#", "Notificaciones"); noti.dataset.ic = "avisos";
+    noti.addEventListener("click", (e) => { e.preventDefault(); abre(false); if (window.abNav && window.abNav.cierra) window.abNav.cierra(false); dialogoAvisos(); });
+    item("/mis-inscripciones.html", "Mis partidas e inscripciones");
+    item("/logros.html", "Mis logros");
+    item("/compraventa.html?mios=1", "Mis anuncios");
     if (me.role === "admin") item("/admin.html", "Admin");
     const recarga = () => { try { sessionStorage.removeItem(KEY); } catch (e) {} location.reload(); };
     if (me.ver_como) {
       // Volver a la cuenta del admin.
-      const sal = item("#", "Salir de «ver como»");
+      const sal = item("#", "Salir de «ver como»"); sal.dataset.ic = "salir";
       sal.onclick = (e) => { e.preventDefault(); salirVerComo(recarga); };
     } else if (me.role === "admin") {
       // Ver la web como otro usuario (solo lectura).
@@ -653,8 +660,10 @@
     wrap.addEventListener("focusout", (e) => { if (!wrap.contains(e.relatedTarget)) abre(false); });
     wrap.append(btn, menu);
     box.appendChild(wrap);
-    servocalavera(box, wrap, me);
+    const avisos = servocalavera(box, wrap, me);
     franjaVerComo(me);
+    // Móvil: la cuenta y los avisos van al panel «Tú» de la barra inferior (nav.js).
+    if (window.abNav && window.abNav.cuenta) window.abNav.cuenta({ me, menu, avisos: avisos ? avisos.m : null, pend: avisos ? avisos.pend : 0 });
   } else {
     franjaVerComo(null);
     const a = document.createElement("a");

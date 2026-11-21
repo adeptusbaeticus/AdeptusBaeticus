@@ -638,6 +638,8 @@ function cargar(nueva) {
     sel.value = autores.includes(antes) ? antes : "";
     $("fil").hidden = !data.publicaciones.length;
     $("bsubir").hidden = !d.puede_subir;
+    // Desde «Crear» (menú del móvil): ?subir=1 abre el formulario.
+    if (d.puede_subir && new URLSearchParams(location.search).get("subir") === "1" && !window.__subirAbierto) { window.__subirAbierto = true; setTimeout(formularioSubir, 0); }
     pintar();
     if (nueva) {
       const c = $("p" + nueva);

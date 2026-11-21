@@ -15,11 +15,20 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   Tab, Enter, flechas y Escape) y, dentro de una categoría, una barra con sus secciones; se marca dónde estás.
 - La vista se elige **según el dispositivo**: en móvil y tablet (pantalla táctil) la vista móvil y en el ordenador la de
   escritorio, aunque la ventana sea estrecha.
-- **Móvil y tablet:** cabecera compacta (sin botón de menú: lo abre «Más»), **barra inferior fija** (Inicio, Calendario, 40K, Galería y Más) y un menú
-  lateral con acordeones para las dos categorías, el idioma y, para invitados, Inscripción y Entrar con Discord.
-  Botones grandes (48 px o más), se cierra al elegir una sección, con Escape o tocando fuera.
+- **Móvil y tablet:** la cabecera solo lleva el escudo y abajo hay una **barra fija** con **Inicio · Calendario ·
+  Crear · Explorar · Tú**. Cada botón de grupo abre un panel desde abajo (se cierra con la X, Escape, tocando fuera o
+  al elegir algo):
+  - **Crear** (botón redondo en el centro): Publicar partida, Nuevo anuncio, Nueva sugerencia y, para miembros, Subir
+    fotos y Ofrecer un servicio; para el admin, Crear evento. Cada uno abre directamente su formulario.
+  - **Explorar:** Juegos (Gran Liga, Ranking ELO, Recursos, Tutoriales, Necromunda, Blood Bowl, Reglas y FAQ) y Comunidad
+    (Galería, Compraventa, Miembros, Logros, Sugerencias), con un acceso arriba a la última sección visitada.
+  - **Tú** (tu foto, con el número de avisos): tus avisos (los de la servocalavera: anuncios, encuestas y datos
+    pendientes; se abre solo cuando llega un aviso nuevo), tu cuenta (Mi ficha, Mis datos, Encuestas, Notificaciones,
+    Mis partidas e inscripciones, Mis logros, Mis anuncios, Admin, ver como y Salir) e idioma.
+  - **Invitados:** Inicio · Calendario · Explorar · Galería · **Entrar**; en Explorar, Inscripción e idioma.
+  Botones grandes (48 px o más).
 - Iconos en forma de **medallón** de bronce y hueso (rueda dentada de bronce con un emblema color hueso en relieve) en los desplegables, la
-  barra de la categoría, la barra inferior, el menú lateral y las páginas «Próximamente».
+  barra de la categoría, la barra inferior, sus paneles y las páginas «Próximamente».
 - **Recursos (40K):** reglas básicas gratis de la 11.ª edición, el documento («Faction Pack») de cada facción, Balance
   Dataslate y puntos (con el Munitorum Field Manual en la web), la app oficial (App Store y Google Play) y herramientas
   del club (New Recruit, Wahapedia y Tabletop Simulator).

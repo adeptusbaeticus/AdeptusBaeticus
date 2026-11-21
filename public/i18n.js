@@ -8,6 +8,27 @@
 
   // Textos completos.
   const EXACT = {
+    "Crear": "Create",
+    "Explorar": "Explore",
+    "Entrar": "Log in",
+    "¿Qué quieres crear?": "What do you want to create?",
+    "Busca rival para esta semana": "Find an opponent this week",
+    "Vende, busca o intercambia": "Sell, look for or swap",
+    "Enseña lo que has pintado": "Show what you've painted",
+    "Propón una idea al club": "Suggest an idea to the club",
+    "Pintura, clases o impresión 3D": "Painting, lessons or 3D printing",
+    "Quedada o torneo": "Meetup or tournament",
+    "Juegos": "Games",
+    "Comunidad": "Community",
+    "Únete al club": "Join the club",
+    "Volver a la última sección": "Back to your last section",
+    "Tu cuenta": "Your account",
+    "Avisos": "Notices",
+    "No tienes avisos pendientes.": "You have no pending notices.",
+    "Cargando…": "Loading…",
+    "Mis partidas e inscripciones": "My games and sign-ups",
+    "Mis logros": "My achievements",
+    "Mis anuncios": "My listings",
     "Si usas la compraventa: tus anuncios y servicios (título, descripción, precio o tarifas, enlace, estado y fotos).": "If you use the marketplace: your listings and services (title, description, price or rates, link, status and photos).",
     "Los socios con sesión, también: tus anuncios y servicios de la compraventa, con un enlace a tu perfil de Discord para contactarte.": "Members with a session also see: your marketplace listings and services, with a link to your Discord profile so they can contact you.",
     "Discord: inicio de sesión, el servidor del club, su bot y las fotos de la galería, de los resultados de las partidas y de la compraventa, que se guardan en canales del servidor.": "Discord: login, the club server, its bot and the photos from the gallery, from game results and from the marketplace, which are stored in server channels.",
@@ -938,6 +959,7 @@
   // Nombres de los logros (para los avisos «Has conseguido: …»; el resto de textos de logros va en public/logros.js).
   const LOGROS_EN = {"Juramento prestado": "Oath Sworn", "Expediente completo": "Complete Dossier", "Servocráneo vinculado": "Servo-skull Bound", "Fundador digital": "Digital Founder", "Años de servicio": "Years of Service", "Primer llamamiento": "First Call to Arms", "A las armas": "To Arms", "Mercenario": "Mercenary", "Muchos enemigos": "Many Foes", "Señor de la guerra polivalente": "Versatile Warlord", "Guerra en la red": "War on the Wire", "Hermanos de armas": "Brothers in Arms", "Bajo tierra": "Down Below", "Placaje brutal": "Brutal Tackle", "Llamado a la liga": "Called to the League", "Sin rendición": "No Surrender", "Primera sangre": "First Blood", "Imparable": "Unstoppable", "Podio": "Podium", "Clasificado": "Ranked", "Ascenso": "Promotion", "Instructor": "Instructor", "Matagigantes": "Giant Slayer", "Caballeroso": "Gentleman's Game", "Al campo de batalla": "To the Battlefield", "Capitán": "Captain", "Por parejas": "Paired Up", "Habitual de torneos": "Tournament Regular", "Presente": "Present", "Voz del club": "Voice of the Club", "Ciudadano ejemplar": "Model Citizen", "Consejero": "Counsellor", "Tu idea, hecha": "Your Idea, Done", "Debate": "Debater", "Primer pincel": "First Brushstroke", "Artesano": "Artisan", "Bendecido por el Emperador": "Blessed by the Emperor", "Tocado por el Caos": "Touched by Chaos", "Disputa eterna": "Eternal Struggle", "Juez de la galería": "Gallery Judge", "Insomne": "Sleepless", "Navidad en el frente": "Christmas at the Front", "Empate perfecto": "Perfect Stalemate", "Resucitado": "Back from the Dead"};
   const RULES = [
+    [/^Tú: (\d+) avisos pendientes$/, "You: $1 pending notices"],
     // Compraventa.
     [/^Tienes (\d+) de (\d+) anuncios activos$/, "You have $1 of $2 active listings"],
     [/^Desde (.+ €)$/, "From $1"], [/^Hasta (.+ €)$/, "Up to $1"],
