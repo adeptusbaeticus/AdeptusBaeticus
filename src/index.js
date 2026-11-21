@@ -452,6 +452,265 @@ async function partidaJugada(env, ctx, request, s, p, accion, now, ok, fail) {
   return fail("Acción no válida", 400);
 }
 
+// ===== Compraventa =====
+// Anuncios (todos los socios: vendo, busco o cambio; como mucho 5 sin vender a la vez, hasta 10 fotos) y servicios (solo
+// miembros y admin: pintura, clases, impresión 3D u otros; uno de cada tipo, hasta 5 fotos y varias tarifas). Las fotos
+// van en un mensaje del bot por publicación en #fotos-compraventa (como la galería); aquí solo la referencia.
+const MERCADO = {
+  maxAnuncios: 5, fotosAnuncio: 10, fotosServicio: 5, maxTarifas: 6, porDia: 10,
+  tiposAnuncio: ["vendo", "busco", "cambio"],
+  categorias: ["miniaturas", "ejercitos", "libros", "terreno", "pinturas", "otros"],
+  juegos: ["40k", "necromunda", "bloodbowl", "otros"],
+  tiposServicio: ["pintura", "clases", "impresion3d", "otros"],
+  canal: "fotos-compraventa",
+};
+const MERCADO_TIPO = { vendo: "Vendo", busco: "Busco", cambio: "Intercambio", pintura: "Pintura", clases: "Clases", impresion3d: "Impresión 3D", otros: "Otros" };
+const euros = (c) => (c / 100).toLocaleString("es-ES", { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 }) + " €";
+// Precio en euros («12», «12,5», «12.50») → céntimos (0 a 100 000 €), o null si no vale.
+function precioCent(v) {
+  const t = String(v == null ? "" : v).trim().replace(/\s|€/g, "").replace(",", ".");
+  if (!/^\d{1,6}(\.\d{1,2})?$/.test(t)) return null;
+  const c = Math.round(parseFloat(t) * 100);
+  return c >= 0 && c <= 10000000 ? c : null;
+}
+// Valida los datos de un anuncio o servicio. Devuelve { error } o los campos limpios.
+function mercadoValida(b, clase) {
+  const txt = (v, n) => String(v == null ? "" : v).replace(/\r/g, "").trim().slice(0, n);
+  const titulo = txt(b.titulo, 100), descripcion = txt(b.descripcion, 2000) || null;
+  if (titulo.length < 3) return { error: "El título debe tener al menos 3 caracteres" };
+  let enlace = txt(b.enlace, 300) || null;
+  if (enlace) {
+    try { const u = new URL(enlace); if (!/^https?:$/.test(u.protocol)) throw 0; enlace = u.href; }
+    catch (e) { return { error: "El enlace debe empezar por https://" }; }
+  }
+  if (clase === "anuncio") {
+    if (!MERCADO.tiposAnuncio.includes(b.tipo)) return { error: "Elige si vendes, buscas o cambias" };
+    if (!MERCADO.categorias.includes(b.categoria)) return { error: "Elige una categoría" };
+    if (!MERCADO.juegos.includes(b.juego)) return { error: "Elige un juego" };
+    const precio = precioCent(b.precio);
+    if (precio == null) return { error: "Indica el precio en euros (0 si es gratis o a cambio)" };
+    return { tipo: b.tipo, categoria: b.categoria, juego: b.juego, titulo, descripcion, precio, tarifas: null, enlace };
+  }
+  if (!MERCADO.tiposServicio.includes(b.tipo)) return { error: "Elige el tipo de servicio" };
+  const ts = Array.isArray(b.tarifas) ? b.tarifas.slice(0, MERCADO.maxTarifas + 1) : [];
+  if (!ts.length) return { error: "Añade al menos una tarifa con su precio" };
+  if (ts.length > MERCADO.maxTarifas) return { error: `Como mucho ${MERCADO.maxTarifas} tarifas` };
+  const tarifas = [];
+  for (const x of ts) {
+    const n = txt(x && x.nombre, 60), p = precioCent(x && x.precio);
+    if (!n) return { error: "Cada tarifa necesita un nombre" };
+    if (p == null) return { error: "Cada tarifa necesita un precio en euros" };
+    tarifas.push({ n, p });
+  }
+  return { tipo: b.tipo, categoria: null, juego: null, titulo, descripcion, precio: Math.min(...tarifas.map((x) => x.p)), tarifas: JSON.stringify(tarifas), enlace };
+}
+// Canal #fotos-compraventa (se busca por su nombre y se recuerda).
+async function canalCompraventa(env) {
+  const c = await env.DB.prepare("SELECT datos FROM nr_cache WHERE clave='discord:canal-compraventa'").first();
+  if (c && c.datos) return c.datos;
+  const rc = await bot(env, `/guilds/${env.GUILD_ID}/channels`);
+  if (!rc.ok) return null;
+  const ch = (await rc.json()).find((x) => (x.type === 0 || x.type === 5) && normalCanal(x.name).includes(MERCADO.canal));
+  if (!ch) return null;
+  await env.DB.prepare("INSERT INTO nr_cache (clave, datos, actualizado) VALUES ('discord:canal-compraventa', ?1, datetime('now')) ON CONFLICT(clave) DO UPDATE SET datos=?1, actualizado=datetime('now')").bind(ch.id).run();
+  return ch.id;
+}
+const mercadoMensaje = (p, autor) => (`🛒 **${p.titulo}** · ${p.clase === "servicio" ? "Servicio de " + (MERCADO_TIPO[p.tipo] || p.tipo).toLowerCase() + " · desde " + euros(p.precio)
+  : (MERCADO_TIPO[p.tipo] || p.tipo) + " · " + euros(p.precio)}\nPublicado por ${autor} en la compraventa de la web.`).slice(0, 1900);
+// Añade una foto a la publicación (crea su mensaje en Discord si aún no tiene). Devuelve { n } o { error, status }.
+async function mercadoFoto(env, p, blob, ext, autor) {
+  let imgs = [];
+  try { imgs = JSON.parse(p.imagenes || "[]"); } catch (e) {}
+  if (imgs.length >= (p.clase === "servicio" ? MERCADO.fotosServicio : MERCADO.fotosAnuncio)) return { error: "llena" };
+  const filename = `compraventa-${p.id}-${Date.now()}.${ext}`;
+  const fd = new FormData();
+  let r;
+  if (!p.message_id) {
+    const canal = await canalCompraventa(env);
+    if (!canal) return { error: "canal" };
+    fd.append("payload_json", JSON.stringify({ content: mercadoMensaje(p, autor), allowed_mentions: { parse: [] }, attachments: [{ id: 0, filename }] }));
+    fd.append("files[0]", blob, filename);
+    r = await bot(env, `/channels/${canal}/messages`, { method: "POST", body: fd });
+    if (!r.ok) return { error: r.status === 413 ? "grande" : "discord", status: r.status };
+    const msg = await r.json();
+    const nuevas = (msg.attachments || []).map((a) => ({ url: a.url, filename: a.filename, width: a.width || null, height: a.height || null }));
+    await env.DB.prepare("UPDATE mercado SET channel_id=?2, message_id=?3, imagenes=?4, actualizado=datetime('now') WHERE id=?1").bind(p.id, canal, msg.id, JSON.stringify(nuevas)).run();
+    return { n: nuevas.length };
+  }
+  const gm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`);
+  if (!gm.ok) return { error: "leer", status: gm.status };
+  const antes = (await gm.json()).attachments || [];
+  fd.append("payload_json", JSON.stringify({ attachments: antes.map((a) => ({ id: a.id })).concat([{ id: 0, filename }]) }));
+  fd.append("files[0]", blob, filename);
+  r = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "PATCH", body: fd });
+  if (!r.ok) return { error: r.status === 413 ? "grande" : "discord", status: r.status };
+  const despues = (await r.json()).attachments || [];
+  // El orden lo marca la web: las que ya tenía, en su orden, y la nueva al final.
+  const usados = new Set();
+  const orden = imgs.map((im) => despues.find((d) => d.filename === im.filename && !usados.has(d.id))).filter((d) => d && usados.add(d.id))
+    .concat(despues.filter((d) => !usados.has(d.id)));
+  const nuevas = orden.map((a) => ({ url: a.url, filename: a.filename, width: a.width || null, height: a.height || null }));
+  await env.DB.prepare("UPDATE mercado SET imagenes=?2, actualizado=datetime('now') WHERE id=?1").bind(p.id, JSON.stringify(nuevas)).run();
+  return { n: nuevas.length };
+}
+// Quita la foto número k (si no queda ninguna, se borra el mensaje de Discord).
+async function mercadoQuitaFoto(env, p, k) {
+  let imgs = [];
+  try { imgs = JSON.parse(p.imagenes || "[]"); } catch (e) {}
+  if (!imgs[k] || !p.message_id) return { error: "no" };
+  const quedan = imgs.filter((_, i) => i !== k);
+  if (!quedan.length) {
+    const d = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "DELETE" });
+    if (!d.ok && d.status !== 404) return { error: "discord", status: d.status };
+    await env.DB.prepare("UPDATE mercado SET imagenes='[]', channel_id=NULL, message_id=NULL, actualizado=datetime('now') WHERE id=?1").bind(p.id).run();
+    return { n: 0 };
+  }
+  const gm = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`);
+  if (!gm.ok) return { error: "leer", status: gm.status };
+  const atts = (await gm.json()).attachments || [];
+  const quitar = atts.find((a) => a.filename === imgs[k].filename);
+  const r = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "PATCH", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ attachments: atts.filter((a) => a !== quitar).map((a) => ({ id: a.id })) }) });
+  if (!r.ok) return { error: "discord", status: r.status };
+  await env.DB.prepare("UPDATE mercado SET imagenes=?2, actualizado=datetime('now') WHERE id=?1").bind(p.id, JSON.stringify(quedan)).run();
+  return { n: quedan.length };
+}
+async function mercadoApi(env, ctx, request, url, s, err) {
+  const path = url.pathname;
+  const ok = (d) => Response.json(d, { headers: noStore });
+  const esMiembro = ["miembro", "admin"].includes(s.role);
+  const nombre = async () => s.name || ((await env.DB.prepare("SELECT name FROM users WHERE discord_id=?1").bind(s.id).first()) || {}).name || "Socio";
+  const json = async () => { try { return (await request.json()) || {}; } catch (e) { return null; } };
+
+  if (path === "/api/mercado" && request.method === "GET") {
+    const { results } = await env.DB.prepare(
+      `SELECT m.*, u.name AS autor_nombre, u.avatar AS autor_avatar FROM mercado m LEFT JOIN users u ON u.discord_id=m.autor
+       ORDER BY m.actualizado DESC LIMIT 500`
+    ).all();
+    // Enlaces de Discord que caducan pronto: se renuevan (una llamada por cada 50) y se guardan.
+    const urls = [];
+    results.forEach((r) => { try { r.imagenes = JSON.parse(r.imagenes || "[]"); } catch (e) { r.imagenes = []; } r.imagenes.forEach((im) => urls.push(im.url)); });
+    const map = await renovarUrls(env, urls);
+    if (map.size) {
+      const upd = [];
+      for (const r of results) {
+        let cambia = false;
+        r.imagenes.forEach((im) => { const nu = map.get(im.url); if (nu && nu !== im.url) { im.url = nu; cambia = true; } });
+        if (cambia) upd.push(env.DB.prepare("UPDATE mercado SET imagenes=?2 WHERE id=?1").bind(r.id, JSON.stringify(r.imagenes)));
+      }
+      if (upd.length) await env.DB.batch(upd);
+    }
+    const lista = results.map((r) => ({
+      id: r.id, clase: r.clase, autor: r.autor, autor_nombre: r.autor_nombre || "?", tipo: r.tipo, categoria: r.categoria, juego: r.juego,
+      titulo: r.titulo, descripcion: r.descripcion, precio: r.precio, tarifas: r.tarifas ? JSON.parse(r.tarifas) : null, enlace: r.enlace,
+      estado: r.estado, imagenes: r.imagenes.map((im) => ({ url: im.url, w: im.width, h: im.height })), creado: r.creado, actualizado: r.actualizado,
+      mia: r.autor === s.id,
+    }));
+    return ok({
+      yo: s.id, admin: s.role === "admin", puede_servicio: esMiembro, limites: MERCADO,
+      activos: lista.filter((x) => x.mia && x.clase === "anuncio" && x.estado !== "vendido").length,
+      servicios: lista.filter((x) => x.clase === "servicio"), anuncios: lista.filter((x) => x.clase === "anuncio"),
+    });
+  }
+
+  // Crear (JSON): las fotos se suben después, de una en una.
+  if (path === "/api/mercado" && request.method === "POST") {
+    const b = await json();
+    if (!b) return err("JSON no válido");
+    const clase = b.clase === "servicio" ? "servicio" : "anuncio";
+    if (clase === "servicio" && !esMiembro) return err("Solo los miembros pueden ofrecer servicios", 403);
+    const v = mercadoValida(b, clase);
+    if (v.error) return err(v.error);
+    const [hoy, act, mismo] = await env.DB.batch([
+      env.DB.prepare("SELECT COUNT(*) AS n FROM mercado WHERE autor=?1 AND creado > datetime('now','-1 day')").bind(s.id),
+      env.DB.prepare("SELECT COUNT(*) AS n FROM mercado WHERE autor=?1 AND clase='anuncio' AND estado<>'vendido'").bind(s.id),
+      env.DB.prepare("SELECT COUNT(*) AS n FROM mercado WHERE autor=?1 AND clase='servicio' AND tipo=?2").bind(s.id, v.tipo),
+    ]);
+    if (hoy.results[0].n >= MERCADO.porDia) return err("Has llegado al máximo de publicaciones de hoy. Prueba mañana.", 429);
+    if (clase === "anuncio" && act.results[0].n >= MERCADO.maxAnuncios) return err(`Ya tienes ${MERCADO.maxAnuncios} anuncios activos: marca alguno como vendido o bórralo`, 409);
+    if (clase === "servicio" && mismo.results[0].n) return err("Ya tienes un servicio de ese tipo: edítalo", 409);
+    const r = await env.DB.prepare(
+      `INSERT INTO mercado (clase, autor, tipo, categoria, juego, titulo, descripcion, precio, tarifas, enlace) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)`
+    ).bind(clase, s.id, v.tipo, v.categoria, v.juego, v.titulo, v.descripcion, v.precio, v.tarifas, v.enlace).run();
+    return ok({ ok: true, id: r.meta.last_row_id });
+  }
+
+  const m = path.match(/^\/api\/mercado\/(\d+)(?:\/(estado|foto)(?:\/(\d+))?)?$/);
+  if (!m) return err("No encontrado", 404);
+  const p = await env.DB.prepare("SELECT * FROM mercado WHERE id=?1").bind(Number(m[1])).first();
+  if (!p) return err("Esa publicación ya no existe", 404);
+  const mia = p.autor === s.id;
+
+  if (!m[2] && request.method === "DELETE") {
+    if (!mia && s.role !== "admin") return err("Solo puedes borrar tus propias publicaciones", 403);
+    if (p.message_id) {
+      const d = await bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "DELETE" });
+      if (!d.ok && d.status !== 404) return err("No se pudo borrar el mensaje en Discord (error " + d.status + ")", 502);
+    }
+    await env.DB.prepare("DELETE FROM mercado WHERE id=?1").bind(p.id).run();
+    return ok({ ok: true });
+  }
+  if (!mia) return err("Solo puedes cambiar tus propias publicaciones", 403);
+
+  if (!m[2] && request.method === "PUT") {
+    const b = await json();
+    if (!b) return err("JSON no válido");
+    if (p.clase === "servicio" && !esMiembro) return err("Solo los miembros pueden ofrecer servicios", 403);
+    const v = mercadoValida(b, p.clase);
+    if (v.error) return err(v.error);
+    if (p.clase === "servicio" && v.tipo !== p.tipo) {
+      const otro = await env.DB.prepare("SELECT 1 FROM mercado WHERE autor=?1 AND clase='servicio' AND tipo=?2 AND id<>?3").bind(s.id, v.tipo, p.id).first();
+      if (otro) return err("Ya tienes un servicio de ese tipo", 409);
+    }
+    await env.DB.prepare(`UPDATE mercado SET tipo=?2, categoria=?3, juego=?4, titulo=?5, descripcion=?6, precio=?7, tarifas=?8, enlace=?9, actualizado=datetime('now') WHERE id=?1`)
+      .bind(p.id, v.tipo, v.categoria, v.juego, v.titulo, v.descripcion, v.precio, v.tarifas, v.enlace).run();
+    // El texto del mensaje de Discord sigue al título y al precio.
+    if (p.message_id) {
+      const autor = await nombre();
+      ctx.waitUntil(bot(env, `/channels/${p.channel_id}/messages/${p.message_id}`, { method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: mercadoMensaje({ ...p, ...v }, autor), allowed_mentions: { parse: [] } }) }).catch(() => {}));
+    }
+    return ok({ ok: true });
+  }
+
+  if (m[2] === "estado" && request.method === "POST") {
+    const b = (await json()) || {};
+    const validos = p.clase === "servicio" ? ["disponible", "pausado"] : ["disponible", "reservado", "vendido"];
+    if (!validos.includes(b.estado)) return err("Estado no válido");
+    // Volver a poner a la venta uno vendido cuenta otra vez para el máximo de anuncios activos.
+    if (p.clase === "anuncio" && p.estado === "vendido" && b.estado !== "vendido") {
+      const act = await env.DB.prepare("SELECT COUNT(*) AS n FROM mercado WHERE autor=?1 AND clase='anuncio' AND estado<>'vendido'").bind(s.id).first();
+      if (act.n >= MERCADO.maxAnuncios) return err(`Ya tienes ${MERCADO.maxAnuncios} anuncios activos`, 409);
+    }
+    await env.DB.prepare("UPDATE mercado SET estado=?2, actualizado=datetime('now') WHERE id=?1").bind(p.id, b.estado).run();
+    return ok({ ok: true });
+  }
+
+  if (m[2] === "foto" && !m[3] && request.method === "POST") {
+    if (!env.DISCORD_BOT_TOKEN) return err("El bot aún no está configurado. Avisa a un admin.", 503);
+    if (p.clase === "servicio" && !esMiembro) return err("Solo los miembros pueden ofrecer servicios", 403);
+    if (Number(request.headers.get("content-length") || 0) > MAX_FOTO + 64 * 1024) return err("Cada foto puede ocupar como máximo 10 MB.");
+    let fd;
+    try { fd = await request.formData(); } catch (e) { return err("No se pudo leer la foto."); }
+    const f = fd.get("foto");
+    const tipo = f && typeof f === "object" ? String(f.type || "").split(";")[0] : "";
+    if (!f || typeof f !== "object" || !EXT_IMG[tipo]) return err("La foto debe ser PNG, JPG, GIF o WEBP.");
+    if (f.size > MAX_FOTO) return err("Cada foto puede ocupar como máximo 10 MB.");
+    const res = await mercadoFoto(env, p, f, EXT_IMG[tipo], await nombre());
+    if (res.error === "llena") return err(`Ya tiene ${p.clase === "servicio" ? MERCADO.fotosServicio : MERCADO.fotosAnuncio} fotos, que es el máximo`, 409);
+    if (res.error === "canal") return err("No se encuentra el canal #" + MERCADO.canal + " en Discord. Avisa a un admin.", 503);
+    if (res.error) return err(res.error === "grande" ? "La foto ocupa demasiado para Discord." : "No se pudo guardar la foto en Discord.", 502);
+    return ok({ ok: true, fotos: res.n });
+  }
+  if (m[2] === "foto" && m[3] && request.method === "DELETE") {
+    const res = await mercadoQuitaFoto(env, p, Number(m[3]));
+    if (res.error === "no") return err("Esa foto ya no existe", 404);
+    if (res.error) return err("No se pudo quitar la foto en Discord.", 502);
+    return ok({ ok: true, fotos: res.n });
+  }
+  return new Response("Método no permitido", { status: 405 });
+}
+
 // ===== Galería: /publicar, /editar y /borrar desde Discord =====
 const CANAL_PUBLICACIONES = "publicaciones-web";
 const DAPI = "https://discord.com/api/v10";
@@ -735,6 +994,11 @@ async function anunciosDe(env, id) {
 // quedan (son del club y están en Discord). Si sigue en Discord con rol del club y vuelve a entrar, empieza de cero.
 async function borraPerfil(env, id) {
   conDatos.delete(id);
+  // Compraventa: sus anuncios y servicios, también los mensajes con sus fotos en Discord.
+  try {
+    const ms = (await env.DB.prepare("SELECT channel_id, message_id FROM mercado WHERE autor=?1 AND message_id IS NOT NULL").bind(id).all()).results;
+    for (const x of ms.slice(0, 20)) await bot(env, `/channels/${x.channel_id}/messages/${x.message_id}`, { method: "DELETE" }).catch(() => {});
+  } catch (e) {}
   await env.DB.batch([
     env.DB.prepare("DELETE FROM partida_players WHERE discord_id=?1 OR partida_id IN (SELECT id FROM partidas WHERE created_by=?1)").bind(id),
     env.DB.prepare("DELETE FROM partidas WHERE created_by=?1").bind(id),
@@ -747,6 +1011,7 @@ async function borraPerfil(env, id) {
     env.DB.prepare("DELETE FROM dm_canales WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM anuncios WHERE discord_id=?1").bind(id),
     env.DB.prepare("DELETE FROM logros WHERE discord_id=?1").bind(id),
+    env.DB.prepare("DELETE FROM mercado WHERE autor=?1").bind(id),
     env.DB.prepare("UPDATE elo_torneo_jugadores SET discord_id=NULL WHERE discord_id=?1").bind(id),
     // Inscripciones a torneos: sus equipos como capitán (con sus compañeros) y su plaza en los de otros.
     env.DB.prepare("DELETE FROM torneo_miembros WHERE discord_id=?1 OR equipo_id IN (SELECT id FROM torneo_equipos WHERE capitan=?1)").bind(id),
@@ -1158,6 +1423,7 @@ const OG_PAGINAS = {
   "/encuestas": ["Encuestas · Adeptus Baeticus", "Las votaciones del club."],
   "/inscripcion": ["Inscripción · Adeptus Baeticus", "Únete al club de Warhammer Adeptus Baeticus en Málaga."],
   "/sugerencias": ["Sugerencias · Adeptus Baeticus", "Las ideas y propuestas de los socios para el club y la web."],
+  "/compraventa": ["Compraventa · Adeptus Baeticus", "Compra, venta e intercambio entre los socios del club, y servicios de pintura, clases e impresión 3D."],
   "/logros": ["Logros · Adeptus Baeticus", "Insignias por jugar, participar y pintar con el club Adeptus Baeticus."],
 };
 const escAttr = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -3312,6 +3578,15 @@ export default {
           texto: p.autor + " ha publicado " + (n > 1 ? n + " fotos" : "una foto") + (p.texto ? ": " + p.texto.slice(0, 80) : ""), url: "/galeria.html" }).catch(() => {}));
       }
       return Response.json({ ok: true, numero: p.numero }, { headers: noStore });
+    }
+
+    // ----- Compraventa (solo socios con sesión) -----
+    if (path === "/api/mercado" || path.startsWith("/api/mercado/")) {
+      const s = await readSession(env, request);
+      const err = (t, st = 400) => Response.json({ error: t }, { status: st, headers: noStore });
+      if (!s) return err("Entra con Discord para ver y publicar en la compraventa", 401);
+      if (request.method !== "GET" && !sameOrigin(request, url)) return new Response("Prohibido", { status: 403 });
+      return mercadoApi(env, ctx, request, url, s, err);
     }
 
     // Bendiciones (?tipo=emperador|ruinosos): POST la da, DELETE la quita. Una de cada tipo por socio y publicación.

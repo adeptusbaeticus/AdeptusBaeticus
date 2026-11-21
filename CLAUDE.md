@@ -219,6 +219,20 @@ Cloudflare Worker (`src/index.js`) + D1 (`adeptus-db`) + estáticos en `public/`
   cambio de estado), con enlace `?id=N` que la abre. API `/api/sugerencias*`; `borraPerfil` borra sus sugerencias,
   respuestas y votos.
 
+## Compraventa
+
+- `compraventa.html` (en el menú, medallón `compraventa`; solo socios con sesión), tabla `mercado` (migración 0045):
+  `clase` `anuncio` (todos: `vendo`/`busco`/`cambio` —se muestra «Intercambio»—, categoría, juego, precio en céntimos,
+  obligatorio; como mucho 5 sin vender, 10 fotos; estados `disponible`/`reservado`/`vendido`) o `servicio` (miembros y
+  admin: `pintura`/`clases`/`impresion3d`/`otros`, uno de cada tipo, `tarifas` JSON `[{n, p}]` hasta 6 y `precio` = la
+  más barata, 5 fotos; `disponible`/`pausado`). Límites en `MERCADO` (`src/index.js`), validación en `mercadoValida`,
+  API en `mercadoApi` (`/api/mercado*`: listar, crear, `PUT`, `/estado`, `DELETE`, `/foto` y `DELETE /foto/:k`).
+  Fotos: un mensaje del bot por publicación en #fotos-compraventa (`canalCompraventa`, buscado por nombre y recordado en
+  `nr_cache` `discord:canal-compraventa`; `mercadoFoto`/`mercadoQuitaFoto`), enlaces renovados al listar
+  (`renovarUrls`). Contacto: enlace al perfil de Discord del autor. Aviso de que el club no se responsabiliza de las
+  transacciones arriba, en cada publicación, en el formulario y en el aviso legal. `borraPerfil` borra sus publicaciones
+  y sus mensajes.
+
 ## Logros
 
 - Página `logros.html` (en el menú, `ITEMS` de `nav.js`, medallón `logros`). Catálogo, textos `{es, en}` (con

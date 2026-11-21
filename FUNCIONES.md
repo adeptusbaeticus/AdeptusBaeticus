@@ -383,6 +383,23 @@ cualquiera: **invitado** (sin cuenta), **aspirante**, **miembro** y **admin**.
   puede cerrarla; también edita o borra cualquier sugerencia o respuesta.
 - Al autor le llega un aviso en la servocalavera cuando le responden o cambia el estado, con enlace a su sugerencia.
 
+## Compraventa (aspirante, miembro, admin)
+- Página **Compraventa** (en el menú), solo para socios con sesión. Arriba, un **aviso**: Adeptus Baeticus no se hace
+  responsable en ningún momento de las transacciones entre socios (se repite en cada publicación y al publicar, y consta
+  en el aviso legal).
+- **Servicios del club** (siempre arriba): solo miembros y admin. Uno de cada tipo por socio (pintura, clases,
+  impresión 3D u otros), con título, varias **tarifas** (hasta 6, cada una con nombre y precio; la tarjeta muestra
+  «Desde X €»), descripción, enlace opcional y hasta **5 fotos**. Se pueden pausar. Filtros: tipo, texto y orden.
+- **Anuncios** (debajo): todos los socios. Vendo, busco o intercambio, con título y precio **obligatorios** (0 = gratis o
+  intercambio; en «busco», «Hasta X €»), categoría, juego, descripción, enlace opcional y hasta **10 fotos**. Como mucho
+  **5 anuncios activos** a la vez (los vendidos no cuentan). Estados: disponible, reservado y vendido. Filtros: tipo,
+  categoría, juego, estado, precio máximo, texto, orden y «Solo los míos».
+- Detalle: fotos (con miniaturas), precio o tarifas, descripción, enlace, autor con su ficha rápida y «Contactar por
+  Discord» (abre su perfil de Discord). El autor edita, cambia el estado y borra; el admin puede borrar cualquiera.
+- Las fotos se reducen en el navegador y se guardan en un mensaje del bot por publicación en **#fotos-compraventa**;
+  al borrar la publicación (o el perfil del socio) se borran también.
+- Como mucho 10 publicaciones nuevas al día por socio.
+
 ## Logros
 - Página **Logros** (en el menú): 44 insignias de dibujo propio en 7 categorías (bienvenida y perfil, partidas, Gran
   Liga y ELO, torneos, comunidad, galería y pintura, y secretos). Algunas tienen niveles de **bronce, plata y oro**.

@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="es" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compraventa · Adeptus Baeticus</title>
+<link rel="icon" href="/Final_General.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#15171A">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Adeptus Baeticus">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+body{margin:0;background:#15171A;color:#ECE7DC;font:400 16px/1.55 Inter,system-ui,sans-serif}
+a{color:#D9B25A}
+.c{max-width:1120px;margin:0 auto;padding:0 32px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #2C3036}
+.nav{position:sticky;top:0;z-index:40;background:#15171A}
+.brand{display:flex;align-items:center;gap:12px;font:700 20px Cinzel,Georgia,serif;color:#ECE7DC;text-decoration:none;letter-spacing:.06em}
+.lg{height:44px;width:auto;border-radius:6px;display:block}
+.wrap{margin:32px auto 0}
+.cab{display:flex;gap:20px;align-items:center;margin:0 0 20px}
+.cab svg{flex:none}
+h1{font:700 40px/1.1 Cinzel,Georgia,serif;margin:0 0 8px}
+.lead{color:#CFC9BA;margin:0;max-width:780px}
+.m{color:#A8A293;font-size:14px}
+.err{color:#F0A39E;font-size:14px;min-height:20px;margin:6px 0 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:0;background:#A3211B;color:#fff;font:600 15px Inter,sans-serif;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.btn.s{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558}
+.btn.s:hover{border-color:#B08A45}
+.btn.oro{background:linear-gradient(#2E2818,#221E14);color:#F0CE82;border:1px solid #D9B25A}
+.btn:disabled{opacity:.6;cursor:default}
+.btn:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,.tar:focus-visible,.mini:focus-visible{outline:2px solid #D9B25A;outline-offset:2px}
+.acc{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 22px}
+.top .m{margin-left:auto}
+.sec{margin:0 0 30px}
+.sec h2{font:700 24px Cinzel,Georgia,serif;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+.sec>.m{margin:0 0 12px}
+.fil{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:0 0 14px;padding:12px;background:#1A1C20;border:1px solid #2C3036;border-radius:12px}
+.fil label{display:flex;flex-direction:column;gap:4px;font:600 12px Inter,sans-serif;color:#A8A293;letter-spacing:.04em}
+.fil label.ck{flex-direction:row;align-items:center;gap:8px;min-height:44px;font:500 14px Inter,sans-serif;color:#ECE7DC;letter-spacing:0}
+select,input[type=text],input[type=search],input[type=url],input[type=number],textarea{min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:10px;border:1px solid #6B6558;background:#1F2328;color:#ECE7DC;font:inherit;color-scheme:dark}
+.fil input[type=search]{min-width:180px}
+.fil .pmax{width:110px}
+input[type=checkbox]{width:20px;height:20px;accent-color:#D9B25A}
+textarea{width:100%;min-height:110px;resize:vertical;line-height:1.5}
+.rej{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.tar{display:flex;flex-direction:column;text-align:left;background:#1F2328;border:1px solid #2C3036;border-radius:14px;overflow:hidden;padding:0;color:#ECE7DC;font:inherit;cursor:pointer}
+.tar:hover{border-color:#6B5A30}
+.tar.serv{border-color:#4A4436;background:linear-gradient(180deg,#24221B,#1F2328)}
+.tar .ft{position:relative;aspect-ratio:4/3;background:#15171A;display:flex;align-items:center;justify-content:center}
+.tar .ft img{width:100%;height:100%;object-fit:cover;display:block}
+.tar .ft .n{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#ECE7DC;font:600 12px Inter,sans-serif;border-radius:999px;padding:2px 8px}
+.tar .ft .est{position:absolute;left:8px;top:8px}
+.tar .tx{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px}
+.tar .tt{font:600 15px/1.3 Inter,sans-serif;overflow-wrap:anywhere}
+.tar .pr{font:700 18px Inter,sans-serif;color:#F0CE82}
+.tar.x .pr,.tar.x .tt{color:#8F8A76}
+.tar.x .ft img{filter:grayscale(1) brightness(.6)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{display:inline-flex;align-items:center;font:600 11px Inter,sans-serif;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;border:1px solid #6B6558;color:#DCD8C2;background:#15171A}
+.chip.vendo{border-color:#7C8A4C;color:#C9D69A}.chip.busco{border-color:#9C7A35;color:#F0CE82}.chip.cambio{border-color:#8F8A76;color:#ECE7DC}
+.chip.reservado{border-color:#D9B25A;color:#F0CE82;background:#2A2618}.chip.vendido{border-color:#A3211B;color:#F0A39E;background:#2A1614}.chip.pausado{border-color:#6B6558;color:#A8A293}
+.chip.serv{border-color:#B08A45;color:#E7BE79}
+.quien{font-size:13px;color:#A8A293}
+.quien span{color:#CFC9BA}
+.aviso{display:flex;flex-direction:column;gap:2px;border:1px solid #A3211B;border-left:5px solid #A3211B;background:#2A1614;border-radius:10px;padding:12px 16px;margin:0 0 20px;color:#F3D9D6;font-size:14px}
+.aviso strong{font:700 13px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#F0A39E}
+.aviso.pq{margin:12px 0 0;padding:8px 12px;font-size:13px}
+.vacio{text-align:center;padding:30px 16px;border:1px dashed #6B6558;border-radius:14px;color:#CFC9BA}
+dialog{background:#1F2328;color:#ECE7DC;border:1px solid #6B6558;border-radius:16px;padding:0;width:min(760px,calc(100vw - 24px));max-height:calc(100vh - 24px);box-sizing:border-box}
+dialog::backdrop{background:rgba(0,0,0,.75)}
+.dc{padding:20px}
+.dcab{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:0 0 12px}
+.dcab h2{font:700 24px/1.2 Cinzel,Georgia,serif;margin:0;overflow-wrap:anywhere}
+.car{position:relative;background:#15171A;border-radius:12px;overflow:hidden;margin:0 0 12px}
+.car img{display:block;width:100%;max-height:60vh;object-fit:contain}
+.car .nv{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:999px;border:1px solid #6B6558;background:rgba(21,23,26,.8);color:#ECE7DC;font-size:22px;cursor:pointer}
+.car .nv.a{left:8px}.car .nv.b{right:8px}
+.car .n{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.7);font:600 12px Inter,sans-serif;border-radius:999px;padding:2px 8px}
+.minis{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.minis button{width:56px;height:56px;padding:0;border-radius:8px;overflow:hidden;border:2px solid transparent;background:#15171A;cursor:pointer}
+.minis button[aria-current=true]{border-color:#D9B25A}
+.minis img{width:100%;height:100%;object-fit:cover;display:block}
+.pgr{font:700 26px Inter,sans-serif;color:#F0CE82;margin:0 0 8px}
+.desc{white-space:pre-wrap;overflow-wrap:anywhere;color:#DCD6C8;margin:10px 0}
+table.tarifas{border-collapse:collapse;width:100%;margin:8px 0 12px}
+table.tarifas td{padding:8px 10px;border-bottom:1px solid #2C3036}
+table.tarifas td:last-child{text-align:right;font-weight:700;color:#F0CE82;white-space:nowrap}
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.fg label,.campo>label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:14px}
+.fg .full{grid-column:1/-1}
+.fg input,.fg select{width:100%}
+.trs{display:flex;flex-direction:column;gap:8px}
+.tr{display:grid;grid-template-columns:1fr 130px 44px;gap:8px}
+.mini{min-height:44px;min-width:44px;border-radius:10px;border:1px solid #6B6558;background:#15171A;color:#F0A39E;cursor:pointer;font-size:18px}
+.fotos{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.fotos .fo{position:relative;width:88px;height:88px;border-radius:10px;overflow:hidden;border:1px solid #2C3036;background:#15171A}
+.fotos .fo img{width:100%;height:100%;object-fit:cover;display:block}
+.fotos .fo button{position:absolute;top:4px;right:4px;width:30px;height:30px;border-radius:999px;border:0;background:rgba(0,0,0,.75);color:#F0A39E;cursor:pointer;font-size:16px}
+html.ab-movil .fotos .fo button{width:40px;height:40px}
+.prog{font-size:14px;color:#F0CE82;min-height:20px}
+.ft2{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #2C3036;padding:24px 0 40px;margin-top:48px;color:#A8A293;font-size:14px}
+.ftl{display:flex;gap:20px;flex-wrap:wrap}
+.ftl a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:#D9B25A;font-weight:500;text-decoration:none}
+@media (max-width:640px){.c{padding-left:16px;padding-right:16px}h1{font-size:30px}.cab svg{width:64px;height:64px}.rej{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .fil label{flex:1 1 140px}.fil select,.fil input[type=search]{width:100%;min-width:0}.top .btn{flex:1 1 auto}.top .m{margin-left:0;flex-basis:100%}.dc{padding:14px}.tr{grid-template-columns:1fr 100px 44px}
+  .tar .tt{font-size:14px}.tar .pr{font-size:16px}}
+</style>
+</head>
+<body>
+<div class="c">
+  <div class="nav">
+    <a class="brand" href="/"><img class="lg" src="/Final_General.png" alt="">Adeptus Baeticus</a>
+    <nav class="menu" aria-label="Navegación principal"></nav><script src="/nav.js"></script>
+    <span id="auth"></span>
+  </div>
+  <main class="wrap">
+    <div class="cab"><span id="ic"></span><div>
+      <h1>Compraventa</h1>
+      <p class="lead">Compra, vende o cambia miniaturas y material entre socios, y encuentra servicios de pintura, clases o impresión 3D de los miembros del club. El trato es entre vosotros: contacta por Discord.</p>
+    </div></div>
+    <div class="aviso" role="note"><strong>Aviso</strong><span>Adeptus Baeticus no se hace responsable en ningún momento de las transacciones entre socios. Cada trato (pago, envío, estado del material o calidad del servicio) es responsabilidad exclusiva de quienes lo acuerdan.</span></div>
+    <p id="sinsesion" class="vacio" hidden>Entra con Discord para ver y publicar en la compraventa.<br><a class="btn" href="/auth/login" style="margin-top:12px">Entrar con Discord</a></p>
+    <div id="app" hidden>
+      <div class="top">
+        <button class="btn" id="bnuevo" type="button">Nuevo anuncio</button>
+        <button class="btn oro" id="bserv" type="button" hidden>Ofrecer un servicio</button>
+        <span class="m" id="cuenta"></span>
+      </div>
+      <section class="sec" aria-labelledby="h-serv">
+        <h2 id="h-serv">Servicios del club</h2>
+        <p class="m">Pintura por encargo, clases e impresión 3D que ofrecen los miembros.</p>
+        <div class="fil" id="fserv">
+          <label>Tipo<select id="s-tipo"><option value="">Todos</option><option value="pintura">Pintura</option><option value="clases">Clases</option><option value="impresion3d">Impresión 3D</option><option value="otros">Otros</option></select></label>
+          <label>Buscar<input type="search" id="s-q" placeholder="Texto a buscar"></label>
+          <label>Ordenar<select id="s-orden"><option value="recientes">Más recientes</option><option value="precio">Precio más bajo</option></select></label>
+        </div>
+        <div class="rej" id="lserv"></div>
+      </section>
+      <section class="sec" aria-labelledby="h-anu">
+        <h2 id="h-anu">Anuncios</h2>
+        <div class="fil" id="fanu">
+          <label>Tipo<select id="a-tipo"><option value="">Todos</option><option value="vendo">Vendo</option><option value="busco">Busco</option><option value="cambio">Intercambio</option></select></label>
+          <label>Categoría<select id="a-cat"><option value="">Todas</option></select></label>
+          <label>Juego<select id="a-juego"><option value="">Todos</option></select></label>
+          <label>Estado<select id="a-est"><option value="activos">Disponibles y reservados</option><option value="disponible">Solo disponibles</option><option value="vendido">Vendidos</option><option value="">Todos</option></select></label>
+          <label>Precio máximo (€)<input type="number" id="a-pmax" class="pmax" min="0" step="1" inputmode="decimal"></label>
+          <label>Buscar<input type="search" id="a-q" placeholder="Texto a buscar"></label>
+          <label>Ordenar<select id="a-orden"><option value="recientes">Más recientes</option><option value="precio">Precio más bajo</option><option value="precio-">Precio más alto</option></select></label>
+          <label class="ck"><input type="checkbox" id="a-mios"> Solo los míos</label>
+        </div>
+        <div class="rej" id="lanu"></div>
+      </section>
+    </div>
+  </main>
+  <footer class="ft2">
+    <span>Adeptus Baeticus · <a class="hecho" style="color:#D9B25A;text-decoration:none" href="https://www.instagram.com/frambuhobby/" target="_blank" rel="noopener"><span>Hecho por </span><span translate="no">Frambu</span></a></span>
+    <nav class="ftl" aria-label="Enlaces">
+      <a href="/privacidad.html">Privacidad</a>
+      <a href="https://adeptus-baeticus.blogspot.com" target="_blank" rel="noopener">Blog</a>
+      <a href="https://www.instagram.com/adeptusbaeticus/" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a>
+    </nav>
+  </footer>
+</div>
+<dialog id="dver" aria-labelledby="dver-t"><div class="dc" id="dverc"></div></dialog>
+<dialog id="dform" aria-labelledby="dform-t"><div class="dc" id="dformc"></div></dialog>
+<script src="/trofeos.js"></script>
+<script src="/ficha-hover.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+  const sinTr = (x) => { x.setAttribute("translate", "no"); return x; };
+  const md = window.abNav && window.abNav.medalla ? window.abNav.medalla("compraventa", 96) : null;
+  if (md) $("ic").appendChild(md);
+
+  const TIPO = { vendo: "Vendo", busco: "Busco", cambio: "Intercambio", pintura: "Pintura", clases: "Clases", impresion3d: "Impresión 3D", otros: "Otros" };
+  const CAT = { miniaturas: "Miniaturas", ejercitos: "Ejércitos completos", libros: "Libros y reglas", terreno: "Escenografía y accesorios", pinturas: "Pinturas y herramientas", otros: "Otros" };
+  const JUEGO = { "40k": "Warhammer 40K", necromunda: "Necromunda", bloodbowl: "Blood Bowl", otros: "Otros juegos" };
+  const EST = { disponible: "Disponible", reservado: "Reservado", vendido: "Vendido", pausado: "Pausado" };
+  Object.entries(CAT).forEach(([v, t]) => { const o = el("option", "", t); o.value = v; $("a-cat").appendChild(o); });
+  Object.entries(JUEGO).forEach(([v, t]) => { const o = el("option", "", t); o.value = v; $("a-juego").appendChild(o); });
+  const euros = (c) => (c / 100).toLocaleString("es-ES", { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 }) + " €";
+  const precioTxt = (p) => p.clase === "servicio" ? "Desde " + euros(p.precio) : p.precio === 0 ? (p.tipo === "cambio" ? "Intercambio" : "Gratis") : (p.tipo === "busco" ? "Hasta " : "") + euros(p.precio);
+  const aCampo = (c) => (c / 100).toString().replace(".", ",");
+  let D = null;
+
+  // ---------- Listados ----------
+  const nombre = (p) => { const n = sinTr(el("span", "", p.autor_nombre)); if (window.abFicha) window.abFicha(n, p.autor, { soloRaton: true }); return n; };
+  function tarjeta(p) {
+    const b = el("button", "tar" + (p.clase === "servicio" ? " serv" : "") + (p.estado === "vendido" || p.estado === "pausado" ? " x" : ""));
+    b.type = "button";
+    const ft = el("span", "ft");
+    if (p.imagenes.length) { const im = el("img"); im.src = p.imagenes[0].url; im.alt = ""; im.loading = "lazy"; ft.appendChild(im); if (p.imagenes.length > 1) ft.appendChild(el("span", "n", "1/" + p.imagenes.length)); }
+    else if (window.abNav && window.abNav.medalla) { const mm = window.abNav.medalla("compraventa", 64); if (mm) { mm.style.opacity = ".35"; ft.appendChild(mm); } }
+    if (p.estado !== "disponible") { const e = el("span", "est"); e.appendChild(el("span", "chip " + p.estado, EST[p.estado])); ft.appendChild(e); }
+    const tx = el("span", "tx");
+    const ch = el("span", "chips");
+    ch.appendChild(el("span", "chip " + (p.clase === "servicio" ? "serv" : p.tipo), TIPO[p.tipo]));
+    if (p.juego) ch.appendChild(el("span", "chip", JUEGO[p.juego]));
+    tx.append(ch, sinTr(el("span", "tt", p.titulo)), el("span", "pr", precioTxt(p)));
+    const q = el("span", "quien"); q.append(nombre(p)); tx.appendChild(q);
+    b.append(ft, tx);
+    b.onclick = () => ver(p);
+    return b;
+  }
+  const busca = (p, q) => !q || (p.titulo + " " + (p.descripcion || "") + " " + p.autor_nombre).toLowerCase().includes(q);
+  function pinta() {
+    const ls = $("lserv"); ls.textContent = "";
+    const st = $("s-tipo").value, sq = $("s-q").value.trim().toLowerCase();
+    let sv = D.servicios.filter((p) => (p.estado !== "pausado" || p.mia) && (!st || p.tipo === st) && busca(p, sq));
+    if ($("s-orden").value === "precio") sv.sort((a, b) => a.precio - b.precio);
+    sv.forEach((p) => ls.appendChild(tarjeta(p)));
+    if (!sv.length) ls.appendChild(el("p", "m", D.servicios.length ? "Ningún servicio coincide con los filtros." : "Todavía no hay servicios publicados."));
+    const la = $("lanu"); la.textContent = "";
+    const t = $("a-tipo").value, c = $("a-cat").value, j = $("a-juego").value, e = $("a-est").value, q = $("a-q").value.trim().toLowerCase(), mios = $("a-mios").checked;
+    const pmax = $("a-pmax").value === "" ? null : Math.round(Number($("a-pmax").value) * 100);
+    let an = D.anuncios.filter((p) => (!t || p.tipo === t) && (!c || p.categoria === c) && (!j || p.juego === j)
+      && (e === "" || (e === "activos" ? p.estado !== "vendido" : p.estado === e)) && (pmax == null || p.precio <= pmax) && (!mios || p.mia) && busca(p, q));
+    const o = $("a-orden").value;
+    if (o === "precio") an.sort((a, b) => a.precio - b.precio); else if (o === "precio-") an.sort((a, b) => b.precio - a.precio);
+    an.forEach((p) => la.appendChild(tarjeta(p)));
+    if (!an.length) la.appendChild(el("p", "m", D.anuncios.length ? "Ningún anuncio coincide con los filtros." : "Todavía no hay anuncios. ¡Publica el primero!"));
+    $("cuenta").textContent = "Tienes " + D.activos + " de " + D.limites.maxAnuncios + " anuncios activos";
+    $("bnuevo").disabled = D.activos >= D.limites.maxAnuncios;
+  }
+  ["s-tipo", "s-q", "s-orden", "a-tipo", "a-cat", "a-juego", "a-est", "a-pmax", "a-q", "a-orden", "a-mios"].forEach((id) => $(id).addEventListener("input", pinta));
+
+  async function carga() {
+    const r = await fetch("/api/mercado");
+    if (r.status === 401) { $("sinsesion").hidden = false; $("app").hidden = true; return; }
+    if (!r.ok) throw new Error();
+    D = await r.json();
+    $("app").hidden = false; $("sinsesion").hidden = true;
+    $("bserv").hidden = !D.puede_servicio;
+    pinta();
+  }
+
+  // ---------- Detalle ----------
+  function ver(p) {
+    const c = $("dverc"); c.textContent = "";
+    const cab = el("div", "dcab");
+    const h = sinTr(el("h2", "", p.titulo)); h.id = "dver-t";
+    const x = el("button", "btn s", "Cerrar"); x.type = "button"; x.onclick = () => $("dver").close();
+    cab.append(h, x); c.appendChild(cab);
+    if (p.imagenes.length) {
+      let i = 0;
+      const car = el("div", "car"); const im = el("img"); im.alt = "Foto " + 1; car.appendChild(im);
+      const n = el("span", "n"); car.appendChild(n);
+      const minis = el("div", "minis");
+      const pon = (k) => { i = (k + p.imagenes.length) % p.imagenes.length; im.src = p.imagenes[i].url; n.textContent = (i + 1) + "/" + p.imagenes.length; minis.querySelectorAll("button").forEach((b, z) => b.setAttribute("aria-current", String(z === i))); };
+      if (p.imagenes.length > 1) {
+        const a = el("button", "nv a", "‹"); a.type = "button"; a.setAttribute("aria-label", "Foto anterior"); a.onclick = () => pon(i - 1);
+        const b = el("button", "nv b", "›"); b.type = "button"; b.setAttribute("aria-label", "Foto siguiente"); b.onclick = () => pon(i + 1);
+        car.append(a, b);
+        p.imagenes.forEach((f, k) => { const mb = el("button"); mb.type = "button"; mb.setAttribute("aria-label", "Foto " + (k + 1)); const mi = el("img"); mi.src = f.url; mi.alt = ""; mb.appendChild(mi); mb.onclick = () => pon(k); minis.appendChild(mb); });
+      }
+      c.append(car); if (p.imagenes.length > 1) c.appendChild(minis);
+      pon(0);
+    }
+    const ch = el("div", "chips");
+    ch.appendChild(el("span", "chip " + (p.clase === "servicio" ? "serv" : p.tipo), (p.clase === "servicio" ? "Servicio · " : "") + TIPO[p.tipo]));
+    if (p.categoria) ch.appendChild(el("span", "chip", CAT[p.categoria]));
+    if (p.juego) ch.appendChild(el("span", "chip", JUEGO[p.juego]));
+    ch.appendChild(el("span", "chip " + p.estado, EST[p.estado]));
+    c.appendChild(ch);
+    if (p.clase === "servicio" && p.tarifas) {
+      const t = el("table", "tarifas"); const tb = t.createTBody();
+      p.tarifas.forEach((x) => { const r = tb.insertRow(); r.insertCell().appendChild(sinTr(el("span", "", x.n))); r.insertCell().textContent = euros(x.p); });
+      c.appendChild(t);
+    } else { const pr = el("p", "pgr", precioTxt(p)); pr.style.marginTop = "10px"; c.appendChild(pr); }
+    if (p.descripcion) c.appendChild(sinTr(el("p", "desc", p.descripcion)));
+    if (p.enlace) { const a = el("a", "", "Ver enlace"); a.href = p.enlace; a.target = "_blank"; a.rel = "noopener nofollow ugc"; const w = el("p"); w.appendChild(a); c.appendChild(w); }
+    const q = el("p", "quien"); const nm = sinTr(el("span", "", p.autor_nombre)); if (window.abFicha) window.abFicha(nm, p.autor);
+    q.append("Publicado por ", nm, " · " + new Date(p.creado.replace(" ", "T") + "Z").toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" }));
+    c.appendChild(q);
+    const err = el("p", "err"); err.setAttribute("role", "alert");
+    const acc = el("div", "acc");
+    if (!p.mia) {
+      const k = el("a", "btn", "Contactar por Discord"); k.href = "https://discord.com/users/" + p.autor; k.target = "_blank"; k.rel = "noopener";
+      acc.appendChild(k);
+    }
+    const accion = async (fn, b) => { err.textContent = ""; b.disabled = true; try { await fn(); } catch (e) { err.textContent = e.message || "No se pudo completar."; b.disabled = false; } };
+    const pide = async (metodo, ruta, cuerpo) => {
+      const r = await fetch(ruta, { method: metodo, headers: cuerpo ? { "content-type": "application/json" } : {}, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo completar.");
+      return d;
+    };
+    if (p.mia) {
+      const e = el("button", "btn s", "Editar"); e.type = "button"; e.onclick = () => { $("dver").close(); formulario(p.clase, p); }; acc.appendChild(e);
+      const estados = p.clase === "servicio" ? [["disponible", "Marcar como disponible"], ["pausado", "Pausar"]] : [["disponible", "Marcar como disponible"], ["reservado", "Marcar como reservado"], ["vendido", "Marcar como vendido"]];
+      estados.filter(([v]) => v !== p.estado).forEach(([v, t]) => {
+        const b = el("button", "btn s", t); b.type = "button";
+        b.onclick = () => accion(async () => { await pide("POST", "/api/mercado/" + p.id + "/estado", { estado: v }); $("dver").close(); await carga(); }, b);
+        acc.appendChild(b);
+      });
+    }
+    if (p.mia || D.admin) {
+      const b = el("button", "btn s", "Borrar"); b.type = "button"; b.style.color = "#F0A39E";
+      b.onclick = () => { if (!confirm(p.mia ? "¿Borrar esta publicación? También se borrarán sus fotos." : "¿Borrar esta publicación de otro socio? También se borrarán sus fotos.")) return; accion(async () => { await pide("DELETE", "/api/mercado/" + p.id); $("dver").close(); await carga(); }, b); };
+      acc.appendChild(b);
+    }
+    const av = el("p", "aviso pq", "Adeptus Baeticus no se hace responsable de las transacciones entre socios.");
+    c.append(acc, err, av);
+    $("dver").showModal();
+  }
+  $("dver").addEventListener("click", (e) => { if (e.target === $("dver")) $("dver").close(); });
+
+  // ---------- Formulario (nuevo o editar) ----------
+  async function reduceFoto(file) {
+    if (file.type === "image/gif") return { blob: file, nombre: "foto.gif" };
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => null);
+    if (!bmp) return null;
+    const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    let q = 0.86, blob = null;
+    for (let i = 0; i < 4; i++) { blob = await new Promise((r) => cv.toBlob(r, "image/jpeg", q)); if (blob && blob.size < 2.5 * 1024 * 1024) break; q -= 0.12; }
+    return blob ? { blob, nombre: "foto.jpg" } : null;
+  }
+  function formulario(clase, p) {
+    const serv = clase === "servicio";
+    const max = serv ? D.limites.fotosServicio : D.limites.fotosAnuncio;
+    const c = $("dformc"); c.textContent = "";
+    const cab = el("div", "dcab");
+    const h = el("h2", "", p ? (serv ? "Editar servicio" : "Editar anuncio") : (serv ? "Ofrecer un servicio" : "Nuevo anuncio")); h.id = "dform-t";
+    const x = el("button", "btn s", "Cerrar"); x.type = "button"; x.onclick = () => $("dform").close();
+    cab.append(h, x); c.appendChild(cab);
+    const f = el("form"); f.noValidate = true;
+    const fg = el("div", "fg");
+    const campo = (et, nodo, full) => { const l = el("label", full ? "full" : "", et); l.appendChild(nodo); fg.appendChild(l); return nodo; };
+    const sel = (ops, v) => { const s = el("select"); ops.forEach(([k, t]) => { const o = el("option", "", t); o.value = k; s.appendChild(o); }); if (v) s.value = v; return s; };
+    const tipo = campo("Tipo", sel(Object.entries(TIPO).filter(([k]) => (serv ? ["pintura", "clases", "impresion3d", "otros"] : ["vendo", "busco", "cambio"]).includes(k)), p && p.tipo));
+    let cat, juego, precio;
+    if (!serv) {
+      cat = campo("Categoría", sel([["", "— Elige —"]].concat(Object.entries(CAT)), p && p.categoria));
+      juego = campo("Juego", sel([["", "— Elige —"]].concat(Object.entries(JUEGO)), p && p.juego));
+      precio = el("input"); precio.type = "text"; precio.inputMode = "decimal"; precio.maxLength = 10; precio.placeholder = "Por ejemplo: 25 o 12,50";
+      if (p) precio.value = aCampo(p.precio);
+      campo("Precio (€)", precio);
+    }
+    const titulo = el("input"); titulo.type = "text"; titulo.maxLength = 100; titulo.placeholder = serv ? "Por ejemplo: Pintura de miniaturas por encargo" : "Por ejemplo: Caja de inicio de 40K sin montar";
+    if (p) titulo.value = p.titulo;
+    campo("Título", titulo, true);
+    // Tarifas (servicios): varias, cada una con nombre y precio.
+    let filas = [];
+    if (serv) {
+      const w = el("div", "full"); const l = el("p", "", "Tarifas"); l.style.cssText = "margin:0 0 4px;font-weight:600;font-size:14px"; w.appendChild(l);
+      const trs = el("div", "trs"); w.appendChild(trs);
+      const mas = el("button", "btn s", "+ Añadir tarifa"); mas.type = "button"; mas.style.marginTop = "8px";
+      const fila = (n, pr) => {
+        const r = el("div", "tr");
+        const a = el("input"); a.type = "text"; a.maxLength = 60; a.placeholder = "Por ejemplo: Nivel tablero"; a.value = n || ""; a.setAttribute("aria-label", "Nombre de la tarifa");
+        const b = el("input"); b.type = "text"; b.inputMode = "decimal"; b.maxLength = 10; b.placeholder = "Precio (€)"; b.value = pr == null ? "" : aCampo(pr); b.setAttribute("aria-label", "Precio de la tarifa (€)");
+        const q = el("button", "mini", "×"); q.type = "button"; q.setAttribute("aria-label", "Quitar tarifa");
+        const it = { r, a, b }; filas.push(it);
+        q.onclick = () => { if (filas.length <= 1) return; filas = filas.filter((z) => z !== it); r.remove(); mas.disabled = false; };
+        r.append(a, b, q); trs.appendChild(r);
+        mas.disabled = filas.length >= D.limites.maxTarifas;
+      };
+      (p && p.tarifas && p.tarifas.length ? p.tarifas : [{ n: "", p: null }]).forEach((t) => fila(t.n, t.p));
+      mas.onclick = () => fila();
+      w.appendChild(mas);
+      fg.appendChild(w);
+    }
+    const desc = el("textarea"); desc.maxLength = 2000; desc.placeholder = serv ? "Qué ofreces, plazos, cómo trabajas…" : "Estado, qué incluye, entrega en mano en el club…";
+    if (p && p.descripcion) desc.value = p.descripcion;
+    campo("Descripción", desc, true);
+    const enlace = el("input"); enlace.type = "url"; enlace.maxLength = 300; enlace.placeholder = "https://…"; if (p && p.enlace) enlace.value = p.enlace;
+    campo("Enlace (opcional)", enlace, true);
+    // Fotos: las que ya tiene (se pueden quitar) y las nuevas.
+    const wf = el("div", "full");
+    const lf = el("p", "", "Fotos (hasta " + max + ")"); lf.style.cssText = "margin:0 0 4px;font-weight:600;font-size:14px"; wf.appendChild(lf);
+    const fotos = el("div", "fotos"); wf.appendChild(fotos);
+    const fi = el("input"); fi.type = "file"; fi.accept = "image/*"; fi.multiple = true; fi.setAttribute("aria-label", "Añadir fotos");
+    wf.appendChild(fi);
+    fg.appendChild(wf);
+    const viejas = p ? p.imagenes.map((im, k) => ({ k, url: im.url, quitar: false })) : [];
+    let nuevas = [];
+    const pintaFotos = () => {
+      fotos.textContent = "";
+      viejas.filter((v) => !v.quitar).forEach((v) => { const d = el("div", "fo"); const im = el("img"); im.src = v.url; im.alt = ""; const b = el("button", "", "×"); b.type = "button"; b.setAttribute("aria-label", "Quitar foto"); b.onclick = () => { v.quitar = true; pintaFotos(); }; d.append(im, b); fotos.appendChild(d); });
+      nuevas.forEach((nf) => { const d = el("div", "fo"); const im = el("img"); im.src = nf.url; im.alt = ""; const b = el("button", "", "×"); b.type = "button"; b.setAttribute("aria-label", "Quitar foto"); b.onclick = () => { nuevas = nuevas.filter((z) => z !== nf); URL.revokeObjectURL(nf.url); pintaFotos(); }; d.append(im, b); fotos.appendChild(d); });
+      const total = viejas.filter((v) => !v.quitar).length + nuevas.length;
+      fi.disabled = total >= max;
+    };
+    fi.onchange = () => {
+      const libres = max - viejas.filter((v) => !v.quitar).length - nuevas.length;
+      [...fi.files].slice(0, libres).forEach((file) => nuevas.push({ file, url: URL.createObjectURL(file) }));
+      if (fi.files.length > libres) err.textContent = "Como mucho " + max + " fotos.";
+      fi.value = ""; pintaFotos();
+    };
+    f.appendChild(fg);
+    const prog = el("p", "prog"); prog.setAttribute("role", "status");
+    const err = el("p", "err"); err.setAttribute("role", "alert");
+    const ok = el("button", "btn", p ? "Guardar cambios" : "Publicar"); ok.type = "submit";
+    const acc = el("div", "acc"); acc.style.marginTop = "14px"; acc.appendChild(ok);
+    f.append(el("p", "aviso pq", "Al publicar aceptas que Adeptus Baeticus no se hace responsable en ningún momento de las transacciones entre socios."), acc, prog, err);
+    c.appendChild(f);
+    pintaFotos();
+    f.onsubmit = async (ev) => {
+      ev.preventDefault(); err.textContent = "";
+      const datos = { clase, tipo: tipo.value, titulo: titulo.value, descripcion: desc.value, enlace: enlace.value };
+      if (!serv) Object.assign(datos, { categoria: cat.value, juego: juego.value, precio: precio.value });
+      else datos.tarifas = filas.map((z) => ({ nombre: z.a.value, precio: z.b.value })).filter((z) => z.nombre.trim() || z.precio.trim());
+      ok.disabled = true;
+      let creada = null;
+      try {
+        const r = await fetch(p ? "/api/mercado/" + p.id : "/api/mercado", { method: p ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(datos) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "No se pudo guardar.");
+        const id = p ? p.id : d.id;
+        if (!p) creada = id;
+        // Fotos quitadas (de la última a la primera, para que no cambien los números) y nuevas, de una en una.
+        const quitar = viejas.filter((v) => v.quitar).map((v) => v.k).sort((a, b) => b - a);
+        for (const k of quitar) {
+          const q = await fetch("/api/mercado/" + id + "/foto/" + k, { method: "DELETE" });
+          if (!q.ok) throw new Error(((await q.json().catch(() => ({}))).error) || "No se pudo quitar una foto.");
+        }
+        for (let i = 0; i < nuevas.length; i++) {
+          prog.textContent = "Subiendo foto " + (i + 1) + " de " + nuevas.length + "…";
+          const fo = await reduceFoto(nuevas[i].file);
+          if (!fo) throw new Error("No se pudo leer una de las fotos. Prueba con otra (JPG o PNG).");
+          const fd = new FormData(); fd.append("foto", fo.blob, fo.nombre);
+          const q = await fetch("/api/mercado/" + id + "/foto", { method: "POST", body: fd });
+          if (!q.ok) throw new Error(((await q.json().catch(() => ({}))).error) || "No se pudo subir una foto.");
+        }
+        $("dform").close();
+        await carga();
+      } catch (e) {
+        prog.textContent = "";
+        // Ya creada pero falló una foto: no se vuelve a crear; se avisa y se puede completar editándola.
+        if (creada) { alert((e.message || "No se pudo subir una foto.") + " La publicación ya está creada: edítala para añadir las fotos que faltan."); $("dform").close(); await carga().catch(() => {}); return; }
+        err.textContent = e.message || "No se pudo guardar."; ok.disabled = false;
+      }
+    };
+    $("dform").showModal();
+    titulo.focus();
+  }
+  $("bnuevo").onclick = () => formulario("anuncio");
+  $("bserv").onclick = () => formulario("servicio");
+
+  carga().catch(() => { $("app").hidden = false; $("lanu").textContent = ""; $("lanu").appendChild(el("p", "m", "No se pudo cargar la compraventa.")); });
+})();
+</script>
+<script src="/i18n.js"></script>
+<script src="/auth.js"></script>
+</body>
+</html>

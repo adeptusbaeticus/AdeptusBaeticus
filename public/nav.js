@@ -35,6 +35,7 @@
     { t: "Galería", u: "/galeria.html", ic: "galeria" },
     { t: "Miembros", u: "/miembros.html", ic: "miembros" },
     { t: "Logros", u: "/logros.html", ic: "logros" },
+    { t: "Compraventa", u: "/compraventa.html", ic: "compraventa" },
     { t: "Reglas y FAQ", u: "/faq.html", ic: "faq" },
     { t: "Sugerencias", u: "/sugerencias.html", ic: "sugerencias" },
   ];
@@ -114,6 +115,8 @@
     mas: [[], ["M20.5 21.5h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4zM20.5 30h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4zM20.5 38.5h23a2 2 0 0 1 0 4h-23a2 2 0 0 1 0-4z"], []],
     // Sugerencias: pergamino con renglones y pluma.
     sugerencias: [["M18.5 21h17v25h-17z", "M22.5 27h9M22.5 32h9M22.5 37h6"], ["M47 15.5c-6.5 1-12.5 6-15.5 14.5l-1.3 4.6 4-2.8c7-3.2 11.3-9.3 12.8-16.3z", "M30.4 34.2l-2.6 4.6 1.2.6 2.6-4.4z"], []],
+    // Compraventa: etiqueta de precio y moneda.
+    compraventa: [[], ["M33 15h14v14L31.5 44.5 18.5 31.5z", "M24 37.5a7 7 0 1 0 0 14 7 7 0 1 0 0-14z"], ["M41.2 18.4a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 1 0 0-5.2zM28 28.6l2-2 8.8 8.8-2 2zM31.8 25l1.6-1.6 3.4 3.4-1.6 1.6zM22.6 40.6h2.8v7.8h-2.8z"]],
     // Logros: medalla con cinta y estrella.
     logros: [[], ["M23.5 14.5h6.5l4 10-5 2.6zM40.5 14.5H34l-4 10 5 2.6z", "M32 25a10.8 10.8 0 1 0 0 21.6 10.8 10.8 0 1 0 0-21.6z"], ["M32.00 29.60L33.59 33.82L38.09 34.02L34.57 36.83L35.76 41.18L32.00 38.70L28.24 41.18L29.43 36.83L25.91 34.02L30.41 33.82Z"]],
     // Tipos de evento del calendario: quedada (estandarte), torneo (corona de laurel con espada), partida (espadas).
